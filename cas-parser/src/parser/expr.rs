@@ -1,4 +1,10 @@
-use super::{error::Error, literal::Literal, Parse, Parser};
+use super::{
+    error::Error,
+    literal::Literal,
+    unary::Unary,
+    Parse,
+    Parser,
+};
 
 /// Represents a general expression in CalcScript.
 ///
@@ -11,12 +17,43 @@ pub enum Expr {
     /// A literal value.
     Literal(Literal),
 
-    // TODO
+    /// A unary operation, such as `-1` or `!true`.
+    Unary(Box<Unary>),
 }
 
 impl Parse for Expr {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
-        let num = input.try_parse::<Literal>()?;
-        Ok(Self::Literal(num))
+        if let Ok(unary) = input.try_parse() {
+            Ok(Self::Unary(Box::new(unary)))
+        } else if let Ok(literal) = input.try_parse() {
+            Ok(Self::Literal(literal))
+        } else {
+            Err(input.eof())
+        }
+    }
+}
+
+/// Represents a primary expression in CalcScript.
+///
+/// Primary expressions are the simplest expressions, and are the building blocks of more complex
+/// expressions.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Primary {
+    /// A literal value.
+    Literal(Literal),
+}
+
+impl Parse for Primary {
+    fn parse(input: &mut Parser) -> Result<Self, Error> {
+        let literal = input.try_parse::<Literal>()?;
+        Ok(Self::Literal(literal))
+    }
+}
+
+impl From<Primary> for Expr {
+    fn from(primary: Primary) -> Self {
+        match primary {
+            Primary::Literal(literal) => Self::Literal(literal),
+        }
     }
 }

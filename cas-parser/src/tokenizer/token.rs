@@ -52,8 +52,11 @@ pub enum TokenKind {
     #[token("<=")]
     LessEq,
 
+    #[token("not")]
+    Not,
+
     #[token("!")]
-    Bang, // used for both factorial and not operation
+    Factorial,
 
     #[token("&&")]
     And,
@@ -113,6 +116,13 @@ pub enum TokenKind {
     Symbol,
 }
 
+impl TokenKind {
+    /// Returns true if the token represents whitespace.
+    pub fn is_whitespace(self) -> bool {
+        matches!(self, TokenKind::Whitespace | TokenKind::NewLine)
+    }
+}
+
 /// A token produced by the tokenizer.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token<'source> {
@@ -124,4 +134,11 @@ pub struct Token<'source> {
 
     /// The raw lexeme that was parsed into this token.
     pub lexeme: &'source str,
+}
+
+impl Token<'_> {
+    /// Returns true if the token represents whitespace.
+    pub fn is_whitespace(&self) -> bool {
+        self.kind.is_whitespace()
+    }
 }

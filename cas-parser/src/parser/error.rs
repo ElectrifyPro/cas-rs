@@ -9,12 +9,16 @@ pub enum ErrorKind {
 
     /// An unexpected token was encountered.
     UnexpectedToken {
-        /// The token that was expected.
-        expected: TokenKind,
+        /// The token(s) that were expected.
+        expected: &'static [TokenKind],
 
         /// The token that was found.
         found: TokenKind,
     },
+
+    /// A non-fatal error. If this error is encountered, the parser should try parsing other
+    /// branches.
+    NonFatal,
 }
 
 /// A general parsing error.

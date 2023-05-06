@@ -1,3 +1,5 @@
+pub mod op;
+
 use crate::{
     parser::{error::{ErrorKind, Error}, Parser, Parse},
     tokenizer::TokenKind,
@@ -27,7 +29,7 @@ macro_rules! token_kinds {
                         })
                     } else {
                         Err(Error::new(token.span, ErrorKind::UnexpectedToken {
-                            expected: TokenKind::$name,
+                            expected: &[TokenKind::$name],
                             found: token.kind,
                         }))
                     }
@@ -54,7 +56,8 @@ token_kinds!(
     GreaterEq
     Less
     LessEq
-    Bang
+    Not
+    Factorial
     And
     Or
     BitAnd

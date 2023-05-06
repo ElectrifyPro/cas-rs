@@ -2,17 +2,20 @@ pub mod error;
 pub mod expr;
 pub mod literal;
 pub mod token;
+pub mod unary;
 
 use error::{Error, ErrorKind};
 use super::tokenizer::{tokenize_complete, Token};
+use std::ops::Range;
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
 /// code into an abstract syntax tree.
+#[derive(Debug, Clone)]
 pub struct Parser<'source> {
     /// The tokens that this parser is currently parsing.
     tokens: Box<[Token<'source>]>,
 
-    /// The index of the next token to be parsed.
+    /// The index of the **next** token to be parsed.
     cursor: usize,
 }
 
@@ -32,20 +35,57 @@ impl<'source> Parser<'source> {
         Error::new(token.span.clone(), kind)
     }
 
-    /// Returns the next token to be parsed, or an EOF error if there are no more tokens.
+    /// Creates an [`ErrorKind::Eof`] error that points at the end of the source code.
+    pub fn eof(&self) -> Error {
+        Error::new(self.eof_span(), ErrorKind::Eof)
+    }
+
+    /// Creates an [`ErrorKind::NonFatal`] error that points at the current token.
+    pub fn non_fatal(&self) -> Error {
+        Error::new(self.span(), ErrorKind::NonFatal)
+    }
+
+    /// Returns a span pointing at the end of the source code.
+    pub fn eof_span(&self) -> Range<usize> {
+        self.tokens.last().map_or(0..0, |token| token.span.end..token.span.end)
+    }
+
+    /// Returns the span of the current token, or the end of the source code if the cursor is at
+    /// the end of the stream.
+    pub fn span(&self) -> Range<usize> {
+        self.tokens
+            .get(self.cursor)
+            .map_or(self.eof_span(), |token| token.span.clone())
+    }
+
+    /// Returns the previous token. The cursor is not moved. Returns [`None`] if the cursor is at
+    /// the beginning of the stream.
+    pub fn prev_token(&self) -> Option<&Token<'source>> {
+        self.tokens.get(self.cursor.checked_sub(1)?)
+    }
+
+    /// Returns the next token to be parsed, then advances the cursor. Whitespace tokens are
+    /// skipped.
+    ///
+    /// Returns an EOF error if there are no more tokens.
     pub fn next_token(&mut self) -> Result<Token<'source>, Error> {
-        if self.cursor < self.tokens.len() {
-            // cloning is cheap: only Range<_> is cloned
-            let token = self.tokens[self.cursor].clone();
+        while self.cursor < self.tokens.len() {
+            let token = &self.tokens[self.cursor];
             self.cursor += 1;
-            Ok(token)
-        } else {
-            Err(self.error(ErrorKind::Eof))
+            if token.is_whitespace() {
+                continue;
+            } else {
+                // cloning is cheap: only Range<_> is cloned
+                return Ok(token.clone());
+            }
         }
+
+        Err(self.eof())
     }
 
     /// Speculatively parses a value from the given stream of tokens. This function should be used
-    /// in the [`Parse::parse`] implementation of a type with the given [`Parser`].
+    /// in the [`Parse::parse`] implementation of a type with the given [`Parser`], as it will
+    /// automatically backtrack the cursor position if parsing fails.
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
@@ -59,13 +99,104 @@ impl<'source> Parser<'source> {
             },
         }
     }
+
+    /// Speculatively parses a value from the given stream of tokens, with a validation predicate.
+    /// The value must parse successfully, **and** the predicate must return [`Ok`] for this
+    /// function to return successfully.
+    ///
+    /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
+    /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
+    pub fn try_parse_with<T: Parse, F>(&mut self, predicate: F) -> Result<T, Error>
+    where
+        F: FnOnce(&T, &Parser) -> Result<(), Error>,
+    {
+        let start = self.cursor;
+
+        // closure workaround allows us to use `?` in the closure
+        let compute = || {
+            let value = T::parse(self)?;
+            predicate(&value, self)?;
+            Ok(value)
+        };
+
+        match compute() {
+            Ok(value) => Ok(value),
+            err => {
+                self.cursor = start;
+                err
+            },
+        }
+    }
+
+    /// Attempts to parse a value from the given stream of tokens. All the tokens must be consumed
+    /// by the parser; if not, an error is returned.
+    pub fn try_parse_full<T: Parse>(&mut self) -> Result<T, Error> {
+        let value = T::parse(self)?;
+        if self.cursor == self.tokens.len() {
+            Ok(value)
+        } else {
+            Err(self.eof())
+        }
+    }
 }
 
 /// Any type that can be parsed from a source of tokens.
 pub trait Parse: Sized {
     /// Parses a value from the given stream of tokens, advancing the stream past the consumed
     /// tokens if parsing is successful.
+    ///
+    /// This function should be used by consumers of the library.
     fn parse(input: &mut Parser) -> Result<Self, Error>;
+}
+
+/// The associativity of a binary or unary operation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Associativity {
+    /// The binary / unary operation is left-associative.
+    ///
+    /// For binary operations, this means `a op b op c` is evaluated as `(a op b) op c`. For unary
+    /// operations, this means `a op op` is evaluated as `(a op) op` (the operators appear to the
+    /// right of the operand).
+    Left,
+
+    /// The binary / unary operation is right-associative.
+    ///
+    /// For binary operations, this means `a op b op c` is evaluated as `a op (b op c)`. For unary
+    /// operations, this means `op op a` is evaluated as `op (op a)` (the operators appear to the
+    /// left of the operand).
+    Right,
+}
+
+/// The precedence of an operation, in order from highest precedence (evaluated first) to lowest
+/// precedence (evaluated last).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Precedence {
+    /// Precedence of logical not (`not`).
+    Not,
+
+    /// Precedence of unary subtraction (`-`).
+    Neg,
+
+    /// Precedence of factorial (`!`).
+    Factorial,
+
+    /// Precedence of exponentiation (`^`).
+    Exp,
+
+    /// Precedence of multiplication (`*`), division (`/`), and modulo (`%`), which separate
+    /// factors.
+    Factor,
+
+    /// Precedence of addition (`+`) and subtraction (`-`), which separate terms.
+    Term,
+}
+
+impl PartialOrd for Precedence {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let left = *self as u8;
+        let right = *other as u8;
+        left.partial_cmp(&right)
+    }
 }
 
 #[cfg(test)]
@@ -74,11 +205,13 @@ mod tests {
 
     use expr::Expr;
     use literal::{Literal, LitNum};
+    use token::op::UnaryOp;
+    use unary::Unary;
 
     #[test]
     fn literal_int() {
         let mut parser = Parser::new("16");
-        let expr = parser.try_parse::<Expr>().unwrap();
+        let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Literal(Literal::Number(LitNum {
             value: 16.0,
@@ -89,11 +222,57 @@ mod tests {
     #[test]
     fn literal_float() {
         let mut parser = Parser::new("3.14");
-        let expr = parser.try_parse::<Expr>().unwrap();
+        let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Literal(Literal::Number(LitNum {
             value: 3.14,
             span: 0..4,
+        })));
+    }
+
+    #[test]
+    fn unary_left_associativity() {
+        let mut parser = Parser::new("3!!");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Unary(Box::new(Unary {
+            operand: Expr::Unary(Box::new(Unary {
+                operand: Expr::Literal(Literal::Number(LitNum {
+                    value: 3.0,
+                    span: 0..1,
+                })),
+                op: UnaryOp::Factorial,
+                span: 0..2,
+            })),
+            op: UnaryOp::Factorial,
+            span: 0..3,
+        })));
+    }
+
+    #[test]
+    fn unary_right_associativity() {
+        let mut parser = Parser::new("not not --3");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Unary(Box::new(Unary {
+            operand: Expr::Unary(Box::new(Unary {
+                operand: Expr::Unary(Box::new(Unary {
+                    operand: Expr::Unary(Box::new(Unary {
+                        operand: Expr::Literal(Literal::Number(LitNum {
+                            value: 3.0,
+                            span: 10..11,
+                        })),
+                        op: UnaryOp::Neg,
+                        span: 5..7,
+                    })),
+                    op: UnaryOp::Neg,
+                    span: 3..7,
+                })),
+                op: UnaryOp::Not,
+                span: 1..7,
+            })),
+            op: UnaryOp::Not,
+            span: 0..7,
         })));
     }
 }

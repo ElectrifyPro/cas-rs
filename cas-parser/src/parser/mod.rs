@@ -25,6 +25,13 @@ impl<'source> Parser<'source> {
         }
     }
 
+    /// Creates an error that points at the current token. Panics if the current token is out of
+    /// bounds.
+    pub fn error(&self, kind: ErrorKind) -> Error {
+        let token = &self.tokens[self.cursor];
+        Error::new(token.span.clone(), kind)
+    }
+
     /// Returns the next token to be parsed, or an EOF error if there are no more tokens.
     pub fn next_token(&mut self) -> Result<Token<'source>, Error> {
         if self.cursor < self.tokens.len() {
@@ -33,7 +40,7 @@ impl<'source> Parser<'source> {
             self.cursor += 1;
             Ok(token)
         } else {
-            Err(Error::new(self.cursor..self.cursor, ErrorKind::Eof))
+            Err(self.error(ErrorKind::Eof))
         }
     }
 

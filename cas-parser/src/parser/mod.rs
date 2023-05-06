@@ -3,7 +3,7 @@ pub mod expr;
 pub mod literal;
 pub mod token;
 
-use error::Error;
+use error::{Error, ErrorKind};
 use super::tokenizer::{tokenize_complete, Token};
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
@@ -25,19 +25,20 @@ impl<'source> Parser<'source> {
         }
     }
 
-    /// Returns the next token to be parsed, or [`None`] if the end of the stream has been reached.
-    pub fn next_token(&mut self) -> Option<Token<'source>> {
+    /// Returns the next token to be parsed, or an EOF error if there are no more tokens.
+    pub fn next_token(&mut self) -> Result<Token<'source>, Error> {
         if self.cursor < self.tokens.len() {
             // cloning is cheap: only Range<_> is cloned
             let token = self.tokens[self.cursor].clone();
             self.cursor += 1;
-            Some(token)
+            Ok(token)
         } else {
-            None
+            Err(Error::new(self.cursor..self.cursor, ErrorKind::Eof))
         }
     }
 
-    /// Speculatively parses a value from the given stream of tokens.
+    /// Speculatively parses a value from the given stream of tokens. This function should be used
+    /// in the [`Parse::parse`] implementation of a type with the given [`Parser`].
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
@@ -45,9 +46,9 @@ impl<'source> Parser<'source> {
         let start = self.cursor;
         match T::parse(self) {
             Ok(value) => Ok(value),
-            Err(err) => {
+            err => {
                 self.cursor = start;
-                Err(err)
+                err
             },
         }
     }

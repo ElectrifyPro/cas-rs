@@ -18,8 +18,7 @@ macro_rules! token_kinds {
 
             impl Parse for $name {
                 fn parse(input: &mut Parser) -> Result<Self, Error> {
-                    let token = input.next_token()
-                        .ok_or(Error::new(input.cursor..input.cursor, ErrorKind::Eof))?;
+                    let token = input.next_token()?;
 
                     if token.kind == TokenKind::$name {
                         Ok(Self {

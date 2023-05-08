@@ -5,7 +5,10 @@ use std::ops::Range;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ErrorKind {
     /// The end of the source code was reached unexpectedly.
-    Eof,
+    UnexpectedEof,
+
+    /// The end of the source code was expected, but something else was found.
+    ExpectedEof,
 
     /// An unexpected token was encountered.
     UnexpectedToken {

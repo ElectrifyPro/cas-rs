@@ -1,3 +1,4 @@
+pub mod binary;
 pub mod error;
 pub mod expr;
 pub mod literal;
@@ -28,16 +29,10 @@ impl<'source> Parser<'source> {
         }
     }
 
-    /// Creates an error that points at the current token. Panics if the current token is out of
-    /// bounds.
+    /// Creates an error that points at the current token, or the end of the source code if the
+    /// cursor is at the end of the stream.
     pub fn error(&self, kind: ErrorKind) -> Error {
-        let token = &self.tokens[self.cursor];
-        Error::new(token.span.clone(), kind)
-    }
-
-    /// Creates an [`ErrorKind::Eof`] error that points at the end of the source code.
-    pub fn eof(&self) -> Error {
-        Error::new(self.eof_span(), ErrorKind::Eof)
+        Error::new(self.span(), kind)
     }
 
     /// Creates an [`ErrorKind::NonFatal`] error that points at the current token.
@@ -80,18 +75,32 @@ impl<'source> Parser<'source> {
             }
         }
 
-        Err(self.eof())
+        Err(self.error(ErrorKind::UnexpectedEof))
     }
 
-    /// Speculatively parses a value from the given stream of tokens. This function should be used
+    /// Speculatively parses a value from the given stream of tokens. This function can be used
     /// in the [`Parse::parse`] implementation of a type with the given [`Parser`], as it will
     /// automatically backtrack the cursor position if parsing fails.
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
     pub fn try_parse<T: Parse>(&mut self) -> Result<T, Error> {
+        self.try_parse_with_fn(T::parse)
+    }
+
+    /// Speculatively parses a value from the given stream of tokens, using a custom parsing
+    /// function to parse the value. This function can be used in the [`Parse::parse`]
+    /// implementation of a type with the given [`Parser`], as it will automatically backtrack the
+    /// cursor position if parsing fails.
+    ///
+    /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
+    /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
+    pub fn try_parse_with_fn<T, F>(&mut self, f: F) -> Result<T, Error>
+    where
+        F: FnOnce(&mut Parser) -> Result<T, Error>,
+    {
         let start = self.cursor;
-        match T::parse(self) {
+        match f(self) {
             Ok(value) => Ok(value),
             err => {
                 self.cursor = start;
@@ -106,7 +115,7 @@ impl<'source> Parser<'source> {
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
-    pub fn try_parse_with<T: Parse, F>(&mut self, predicate: F) -> Result<T, Error>
+    pub fn try_parse_then<T: Parse, F>(&mut self, predicate: F) -> Result<T, Error>
     where
         F: FnOnce(&T, &Parser) -> Result<(), Error>,
     {
@@ -135,7 +144,7 @@ impl<'source> Parser<'source> {
         if self.cursor == self.tokens.len() {
             Ok(value)
         } else {
-            Err(self.eof())
+            Err(self.error(ErrorKind::ExpectedEof))
         }
     }
 }
@@ -167,28 +176,31 @@ pub enum Associativity {
     Right,
 }
 
-/// The precedence of an operation, in order from highest precedence (evaluated first) to lowest
-/// precedence (evaluated last).
+/// The precedence of an operation, in order from lowest precedence (evaluated last) to highest
+/// precedence (evaluated first).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Precedence {
-    /// Precedence of logical not (`not`).
-    Not,
+    /// Any precedence.
+    Any,
 
-    /// Precedence of unary subtraction (`-`).
-    Neg,
-
-    /// Precedence of factorial (`!`).
-    Factorial,
-
-    /// Precedence of exponentiation (`^`).
-    Exp,
+    /// Precedence of addition (`+`) and subtraction (`-`), which separate terms.
+    Term,
 
     /// Precedence of multiplication (`*`), division (`/`), and modulo (`%`), which separate
     /// factors.
     Factor,
 
-    /// Precedence of addition (`+`) and subtraction (`-`), which separate terms.
-    Term,
+    /// Precedence of exponentiation (`^`).
+    Exp,
+
+    /// Precedence of factorial (`!`).
+    Factorial,
+
+    /// Precedence of unary subtraction (`-`).
+    Neg,
+
+    /// Precedence of logical not (`not`).
+    Not,
 }
 
 impl PartialOrd for Precedence {
@@ -201,11 +213,13 @@ impl PartialOrd for Precedence {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
     use super::*;
 
+    use binary::Binary;
     use expr::Expr;
     use literal::{Literal, LitNum};
-    use token::op::UnaryOp;
+    use token::op::{BinOp, UnaryOp};
     use unary::Unary;
 
     #[test]
@@ -263,16 +277,206 @@ mod tests {
                             span: 10..11,
                         })),
                         op: UnaryOp::Neg,
-                        span: 5..7,
+                        span: 9..11,
                     })),
                     op: UnaryOp::Neg,
-                    span: 3..7,
+                    span: 8..11,
                 })),
                 op: UnaryOp::Not,
-                span: 1..7,
+                span: 4..11,
             })),
             op: UnaryOp::Not,
-            span: 0..7,
+            span: 0..11,
+        })));
+    }
+
+    #[test]
+    fn binary_left_associativity() {
+        let mut parser = Parser::new("3 * 4 * 5");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Box::new(Binary {
+            lhs: Box::new(Expr::Binary(Box::new(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: 3.0,
+                    span: 0..1,
+                }))),
+                op: BinOp::Mul,
+                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: 4.0,
+                    span: 4..5,
+                }))),
+                span: 0..5,
+            }))),
+            op: BinOp::Mul,
+            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 5.0,
+                span: 8..9,
+            }))),
+            span: 0..9,
+        })));
+    }
+
+    #[test]
+    fn binary_left_associativity_mix_precedence() {
+        let mut parser = Parser::new("3 + 4 * 5 + 6");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Box::new(Binary {
+            lhs: Box::new(Expr::Binary(Box::new(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: 3.0,
+                    span: 0..1,
+                }))),
+                op: BinOp::Add,
+                rhs: Box::new(Expr::Binary(Box::new(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 4.0,
+                        span: 4..5,
+                    }))),
+                    op: BinOp::Mul,
+                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 5.0,
+                        span: 8..9,
+                    }))),
+                    span: 4..9,
+                }))),
+                span: 0..9,
+            }))),
+            op: BinOp::Add,
+            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 6.0,
+                span: 12..13,
+            }))),
+            span: 0..13,
+        })));
+    }
+
+    #[test]
+    fn binary_right_associativity() {
+        let mut parser = Parser::new("1 ^ 2 ^ 3");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Box::new(Binary {
+            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 1.0,
+                span: 0..1,
+            }))),
+            op: BinOp::Exp,
+            rhs: Box::new(Expr::Binary(Box::new(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: 2.0,
+                    span: 4..5,
+                }))),
+                op: BinOp::Exp,
+                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: 3.0,
+                    span: 8..9,
+                }))),
+                span: 4..9,
+            }))),
+            span: 0..9,
+        })));
+    }
+
+    #[test]
+    fn binary_complicated() {
+        let mut parser = Parser::new("1 + 2 * 3 - 4 / 5 ^ 6");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        // 2 * 3
+        let mul = Expr::Binary(Box::new(Binary {
+            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 2.0,
+                span: 4..5,
+            }))),
+            op: BinOp::Mul,
+            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 3.0,
+                span: 8..9,
+            }))),
+            span: 4..9,
+        }));
+
+        // 1 + 2 * 3
+        let add = Expr::Binary(Box::new(Binary {
+            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 1.0,
+                span: 0..1,
+            }))),
+            op: BinOp::Add,
+            rhs: Box::new(mul),
+            span: 0..9,
+        }));
+
+        // 5 ^ 6
+        let exp = Expr::Binary(Box::new(Binary {
+            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 5.0,
+                span: 16..17,
+            }))),
+            op: BinOp::Exp,
+            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 6.0,
+                span: 20..21,
+            }))),
+            span: 16..21,
+        }));
+
+        // 4 / 5 ^ 6
+        let div = Expr::Binary(Box::new(Binary {
+            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 4.0,
+                span: 12..13,
+            }))),
+            op: BinOp::Div,
+            rhs: Box::new(exp),
+            span: 12..21,
+        }));
+
+        // 1 + 2 * 3 - 4 / 5 ^ 6
+        let sub = Expr::Binary(Box::new(Binary {
+            lhs: Box::new(add),
+            op: BinOp::Sub,
+            rhs: Box::new(div),
+            span: 0..21,
+        }));
+
+        assert_eq!(expr, sub);
+    }
+
+    #[test]
+    fn binary_and_unary() {
+        let mut parser = Parser::new("-1 ^ -2 * 3");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Box::new(Binary {
+            lhs: Box::new(Expr::Unary(Box::new(Unary {
+                operand: Expr::Binary(Box::new(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 1.0,
+                        span: 1..2,
+                    }))),
+                    op: BinOp::Exp,
+                    rhs: Box::new(Expr::Unary(Box::new(Unary {
+                        operand: Expr::Literal(Literal::Number(LitNum {
+                            value: 2.0,
+                            span: 6..7,
+                        })),
+                        op: UnaryOp::Neg,
+                        span: 5..7,
+                    }))),
+                    span: 1..7,
+                })),
+                op: UnaryOp::Neg,
+                span: 0..7,
+            }))),
+            op: BinOp::Mul,
+            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 3.0,
+                span: 10..11,
+            }))),
+            span: 0..11,
         })));
     }
 }

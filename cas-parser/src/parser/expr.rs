@@ -1,9 +1,12 @@
+use std::ops::Range;
 use super::{
+    binary::Binary,
     error::Error,
     literal::Literal,
     unary::Unary,
     Parse,
     Parser,
+    Precedence,
 };
 
 /// Represents a general expression in CalcScript.
@@ -19,17 +22,26 @@ pub enum Expr {
 
     /// A unary operation, such as `-1` or `!true`.
     Unary(Box<Unary>),
+
+    /// A binary operation, such as `1 + 2`.
+    Binary(Box<Binary>),
+}
+
+impl Expr {
+    /// Returns the span of the expression.
+    pub fn span(&self) -> Range<usize> {
+        match self {
+            Expr::Literal(literal) => literal.span(),
+            Expr::Unary(unary) => unary.span(),
+            Expr::Binary(binary) => binary.span(),
+        }
+    }
 }
 
 impl Parse for Expr {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
-        if let Ok(unary) = input.try_parse() {
-            Ok(Self::Unary(Box::new(unary)))
-        } else if let Ok(literal) = input.try_parse() {
-            Ok(Self::Literal(literal))
-        } else {
-            Err(input.eof())
-        }
+        let lhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
+        Binary::parse_expr(input, lhs, Precedence::Any)
     }
 }
 

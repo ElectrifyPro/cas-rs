@@ -43,6 +43,15 @@ pub enum Literal {
     // TODO
 }
 
+impl Literal {
+    /// Returns the span of the literal.
+    pub fn span(&self) -> Range<usize> {
+        match self {
+            Literal::Number(num) => num.span.clone(),
+        }
+    }
+}
+
 impl Parse for Literal {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
         let num = input.try_parse::<LitNum>()?;

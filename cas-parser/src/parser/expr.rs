@@ -21,10 +21,10 @@ pub enum Expr {
     Literal(Literal),
 
     /// A unary operation, such as `-1` or `!true`.
-    Unary(Box<Unary>),
+    Unary(Unary),
 
     /// A binary operation, such as `1 + 2`.
-    Binary(Box<Binary>),
+    Binary(Binary),
 }
 
 impl Expr {

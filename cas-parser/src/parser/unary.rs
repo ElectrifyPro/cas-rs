@@ -25,7 +25,7 @@ fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Resul
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unary {
     /// The operand of the unary expression (left or right, depending on the associativity).
-    pub operand: Expr,
+    pub operand: Box<Expr>,
 
     /// The operator of the unary expression.
     pub op: UnaryOp,
@@ -51,7 +51,7 @@ impl Unary {
                 // one operator must be present
                 let op = try_parse_unary_op(input, associativity)?;
                 let mut result = Self {
-                    operand,
+                    operand: Box::new(operand),
                     op,
                     span: start_span..input.prev_token().unwrap().span.end,
                 };
@@ -60,7 +60,7 @@ impl Unary {
                 loop {
                     if let Ok(next_op) = try_parse_unary_op(input, associativity) {
                         result = Self {
-                            operand: Expr::Unary(Box::new(result)),
+                            operand: Box::new(Expr::Unary(result)),
                             op: next_op,
                             span: start_span..input.prev_token().unwrap().span.end,
                         };
@@ -81,7 +81,7 @@ impl Unary {
                 })?;
                 let end_span = operand.span().end;
                 Ok(Self {
-                    operand,
+                    operand: Box::new(operand),
                     op,
                     span: start_span..end_span,
                 })
@@ -95,7 +95,7 @@ impl Unary {
             .try_parse_with_fn(|input| {
                 Self::parse_with_associativity(input, Associativity::Right)
                     .or_else(|_| Self::parse_with_associativity(input, Associativity::Left))
-                    .map(|unary| Expr::Unary(Box::new(unary)))
+                    .map(|unary| Expr::Unary(unary))
             })
             .or_else(|_| Primary::parse(input).map(Into::into))
     }

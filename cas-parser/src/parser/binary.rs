@@ -85,12 +85,12 @@ impl Binary {
 
            // create the binary node representing `lhs op rhs`
            let end_span = rhs.span().end;
-           lhs = Expr::Binary(Box::new(Binary {
+           lhs = Expr::Binary(Binary {
                lhs: Box::new(lhs),
                op,
                rhs: Box::new(rhs),
                span: start_span..end_span,
-           }));
+           });
        }
 
        Ok(lhs)
@@ -100,7 +100,7 @@ impl Binary {
 impl Parse for Binary {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
         match input.try_parse::<Expr>()? {
-            Expr::Binary(binary) => Ok(*binary),
+            Expr::Binary(binary) => Ok(binary),
             _ => todo!(),
         }
     }

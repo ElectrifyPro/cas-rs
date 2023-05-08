@@ -190,14 +190,14 @@ pub enum Precedence {
     /// factors.
     Factor,
 
+    /// Precedence of unary subtraction (`-`).
+    Neg,
+
     /// Precedence of exponentiation (`^`).
     Exp,
 
     /// Precedence of factorial (`!`).
     Factorial,
-
-    /// Precedence of unary subtraction (`-`).
-    Neg,
 
     /// Precedence of logical not (`not`).
     Not,

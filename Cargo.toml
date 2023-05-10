@@ -2,6 +2,7 @@
 members = [
 	"cas-eval",
 	"cas-parser",
+	"cas-repl",
 ]
 
 [profile.release]

@@ -225,7 +225,7 @@ mod tests {
 
     use binary::Binary;
     use expr::Expr;
-    use literal::{Literal, LitNum};
+    use literal::{Literal, LitNum, LitSym};
     use paren::Paren;
     use token::op::{BinOp, UnaryOp};
     use unary::Unary;
@@ -249,6 +249,17 @@ mod tests {
         assert_eq!(expr, Expr::Literal(Literal::Number(LitNum {
             value: 3.14,
             span: 0..4,
+        })));
+    }
+
+    #[test]
+    fn literal_symbol() {
+        let mut parser = Parser::new("pi");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::Symbol(LitSym {
+            name: "pi".to_string(),
+            span: 0..2,
         })));
     }
 
@@ -300,7 +311,7 @@ mod tests {
 
     #[test]
     fn binary_left_associativity() {
-        let mut parser = Parser::new("3 * 4 * 5");
+        let mut parser = Parser::new("3 * x * 5");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Binary(Binary {
@@ -310,8 +321,8 @@ mod tests {
                     span: 0..1,
                 }))),
                 op: BinOp::Mul,
-                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
-                    value: 4.0,
+                rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                    name: "x".to_string(),
                     span: 4..5,
                 }))),
                 span: 0..5,
@@ -327,7 +338,7 @@ mod tests {
 
     #[test]
     fn binary_left_associativity_mix_precedence() {
-        let mut parser = Parser::new("3 + 4 * 5 + 6");
+        let mut parser = Parser::new("3 + 4 * a + b");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Binary(Binary {
@@ -343,8 +354,8 @@ mod tests {
                         span: 4..5,
                     }))),
                     op: BinOp::Mul,
-                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
-                        value: 5.0,
+                    rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                        name: "a".to_string(),
                         span: 8..9,
                     }))),
                     span: 4..9,
@@ -352,8 +363,8 @@ mod tests {
                 span: 0..9,
             })),
             op: BinOp::Add,
-            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
-                value: 6.0,
+            rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                name: "b".to_string(),
                 span: 12..13,
             }))),
             span: 0..13,
@@ -490,7 +501,7 @@ mod tests {
 
     #[test]
     fn parenthesized() {
-        let mut parser = Parser::new("(1 + 2) * 3");
+        let mut parser = Parser::new("(1 + 2) * __");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Binary(Binary {
@@ -510,11 +521,11 @@ mod tests {
                 span: 0..7,
             })),
             op: BinOp::Mul,
-            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
-                value: 3.0,
-                span: 10..11,
+            rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                name: "__".to_string(),
+                span: 10..12,
             }))),
-            span: 0..11,
+            span: 0..12,
         }));
     }
 }

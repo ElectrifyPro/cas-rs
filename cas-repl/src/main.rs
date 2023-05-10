@@ -1,3 +1,4 @@
+use ariadne::Source;
 use cas_eval::{ctxt::Ctxt, eval::Eval};
 use cas_parser::parser::{expr::Expr, Parser};
 use std::io;
@@ -16,7 +17,12 @@ fn main() {
                     None => eprintln!("Error: Could not evaluate expression"),
                 }
             },
-            Err(e) => eprintln!("{:?}", e),
+            Err(e) => {
+                match e.build_report() {
+                    Some(report) => report.eprint(("input", Source::from(input))).unwrap(),
+                    None => eprintln!("Error: Could not parse expression"),
+                }
+            },
         }
     }
 }

@@ -2,6 +2,7 @@ pub mod binary;
 pub mod error;
 pub mod expr;
 pub mod literal;
+pub mod paren;
 pub mod token;
 pub mod unary;
 
@@ -57,6 +58,12 @@ impl<'source> Parser<'source> {
     /// the beginning of the stream.
     pub fn prev_token(&self) -> Option<&Token<'source>> {
         self.tokens.get(self.cursor.checked_sub(1)?)
+    }
+
+    /// Returns the current token. The cursor is not moved. Returns [`None`] if the cursor is at
+    /// the end of the stream.
+    pub fn current_token(&self) -> Option<&Token<'source>> {
+        self.tokens.get(self.cursor)
     }
 
     /// Returns the next token to be parsed, then advances the cursor. Whitespace tokens are
@@ -219,6 +226,7 @@ mod tests {
     use binary::Binary;
     use expr::Expr;
     use literal::{Literal, LitNum};
+    use paren::Paren;
     use token::op::{BinOp, UnaryOp};
     use unary::Unary;
 
@@ -469,6 +477,36 @@ mod tests {
                     span: 1..7,
                 })),
                 op: UnaryOp::Neg,
+                span: 0..7,
+            })),
+            op: BinOp::Mul,
+            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 3.0,
+                span: 10..11,
+            }))),
+            span: 0..11,
+        }));
+    }
+
+    #[test]
+    fn parenthesized() {
+        let mut parser = Parser::new("(1 + 2) * 3");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Paren(Paren {
+                expr: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 1.0,
+                        span: 1..2,
+                    }))),
+                    op: BinOp::Add,
+                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 2.0,
+                        span: 5..6,
+                    }))),
+                    span: 1..6,
+                })),
                 span: 0..7,
             })),
             op: BinOp::Mul,

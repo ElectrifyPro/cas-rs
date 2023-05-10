@@ -1,12 +1,16 @@
 use std::ops::Range;
-use super::{
-    binary::Binary,
-    error::Error,
-    literal::Literal,
-    unary::Unary,
-    Parse,
-    Parser,
-    Precedence,
+use crate::{
+    parser::{
+        binary::Binary,
+        error::{Error, ErrorKind},
+        literal::Literal,
+        paren::Paren,
+        unary::Unary,
+        Parse,
+        Parser,
+        Precedence,
+    },
+    tokenizer::TokenKind,
 };
 
 /// Represents a general expression in CalcScript.
@@ -20,6 +24,9 @@ pub enum Expr {
     /// A literal value.
     Literal(Literal),
 
+    /// A parenthesized expression, such as `(1 + 2)`.
+    Paren(Paren),
+
     /// A unary operation, such as `-1` or `!true`.
     Unary(Unary),
 
@@ -32,6 +39,7 @@ impl Expr {
     pub fn span(&self) -> Range<usize> {
         match self {
             Expr::Literal(literal) => literal.span(),
+            Expr::Paren(paren) => paren.span(),
             Expr::Unary(unary) => unary.span(),
             Expr::Binary(binary) => binary.span(),
         }
@@ -53,12 +61,30 @@ impl Parse for Expr {
 pub enum Primary {
     /// A literal value.
     Literal(Literal),
+
+    /// A parenthesized expression, such as `(1 + 2)`.
+    Paren(Paren),
 }
 
 impl Parse for Primary {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
-        let literal = input.try_parse::<Literal>()?;
-        Ok(Self::Literal(literal))
+        if let Ok(literal) = input.try_parse() {
+            Ok(Self::Literal(literal))
+        } else if let Ok(paren) = input.try_parse() {
+            Ok(Self::Paren(paren))
+        } else {
+            match input.current_token() {
+                Some(token) => Err(input.error(ErrorKind::UnexpectedToken {
+                    expected: &[
+                        TokenKind::Int,
+                        TokenKind::Float,
+                        TokenKind::OpenParen,
+                    ],
+                    found: token.kind,
+                })),
+                None => Err(input.error(ErrorKind::UnexpectedEof)),
+            }
+        }
     }
 }
 
@@ -66,6 +92,7 @@ impl From<Primary> for Expr {
     fn from(primary: Primary) -> Self {
         match primary {
             Primary::Literal(literal) => Self::Literal(literal),
+            Primary::Paren(paren) => Self::Paren(paren),
         }
     }
 }

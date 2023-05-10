@@ -171,4 +171,14 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
         assert_eq!(expr.eval_default(), Some(consts::E.powf(2.0) - consts::TAU));
     }
+
+    #[test]
+    fn precision_2() {
+        let mut parser = Parser::new("pi^2 * 17! / -4.9 + e");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+        assert_eq!(
+            expr.eval_default(),
+            Some(consts::PI.powf(2.0) * factorial(17.0) / -4.9 + consts::E)
+        );
+    }
 }

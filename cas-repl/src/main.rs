@@ -7,7 +7,7 @@ fn main() {
     loop {
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();
-        let expr = Parser::new(&input).try_parse_full::<Expr>();
+        let expr = Parser::new(input.trim()).try_parse_full::<Expr>();
         match expr {
             Ok(ast) => {
                 let result = ast.eval_with(&ctxt);

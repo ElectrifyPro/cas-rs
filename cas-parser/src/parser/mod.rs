@@ -500,6 +500,57 @@ mod tests {
     }
 
     #[test]
+    fn complicated_binary_and_unary() {
+        let mut parser = Parser::new("pi^2 * 17! / -4.9 + e");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Binary(Binary {
+                        lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                            name: "pi".to_string(),
+                            span: 0..2,
+                        }))),
+                        op: BinOp::Exp,
+                        rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            value: 2.0,
+                            span: 3..4,
+                        }))),
+                        span: 0..4,
+                    })),
+                    op: BinOp::Mul,
+                    rhs: Box::new(Expr::Unary(Unary {
+                        operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            value: 17.0,
+                            span: 7..9,
+                        }))),
+                        op: UnaryOp::Factorial,
+                        span: 7..10,
+                    })),
+                    span: 0..10,
+                })),
+                op: BinOp::Div,
+                rhs: Box::new(Expr::Unary(Unary {
+                    operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 4.9,
+                        span: 14..17,
+                    }))),
+                    op: UnaryOp::Neg,
+                    span: 13..17,
+                })),
+                span: 0..17,
+            })),
+            op: BinOp::Add,
+            rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                name: "e".to_string(),
+                span: 20..21,
+            }))),
+            span: 0..21,
+        }));
+    }
+
+    #[test]
     fn parenthesized() {
         let mut parser = Parser::new("(1 + 2) * __");
         let expr = parser.try_parse_full::<Expr>().unwrap();

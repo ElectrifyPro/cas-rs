@@ -40,6 +40,15 @@ pub enum ErrorKind {
         digit: char,
     },
 
+    /// A parenthesis was not closed.
+    ///
+    /// If the included boolean is true, the parenthesis was an opening parenthesis `(`. If false,
+    /// the parenthesis was a closing parenthesis `)`.
+    UnclosedParenthesis(bool),
+
+    /// There was no expression inside a pair of parentheses.
+    EmptyParenthesis,
+
     WrongAssociativityOrPrecedence,
 }
 
@@ -126,6 +135,23 @@ impl Error {
                         .with_color(Color::Red),
                 ])
                 .with_help(format!("base {} uses these digits (from lowest to highest value): {}", radix, allowed.iter().collect::<String>().fg(EXPR)))
+                .finish()
+            ),
+            ErrorKind::UnclosedParenthesis(open) => Some(Report::build(ReportKind::Error, id, self.span.start)
+                .with_message("unclosed parenthesis")
+                .with_labels(vec![
+                    Label::new((id, self.span.clone()))
+                        .with_message("this parenthesis is not closed")
+                        .with_color(Color::Red),
+                ])
+                .with_help(if open { "add a closing parenthesis `)` somewhere after this" } else { "add an opening parenthesis `(` somewhere before this" })
+                .finish()
+            ),
+            ErrorKind::EmptyParenthesis => Some(Report::build(ReportKind::Error, id, self.span.start)
+                .with_message("missing expression inside parentheses")
+                .with_labels(vec![
+                    Label::new((id, self.span.clone())).with_color(Color::Red)
+                ])
                 .finish()
             ),
             ErrorKind::WrongAssociativityOrPrecedence => unimplemented!(),

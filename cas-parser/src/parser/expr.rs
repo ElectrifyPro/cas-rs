@@ -2,9 +2,10 @@ use std::ops::Range;
 use crate::{
     parser::{
         binary::Binary,
-        error::Error,
+        error::{Error, ErrorKind},
         literal::Literal,
         paren::Paren,
+        token::CloseParen,
         unary::Unary,
         Parse,
         Parser,
@@ -48,6 +49,12 @@ impl Expr {
 
 impl Parse for Expr {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
+        if input.clone().try_parse::<CloseParen>().is_ok() {
+            return Err(Error::new_fatal(
+                input.span(),
+                ErrorKind::UnclosedParenthesis(false),
+            ));
+        }
         let lhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
         Binary::parse_expr(input, lhs, Precedence::Any)
     }

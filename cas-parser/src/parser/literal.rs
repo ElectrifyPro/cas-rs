@@ -108,9 +108,10 @@ impl Parse for LitRadix {
 
         // ensure that the number is valid for this radix
         let allowed_digits = &DIGITS[..base as usize];
-        for c in word.value.chars() {
+        for (i, c) in word.value.chars().enumerate() {
             if !allowed_digits.contains(&c) {
-                return Err(Error::new_fatal(word.span, ErrorKind::InvalidRadixDigit {
+                let char_span_start = word.span.start + i;
+                return Err(Error::new_fatal(char_span_start..char_span_start + 1, ErrorKind::InvalidRadixDigit {
                     radix: base,
                     allowed: allowed_digits,
                     digit: c,

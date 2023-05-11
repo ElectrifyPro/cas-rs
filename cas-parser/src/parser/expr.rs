@@ -2,7 +2,7 @@ use std::ops::Range;
 use crate::{
     parser::{
         binary::Binary,
-        error::{Error, ErrorKind},
+        error::Error,
         literal::Literal,
         paren::Paren,
         unary::Unary,
@@ -10,7 +10,7 @@ use crate::{
         Parser,
         Precedence,
     },
-    tokenizer::TokenKind,
+    try_parse_catch_fatal,
 };
 
 /// Represents a general expression in CalcScript.
@@ -68,23 +68,8 @@ pub enum Primary {
 
 impl Parse for Primary {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
-        if let Ok(literal) = input.try_parse() {
-            Ok(Self::Literal(literal))
-        } else if let Ok(paren) = input.try_parse() {
-            Ok(Self::Paren(paren))
-        } else {
-            match input.current_token() {
-                Some(token) => Err(input.error(ErrorKind::UnexpectedToken {
-                    expected: &[
-                        TokenKind::Int,
-                        TokenKind::Float,
-                        TokenKind::OpenParen,
-                    ],
-                    found: token.kind,
-                })),
-                None => Err(input.error(ErrorKind::UnexpectedEof)),
-            }
-        }
+        let _ = try_parse_catch_fatal!(input.try_parse::<Literal>().map(|literal| Self::Literal(literal)));
+        try_parse_catch_fatal!(input.try_parse::<Paren>().map(|paren| Self::Paren(paren)))
     }
 }
 

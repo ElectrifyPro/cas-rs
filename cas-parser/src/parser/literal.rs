@@ -7,6 +7,7 @@ use crate::{
         Parser,
     },
     tokenizer::TokenKind,
+    try_parse_catch_fatal,
 };
 
 /// A number literal. Integers and floating-point numbers are both supported and represented here
@@ -96,9 +97,9 @@ impl Parse for LitRadix {
         let _ = input.try_parse::<Quote>()?;
 
         let base = match num.lexeme.parse::<u8>() {
-            Ok(base) if base >= 2 || base <= 64 => base,
-            Ok(base) if base < 2 => return Err(Error::new(num.span, ErrorKind::InvalidRadixBase(false))),
-            _ => return Err(Error::new(num.span, ErrorKind::InvalidRadixBase(true))),
+            Ok(base) if base >= 2 && base <= 64 => base,
+            Ok(base) if base < 2 => return Err(Error::new_fatal(num.span, ErrorKind::InvalidRadixBase(false))),
+            _ => return Err(Error::new_fatal(num.span, ErrorKind::InvalidRadixBase(true))),
         };
         let word = input.try_parse::<RadixWord>()?;
 
@@ -106,7 +107,7 @@ impl Parse for LitRadix {
         let allowed_digits = &DIGITS[..base as usize];
         for c in word.value.chars() {
             if !allowed_digits.contains(&c) {
-                return Err(Error::new(word.span, ErrorKind::InvalidRadixDigit {
+                return Err(Error::new_fatal(word.span, ErrorKind::InvalidRadixDigit {
                     radix: base,
                     allowed: allowed_digits,
                     digit: c,
@@ -173,8 +174,8 @@ impl Literal {
 
 impl Parse for Literal {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
-        input.try_parse::<LitRadix>().map(Literal::Radix)
-            .or_else(|_| input.try_parse::<LitNum>().map(Literal::Number))
-            .or_else(|_| input.try_parse::<LitSym>().map(Literal::Symbol))
+        let _ = try_parse_catch_fatal!(input.try_parse::<LitRadix>().map(Literal::Radix));
+        let _ = try_parse_catch_fatal!(input.try_parse::<LitNum>().map(Literal::Number));
+        try_parse_catch_fatal!(input.try_parse::<LitSym>().map(Literal::Symbol))
     }
 }

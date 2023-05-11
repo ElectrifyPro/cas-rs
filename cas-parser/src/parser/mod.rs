@@ -10,6 +10,30 @@ use error::{Error, ErrorKind};
 use super::tokenizer::{tokenize_complete, Token};
 use std::ops::Range;
 
+/// Attempts to parse a value from the given stream of tokens, using multiple parsing functions
+/// in order. **This function panics if the given slice is empty.** The first function that
+/// succeeds is used to parse the value.
+///
+/// This function can also catch fatal errors and immediately short-circuit the parsing
+/// process.
+///
+/// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
+/// value is returned. Otherwise, the stream is left unchanged and the error of the last
+/// attempted parsing function is returned.
+#[macro_export]
+macro_rules! try_parse_catch_fatal {
+    ($($expr:expr),+ $(,)?) => {{
+        $(
+            match $expr {
+                Ok(value) => return Ok(value),
+                Err(err) if err.fatal => return Err(err),
+                // ignore this error and try the next parser, or return it
+                err => err,
+            }
+        )+
+    }};
+}
+
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
 /// code into an abstract syntax tree.
 #[derive(Debug, Clone)]
@@ -34,11 +58,6 @@ impl<'source> Parser<'source> {
     /// cursor is at the end of the stream.
     pub fn error(&self, kind: ErrorKind) -> Error {
         Error::new(self.span(), kind)
-    }
-
-    /// Creates an [`ErrorKind::NonFatal`] error that points at the current token.
-    pub fn non_fatal(&self) -> Error {
-        Error::new(self.span(), ErrorKind::NonFatal)
     }
 
     /// Returns a span pointing at the end of the source code.

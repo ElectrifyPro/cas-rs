@@ -40,9 +40,7 @@ pub enum ErrorKind {
         digit: char,
     },
 
-    /// A non-fatal error. If this error is encountered, the parser should try parsing other
-    /// branches.
-    NonFatal,
+    WrongAssociativityOrPrecedence,
 }
 
 /// A general parsing error.
@@ -53,12 +51,24 @@ pub struct Error {
 
     /// The kind of error that occurred.
     pub kind: ErrorKind,
+
+    /// Whether this error is fatal. Fatal errors will cause the parser to stop parsing and return
+    /// the error. Non-fatal errors will generally be ignored.
+    ///
+    /// If it is unknown whether an error is fatal or not, it is recommended to assume that it is
+    /// not, as non-fatal errors can be upgraded to fatal errors later.
+    pub fatal: bool,
 }
 
 impl Error {
-    /// Creates a new error with the given span and kind.
+    /// Creates a new non-fatal error with the given span and kind.
     pub fn new(span: Range<usize>, kind: ErrorKind) -> Self {
-        Self { span, kind }
+        Self { span, kind, fatal: false }
+    }
+
+    /// Creates a new fatal error with the given span and kind.
+    pub fn new_fatal(span: Range<usize>, kind: ErrorKind) -> Self {
+        Self { span, kind, fatal: true }
     }
 
     /// Build a report from this error. Calling this function on a non-fatal error will return
@@ -103,7 +113,7 @@ impl Error {
                 .with_labels(vec![
                     Label::new((id, self.span.clone()))
                         .with_message(if too_big { "this value is too large" } else { "this value is too small" })
-                        .with_color(EXPR),
+                        .with_color(Color::Red),
                 ])
                 .with_help(format!("the base must be {}", "between 2 and 64, inclusive".fg(EXPR)))
                 .finish()
@@ -111,12 +121,14 @@ impl Error {
             ErrorKind::InvalidRadixDigit { radix, allowed, digit } => Some(Report::build(ReportKind::Error, id, self.span.start)
                 .with_message(format!("invalid digit in radix notation: `{}`", digit))
                 .with_labels(vec![
-                    Label::new((id, self.span.clone())).with_color(Color::Red),
+                    Label::new((id, self.span.clone()))
+                        .with_message("here")
+                        .with_color(Color::Red),
                 ])
                 .with_help(format!("base {} uses these digits (from lowest to highest value): {}", radix, allowed.iter().collect::<String>().fg(EXPR)))
                 .finish()
             ),
-            ErrorKind::NonFatal => None,
+            ErrorKind::WrongAssociativityOrPrecedence => unimplemented!(),
         }
     }
 }

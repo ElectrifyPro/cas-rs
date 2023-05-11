@@ -1,12 +1,15 @@
 use std::ops::Range;
-use super::{
-    binary::Binary,
-    expr::{Expr, Primary},
-    error::Error,
-    token::op::UnaryOp,
-    Associativity,
-    Parse,
-    Parser,
+use crate::{
+    parser::{
+        binary::Binary,
+        expr::{Expr, Primary},
+        error::{Error, ErrorKind},
+        token::op::UnaryOp,
+        Associativity,
+        Parse,
+        Parser,
+    },
+    try_parse_catch_fatal,
 };
 
 /// Attempt to parse a unary operator with the correct associativity. Returns a non-fatal error if
@@ -16,7 +19,7 @@ fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Resul
         if op.associativity() == associativity {
             Ok(())
         } else {
-            Err(input.non_fatal())
+            Err(Error::new(input.span(), ErrorKind::WrongAssociativityOrPrecedence))
         }
     })
 }
@@ -91,13 +94,14 @@ impl Unary {
 
     /// Parses a unary expression, or lower precedence expressions.
     pub fn parse_or_lower(input: &mut Parser) -> Result<Expr, Error> {
-        input
-            .try_parse_with_fn(|input| {
+        let _ = try_parse_catch_fatal!(
+            input.try_parse_with_fn(|input| {
                 Self::parse_with_associativity(input, Associativity::Right)
                     .or_else(|_| Self::parse_with_associativity(input, Associativity::Left))
                     .map(|unary| Expr::Unary(unary))
             })
-            .or_else(|_| Primary::parse(input).map(Into::into))
+        );
+        Primary::parse(input).map(Into::into)
     }
 }
 

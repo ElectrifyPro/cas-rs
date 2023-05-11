@@ -1,7 +1,7 @@
 use std::ops::Range;
 use super::{
     expr::Expr,
-    error::Error,
+    error::{Error, ErrorKind},
     token::op::BinOp,
     unary::Unary,
     Associativity,
@@ -41,7 +41,7 @@ impl Binary {
                if op.precedence() >= precedence {
                    Ok(())
                } else {
-                   Err(input.non_fatal())
+                   Err(Error::new(input.span(), ErrorKind::WrongAssociativityOrPrecedence))
                }
            }) else {
                break;
@@ -63,7 +63,7 @@ impl Binary {
                    if next_op.precedence() > precedence || next_op.associativity() == Associativity::Right {
                        Ok(())
                    } else {
-                       Err(input.non_fatal())
+                       Err(Error::new(input.span(), ErrorKind::WrongAssociativityOrPrecedence))
                    }
                });
 

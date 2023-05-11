@@ -62,7 +62,10 @@ impl Parse for RadixWord {
                     | TokenKind::Name
                     | TokenKind::Int
                     | TokenKind::Div => value.push_str(token.lexeme),
-                _ => break,
+                _ => {
+                    input.prev();
+                    break;
+                },
             }
 
             if span.start == 0 {

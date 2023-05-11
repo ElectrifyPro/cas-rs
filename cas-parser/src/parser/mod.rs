@@ -73,6 +73,14 @@ impl<'source> Parser<'source> {
             .map_or(self.eof_span(), |token| token.span.clone())
     }
 
+    /// Move the cursor to the previous token. This function is a no-op if the cursor is at the
+    /// beginning of the stream.
+    pub fn prev(&mut self) {
+        if self.cursor > 0 {
+            self.cursor -= 1;
+        }
+    }
+
     /// Returns the previous token. The cursor is not moved. Returns [`None`] if the cursor is at
     /// the beginning of the stream.
     pub fn prev_token(&self) -> Option<&Token<'source>> {

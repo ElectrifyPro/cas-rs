@@ -22,6 +22,24 @@ pub enum ErrorKind {
         found: TokenKind,
     },
 
+    /// The base used in radix notation was out of the allowed range.
+    ///
+    /// If the included boolean is true, the given base is too large. If false, the given base is
+    /// too small.
+    InvalidRadixBase(bool),
+
+    /// An invalid digit was used in a radix literal.
+    InvalidRadixDigit {
+        /// The radix that was expected.
+        radix: u8,
+
+        /// The set of allowed digits for this radix.
+        allowed: &'static [char],
+
+        /// The invalid digit that was used.
+        digit: char,
+    },
+
     /// A non-fatal error. If this error is encountered, the parser should try parsing other
     /// branches.
     NonFatal,
@@ -61,7 +79,7 @@ impl Error {
                 .with_message("expected end of file")
                 .with_labels(vec![
                     Label::new((id, self.span.clone()))
-                        .with_message(format!("you might need to remove this {} here", "expression".fg(EXPR)))
+                        .with_message(format!("I could not understand the remaining {} here", "expression".fg(EXPR)))
                         .with_color(EXPR),
                 ])
                 .finish()),
@@ -80,6 +98,24 @@ impl Error {
                     ])
                     .finish())
             },
+            ErrorKind::InvalidRadixBase(too_big) => Some(Report::build(ReportKind::Error, id, self.span.start)
+                .with_message("invalid base in radix notation")
+                .with_labels(vec![
+                    Label::new((id, self.span.clone()))
+                        .with_message(if too_big { "this value is too large" } else { "this value is too small" })
+                        .with_color(EXPR),
+                ])
+                .with_help(format!("the base must be {}", "between 2 and 64, inclusive".fg(EXPR)))
+                .finish()
+            ),
+            ErrorKind::InvalidRadixDigit { radix, allowed, digit } => Some(Report::build(ReportKind::Error, id, self.span.start)
+                .with_message(format!("invalid digit in radix notation: `{}`", digit))
+                .with_labels(vec![
+                    Label::new((id, self.span.clone())).with_color(Color::Red),
+                ])
+                .with_help(format!("base {} uses these digits (from lowest to highest value): {}", radix, allowed.iter().collect::<String>().fg(EXPR)))
+                .finish()
+            ),
             ErrorKind::NonFatal => None,
         }
     }

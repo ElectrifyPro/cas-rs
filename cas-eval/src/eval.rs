@@ -5,7 +5,7 @@ use cas_parser::parser::{
     unary::Unary,
     token::op::{BinOp, UnaryOp},
 };
-use super::{ctxt::Ctxt, funcs::factorial};
+use super::{ctxt::Ctxt, funcs::{factorial, from_str_radix}};
 
 /// Any type that can be evaluated to produce a value.
 pub trait Eval {
@@ -64,6 +64,7 @@ impl Eval for Literal {
     fn eval(&self) -> Option<f64> {
         match self {
             Literal::Number(num) => Some(num.value),
+            Literal::Radix(radix) => Some(from_str_radix(radix.value.as_str(), radix.base)),
             Literal::Symbol(_) => None, // context needed
         }
     }
@@ -71,6 +72,7 @@ impl Eval for Literal {
     fn eval_with(&self, ctxt: &Ctxt) -> Option<f64> {
         match self {
             Literal::Number(num) => Some(num.value),
+            Literal::Radix(radix) => Some(from_str_radix(radix.value.as_str(), radix.base)),
             Literal::Symbol(sym) => ctxt.get_var(sym.name.as_str()),
         }
     }

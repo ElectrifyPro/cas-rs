@@ -73,6 +73,7 @@ token_kinds!(
     Comma
     OpenParen
     CloseParen
+    Quote
     Int
     Float
     Dot

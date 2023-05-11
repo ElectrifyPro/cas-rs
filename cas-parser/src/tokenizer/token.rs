@@ -103,6 +103,9 @@ pub enum TokenKind {
     #[token(")")]
     CloseParen,
 
+    #[token("'")]
+    Quote,
+
     #[regex(r"[0-9]+\.?")]
     Int,
 

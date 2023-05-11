@@ -225,7 +225,7 @@ mod tests {
 
     use binary::Binary;
     use expr::Expr;
-    use literal::{Literal, LitNum, LitSym};
+    use literal::{Literal, LitNum, LitRadix, LitSym};
     use paren::Paren;
     use token::op::{BinOp, UnaryOp};
     use unary::Unary;
@@ -249,6 +249,78 @@ mod tests {
         assert_eq!(expr, Expr::Literal(Literal::Number(LitNum {
             value: 3.14,
             span: 0..4,
+        })));
+    }
+
+    #[test]
+    fn literal_radix_base_2() {
+        let mut parser = Parser::new("2'10000110000");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::Radix(LitRadix {
+            base: 2,
+            value: "10000110000".to_string(),
+            span: 0..13,
+        })));
+    }
+
+    #[test]
+    fn literal_radix_base_8() {
+        let mut parser = Parser::new("8'2060");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::Radix(LitRadix {
+            base: 8,
+            value: "2060".to_string(),
+            span: 0..6,
+        })));
+    }
+
+    #[test]
+    fn literal_radix_base_25() {
+        let mut parser = Parser::new("25'1hm");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::Radix(LitRadix {
+            base: 25,
+            value: "1hm".to_string(),
+            span: 0..6,
+        })));
+    }
+
+    #[test]
+    fn literal_radix_base_32() {
+        let mut parser = Parser::new("32'11g");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::Radix(LitRadix {
+            base: 32,
+            value: "11g".to_string(),
+            span: 0..6,
+        })));
+    }
+
+    #[test]
+    fn literal_radix_base_47() {
+        let mut parser = Parser::new("47'mC");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::Radix(LitRadix {
+            base: 47,
+            value: "mC".to_string(),
+            span: 0..5,
+        })));
+    }
+
+    #[test]
+    fn literal_radix_with_nonword_tokens() {
+        let mut parser = Parser::new("64'++/+//");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::Radix(LitRadix {
+            base: 64,
+            value: "++/+//".to_string(),
+            span: 0..9,
         })));
     }
 

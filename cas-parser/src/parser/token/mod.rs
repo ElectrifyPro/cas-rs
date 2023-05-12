@@ -1,7 +1,7 @@
 pub mod op;
 
 use crate::{
-    parser::{error::{ErrorKind, Error}, Parser, Parse},
+    parser::{error::{kind, Error}, Parser, Parse},
     tokenizer::TokenKind,
 };
 use std::ops::Range;
@@ -28,7 +28,7 @@ macro_rules! token_kinds {
                             span: token.span,
                         })
                     } else {
-                        Err(Error::new(token.span, ErrorKind::UnexpectedToken {
+                        Err(Error::new(token.span, kind::UnexpectedToken {
                             expected: &[TokenKind::$name],
                             found: token.kind,
                         }))

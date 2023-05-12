@@ -1,5 +1,6 @@
 [workspace]
 members = [
+	"cas-attrs",
 	"cas-eval",
 	"cas-parser",
 	"cas-repl",

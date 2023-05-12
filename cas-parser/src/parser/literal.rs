@@ -1,7 +1,7 @@
 use std::ops::Range;
 use crate::{
     parser::{
-        error::{Error, ErrorKind},
+        error::{kind, Error},
         token::{Float, Name, Int, Quote},
         Parse,
         Parser,
@@ -101,8 +101,8 @@ impl Parse for LitRadix {
 
         let base = match num.lexeme.parse::<u8>() {
             Ok(base) if base >= 2 && base <= 64 => base,
-            Ok(base) if base < 2 => return Err(Error::new_fatal(num.span, ErrorKind::InvalidRadixBase(false))),
-            _ => return Err(Error::new_fatal(num.span, ErrorKind::InvalidRadixBase(true))),
+            Ok(base) if base < 2 => return Err(Error::new_fatal(num.span, kind::InvalidRadixBase { too_large: false })),
+            _ => return Err(Error::new_fatal(num.span, kind::InvalidRadixBase { too_large: true })),
         };
         let word = input.try_parse::<RadixWord>()?;
 
@@ -111,7 +111,7 @@ impl Parse for LitRadix {
         for (i, c) in word.value.chars().enumerate() {
             if !allowed_digits.contains(&c) {
                 let char_span_start = word.span.start + i;
-                return Err(Error::new_fatal(char_span_start..char_span_start + 1, ErrorKind::InvalidRadixDigit {
+                return Err(Error::new_fatal(char_span_start..char_span_start + 1, kind::InvalidRadixDigit {
                     radix: base,
                     allowed: allowed_digits,
                     digit: c,

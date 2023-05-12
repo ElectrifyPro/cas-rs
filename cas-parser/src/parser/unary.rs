@@ -3,7 +3,7 @@ use crate::{
     parser::{
         binary::Binary,
         expr::{Expr, Primary},
-        error::{Error, ErrorKind},
+        error::{kind, Error},
         token::op::UnaryOp,
         Associativity,
         Parse,
@@ -19,7 +19,7 @@ fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Resul
         if op.associativity() == associativity {
             Ok(())
         } else {
-            Err(Error::new(input.span(), ErrorKind::WrongAssociativityOrPrecedence))
+            Err(input.error(kind::NonFatal))
         }
     })
 }

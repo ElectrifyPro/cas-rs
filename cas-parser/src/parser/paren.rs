@@ -1,6 +1,6 @@
 use std::ops::Range;
 use super::{
-    error::{Error, ErrorKind},
+    error::{kind, Error},
     expr::Expr,
     token::{CloseParen, OpenParen},
     Parse,
@@ -33,7 +33,7 @@ impl Parse for Paren {
                 if let Ok(close_paren) = input.try_parse::<CloseParen>() {
                     return Err(Error::new_fatal(
                         open_paren.span.start..close_paren.span.end,
-                        ErrorKind::EmptyParenthesis,
+                        kind::EmptyParenthesis,
                     ));
                 } else {
                     return Err(err);
@@ -43,7 +43,7 @@ impl Parse for Paren {
         let close_paren = input.try_parse::<CloseParen>().map_err(|_| {
             Error::new_fatal(
                 open_paren.span.clone(),
-                ErrorKind::UnclosedParenthesis(true),
+                kind::UnclosedParenthesis { opening: true },
             )
         })?;
         Ok(Self {

@@ -2,7 +2,7 @@
 
 use crate::{
     parser::{
-        error::{Error, ErrorKind},
+        error::{Error, kind},
         Associativity,
         Parse,
         Parser,
@@ -46,7 +46,7 @@ impl Parse for UnaryOp {
             TokenKind::Not => Ok(Self::Not),
             TokenKind::Factorial => Ok(Self::Factorial),
             TokenKind::Sub => Ok(Self::Neg),
-            _ => Err(Error::new(token.span, ErrorKind::UnexpectedToken {
+            _ => Err(Error::new(token.span, kind::UnexpectedToken {
                 expected: &[
                     TokenKind::Not,
                     TokenKind::Factorial,
@@ -97,7 +97,7 @@ impl Parse for BinOp {
             TokenKind::Div => Ok(Self::Div),
             TokenKind::Add => Ok(Self::Add),
             TokenKind::Sub => Ok(Self::Sub),
-            _ => Err(Error::new(token.span, ErrorKind::UnexpectedToken {
+            _ => Err(Error::new(token.span, kind::UnexpectedToken {
                 expected: &[
                     TokenKind::Exp,
                     TokenKind::Mul,

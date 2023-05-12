@@ -6,7 +6,7 @@ pub mod paren;
 pub mod token;
 pub mod unary;
 
-use error::{Error, ErrorKind};
+use error::{Error, kind::{self, ErrorKind}};
 use super::tokenizer::{tokenize_complete, Token};
 use std::ops::Range;
 
@@ -56,8 +56,14 @@ impl<'source> Parser<'source> {
 
     /// Creates an error that points at the current token, or the end of the source code if the
     /// cursor is at the end of the stream.
-    pub fn error(&self, kind: ErrorKind) -> Error {
+    pub fn error(&self, kind: impl ErrorKind + 'static) -> Error {
         Error::new(self.span(), kind)
+    }
+
+    /// Creates a fatal error that points at the current token, or the end of the source code if
+    /// the cursor is at the end of the stream.
+    pub fn error_fatal(&self, kind: impl ErrorKind + 'static) -> Error {
+        Error::new_fatal(self.span(), kind)
     }
 
     /// Returns a span pointing at the end of the source code.
@@ -109,7 +115,7 @@ impl<'source> Parser<'source> {
             }
         }
 
-        Err(self.error(ErrorKind::UnexpectedEof))
+        Err(self.error(kind::UnexpectedEof))
     }
 
     /// Speculatively parses a value from the given stream of tokens. This function can be used
@@ -178,7 +184,7 @@ impl<'source> Parser<'source> {
         if self.cursor == self.tokens.len() {
             Ok(value)
         } else {
-            Err(self.error(ErrorKind::ExpectedEof))
+            Err(self.error(kind::ExpectedEof))
         }
     }
 }

@@ -18,10 +18,8 @@ fn main() {
                 }
             },
             Err(e) => {
-                match e.build_report() {
-                    Some(report) => report.eprint(("input", Source::from(input))).unwrap(),
-                    None => eprintln!("Error: Could not parse expression"),
-                }
+                let report = e.build_report();
+                report.eprint(("input", Source::from(input))).unwrap();
             },
         }
     }

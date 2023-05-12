@@ -223,6 +223,24 @@ pub enum Precedence {
     /// Any precedence.
     Any,
 
+    /// Precedence of logical or (`or`).
+    Or,
+
+    /// Precedence of logical and (`and`).
+    And,
+
+    /// Precedence of comparisons (`>`, `>=`, `<`, `<=`, `==`, `!=`, `~==`, and `~!=`).
+    Compare,
+
+    /// Precedence of bitwise or (`|`).
+    BitOr,
+
+    /// Precedence of bitwise and (`&`).
+    BitAnd,
+
+    /// Precedence of bitshifts (`<<` and `>>`).
+    Shift,
+
     /// Precedence of addition (`+`) and subtraction (`-`), which separate terms.
     Term,
 
@@ -238,6 +256,9 @@ pub enum Precedence {
 
     /// Precedence of factorial (`!`).
     Factorial,
+
+    /// Precedence of bitwise not (`~`).
+    BitNot,
 
     /// Precedence of logical not (`not`).
     Not,

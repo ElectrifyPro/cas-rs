@@ -83,6 +83,7 @@ impl Eval for Unary {
         let operand = self.operand.eval()?;
         Some(match self.op {
             UnaryOp::Not => if operand == 0.0 { 1.0 } else { 0.0 },
+            UnaryOp::BitNot => !(operand as i64) as f64,
             UnaryOp::Factorial => factorial(operand),
             UnaryOp::Neg => -1.0 * operand,
         })
@@ -92,6 +93,7 @@ impl Eval for Unary {
         let operand = self.operand.eval_with(ctxt)?;
         Some(match self.op {
             UnaryOp::Not => if operand == 0.0 { 1.0 } else { 0.0 },
+            UnaryOp::BitNot => !(operand as i64) as f64,
             UnaryOp::Factorial => factorial(operand),
             UnaryOp::Neg => -1.0 * operand,
         })
@@ -108,6 +110,20 @@ impl Eval for Binary {
             BinOp::Div => left / right,
             BinOp::Add => left + right,
             BinOp::Sub => left - right,
+            BinOp::BitRight => ((left as i64) >> (right as i64)) as f64,
+            BinOp::BitLeft => ((left as i64) << (right as i64)) as f64,
+            BinOp::BitAnd => ((left as i64) & (right as i64)) as f64,
+            BinOp::BitOr => ((left as i64) | (right as i64)) as f64,
+            BinOp::Greater => (left > right) as u8 as f64,
+            BinOp::GreaterEq => (left >= right) as u8 as f64,
+            BinOp::Less => (left < right) as u8 as f64,
+            BinOp::LessEq => (left <= right) as u8 as f64,
+            BinOp::Eq => (left == right) as u8 as f64,
+            BinOp::NotEq => (left != right) as u8 as f64,
+            BinOp::ApproxEq => ((left - right).abs() < 1e-6) as u8 as f64,
+            BinOp::ApproxNotEq => ((left - right).abs() >= 1e-6) as u8 as f64,
+            BinOp::And => todo!(),
+            BinOp::Or => todo!(),
         })
     }
 
@@ -120,6 +136,20 @@ impl Eval for Binary {
             BinOp::Div => left / right,
             BinOp::Add => left + right,
             BinOp::Sub => left - right,
+            BinOp::BitRight => ((left as i64) >> (right as i64)) as f64,
+            BinOp::BitLeft => ((left as i64) << (right as i64)) as f64,
+            BinOp::BitAnd => ((left as i64) & (right as i64)) as f64,
+            BinOp::BitOr => ((left as i64) | (right as i64)) as f64,
+            BinOp::Greater => (left > right) as u8 as f64,
+            BinOp::GreaterEq => (left >= right) as u8 as f64,
+            BinOp::Less => (left < right) as u8 as f64,
+            BinOp::LessEq => (left <= right) as u8 as f64,
+            BinOp::Eq => (left == right) as u8 as f64,
+            BinOp::NotEq => (left != right) as u8 as f64,
+            BinOp::ApproxEq => ((left - right).abs() < 1e-6) as u8 as f64,
+            BinOp::ApproxNotEq => ((left - right).abs() >= 1e-6) as u8 as f64,
+            BinOp::And => todo!(),
+            BinOp::Or => todo!(),
         })
     }
 }

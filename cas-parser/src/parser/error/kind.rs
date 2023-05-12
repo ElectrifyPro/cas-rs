@@ -1,12 +1,14 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use cas_attrs::ErrorKind;
 use crate::tokenizer::TokenKind;
-use std::{fmt::Debug, ops::Range};
+use std::{any::Any, fmt::Debug, ops::Range};
 
 const EXPR: Color = Color::RGB(52, 235, 152);
 
 /// Represents any kind of error that can occur.
 pub trait ErrorKind: Debug {
+    fn as_any(&self) -> &dyn Any;
+
     /// The message to show the user when this error occurs.
     fn message(&self) -> String;
 

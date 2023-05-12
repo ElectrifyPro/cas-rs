@@ -677,6 +677,87 @@ mod tests {
     }
 
     #[test]
+    fn implicit_multiplication() {
+        let mut parser = Parser::new("2(3 + 4)");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 2.0,
+                span: 0..1,
+            }))),
+            op: BinOp::Mul,
+            rhs: Box::new(Expr::Paren(Paren {
+                expr: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 3.0,
+                        span: 2..3,
+                    }))),
+                    op: BinOp::Add,
+                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 4.0,
+                        span: 6..7,
+                    }))),
+                    span: 2..7,
+                })),
+                span: 1..8,
+            })),
+            span: 0..8,
+        }));
+    }
+
+    #[test]
+    fn implicit_multiplication_extra() {
+        let mut parser = Parser::new("4x^2 + 5x + 1");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 4.0,
+                        span: 0..1,
+                    }))),
+                    op: BinOp::Mul,
+                    rhs: Box::new(Expr::Binary(Binary {
+                        lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                            name: "x".to_string(),
+                            span: 1..2,
+                        }))),
+                        op: BinOp::Exp,
+                        rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            value: 2.0,
+                            span: 3..4,
+                        }))),
+                        span: 1..4,
+                    })),
+                    span: 0..4,
+                })),
+                op: BinOp::Add,
+                rhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 5.0,
+                        span: 7..8,
+                    }))),
+                    op: BinOp::Mul,
+                    rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                        name: "x".to_string(),
+                        span: 8..9,
+                    }))),
+                    span: 7..9,
+                })),
+                span: 0..9,
+            })),
+            op: BinOp::Add,
+            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: 1.0,
+                span: 12..13,
+            }))),
+            span: 0..13,
+        }));
+    }
+
+    #[test]
     fn parenthesized() {
         let mut parser = Parser::new("(1 + 2) * __");
         let expr = parser.try_parse_full::<Expr>().unwrap();

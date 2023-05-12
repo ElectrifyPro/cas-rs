@@ -1,6 +1,6 @@
 use std::ops::Range;
 use super::{
-    expr::Expr,
+    expr::{Expr, Primary},
     error::{kind, Error},
     token::op::BinOp,
     unary::Unary,
@@ -36,21 +36,34 @@ impl Binary {
        let start_span = lhs.span().start;
 
        loop {
-           // the left hand side has already been parsed, so parse an operator
-           let Ok(op) = input.try_parse_then::<BinOp, _>(|op, input| {
-               if op.precedence() >= precedence {
-                   Ok(())
-               } else {
-                   Err(input.error(kind::NonFatal))
+           // the left hand side has already been parsed, so parse an operator and right operand
+           let (op, mut rhs) = match input.try_parse_with_fn(|input| {
+               match input.try_parse::<BinOp>() {
+                   Ok(op) => {
+                       if op.precedence() >= precedence {
+                           let rhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
+                           Ok((op, rhs))
+                       } else {
+                           Err(input.error(kind::NonFatal))
+                       }
+                   },
+                   Err(_) => {
+                       if BinOp::Mul.precedence() >= precedence {
+                           let rhs = input.try_parse::<Primary>()
+                               .map_err(|_| input.error(kind::NonFatal))?;
+                           Ok((BinOp::Mul, rhs.into()))
+                       } else {
+                           Err(input.error(kind::NonFatal))
+                       }
+                   },
                }
-           }) else {
-               break;
+           }) {
+               Ok(result) => result,
+               Err(non_fatal)
+                   if non_fatal.kind.as_any().downcast_ref::<kind::NonFatal>().is_some() => break,
+               Err(err) => return Err(err),
            };
-
            let precedence = op.precedence();
-
-           // parse the right hand side
-           let mut rhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
 
            loop {
                // before creating the `lhs op rhs` node, we should check the precedence of the
@@ -59,27 +72,38 @@ impl Binary {
 
                // clone the input stream to emulate peeking
                let mut input_ahead = input.clone();
-               let next_op = input_ahead.try_parse_then::<BinOp, _>(|next_op, input| {
-                   if next_op.precedence() > precedence || next_op.associativity() == Associativity::Right {
-                       Ok(())
-                   } else {
-                       Err(input.error(kind::NonFatal))
-                   }
-               });
+               let next_op = input_ahead.try_parse::<BinOp>();
 
-               // this operator has a higher precedence or it is right associative, so we should
-               // parse its expression starting with `rhs` first
                if let Ok(next_op) = next_op {
-                   rhs = Self::parse_expr(input, rhs, next_op.precedence())?;
+                   if next_op.precedence() > precedence || next_op.associativity() == Associativity::Right {
+                       // this operator has a higher precedence or it is right associative, so we should
+                       // parse its expression starting with `rhs` first
+                       rhs = Self::parse_expr(input, rhs, next_op.precedence())?;
+                   } else {
+                       // this operator has lower precedence, or equal precedence and
+                       // left-associativity; this is in scenarios like:
+                       // `1 * 2 + 3` or `1 * 2 * 3`
+                       // prec(+) < prec(*), prec(*) == prec(*)
+                       //
+                       // so just break out of the loop and let `lhs` become `1 * 2`
+                       // we will parse this operator on the next iteration of the outside loop
+                       break;
+                   }
                } else {
-                   // this operator has lower precedence, or equal precedence and
-                   // left-associativity; this is in scenarios like:
-                   // `1 * 2 + 3` or `1 * 2 * 3`
-                   // prec(+) < prec(*), prec(*) == prec(*)
-                   //
-                   // so just break out of the loop and let `lhs` become `1 * 2`
-                   // we will parse this operator on the next iteration of the outside loop
-                   break;
+                   // there is no operator; check if there is a primary expression instead
+                   // if there is, this is implicit multiplication
+                   if let Ok(primary) = input.try_parse::<Primary>() {
+                       let expr: Expr = primary.into();
+                       let (start_span, end_span) = (rhs.span().start, expr.span().end);
+                       rhs = Expr::Binary(Binary {
+                           lhs: Box::new(rhs),
+                           op: BinOp::Mul,
+                           rhs: Box::new(expr),
+                           span: start_span..end_span,
+                       });
+                   } else {
+                       break;
+                   }
                }
            }
 

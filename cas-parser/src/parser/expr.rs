@@ -1,6 +1,7 @@
 use std::ops::Range;
 use crate::{
     parser::{
+        assign::Assign,
         binary::Binary,
         error::{kind, Error},
         literal::Literal,
@@ -33,6 +34,9 @@ pub enum Expr {
 
     /// A binary operation, such as `1 + 2`.
     Binary(Binary),
+
+    /// An assignment of a variable or function, such as `x = 1` or `f(x) = x^2`.
+    Assign(Assign),
 }
 
 impl Expr {
@@ -43,6 +47,7 @@ impl Expr {
             Expr::Paren(paren) => paren.span(),
             Expr::Unary(unary) => unary.span(),
             Expr::Binary(binary) => binary.span(),
+            Expr::Assign(assign) => assign.span(),
         }
     }
 }
@@ -52,6 +57,8 @@ impl Parse for Expr {
         if input.clone().try_parse::<CloseParen>().is_ok() {
             return Err(input.error_fatal(kind::UnclosedParenthesis { opening: false }));
         }
+
+        let _ = try_parse_catch_fatal!(input.try_parse::<Assign>().map(|assign| Self::Assign(assign)));
         let lhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
         Binary::parse_expr(input, lhs, Precedence::Any)
     }

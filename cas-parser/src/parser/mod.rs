@@ -1,3 +1,4 @@
+pub mod assign;
 pub mod binary;
 pub mod error;
 pub mod expr;
@@ -7,7 +8,7 @@ pub mod token;
 pub mod unary;
 
 use error::{Error, kind::{self, ErrorKind}};
-use super::tokenizer::{tokenize_complete, Token};
+use super::tokenizer::{tokenize_complete, Token, TokenKind};
 use std::ops::Range;
 
 /// Attempts to parse a value from the given stream of tokens, using multiple parsing functions
@@ -126,6 +127,39 @@ impl<'source> Parser<'source> {
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
     pub fn try_parse<T: Parse>(&mut self) -> Result<T, Error> {
         self.try_parse_with_fn(T::parse)
+    }
+
+    /// Speculatively parses multiple values (at least one) from the given stream of tokens, each
+    /// delimited by a certain token. This function can be used in the [`Parse::parse`]
+    /// implementation of a type with the given [`Parser`], as it will automatically backtrack the
+    /// cursor position if parsing fails.
+    ///
+    /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
+    /// values are returned. Otherwise, the stream is left unchanged and an error is returned.
+    pub fn try_parse_delimited<T: Parse>(&mut self, delimiter: TokenKind) -> Result<Vec<T>, Error> {
+        let start = self.cursor;
+        let mut values = Vec::new();
+
+        loop {
+            match self.try_parse::<T>() {
+                Ok(value) => values.push(value),
+                Err(err) => {
+                    if values.is_empty() {
+                        self.cursor = start;
+                        return Err(err);
+                    } else {
+                        return Ok(values);
+                    }
+                },
+            }
+
+            match self.current_token() {
+                Some(token) if token.kind == delimiter => {
+                    self.cursor += 1;
+                },
+                _ => return Ok(values),
+            }
+        }
     }
 
     /// Speculatively parses a value from the given stream of tokens, using a custom parsing
@@ -277,6 +311,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use super::*;
 
+    use assign::{Assign, AssignTarget, FuncHeader, Param};
     use binary::Binary;
     use expr::Expr;
     use literal::{Literal, LitNum, LitRadix, LitSym};
@@ -784,6 +819,164 @@ mod tests {
                 span: 10..12,
             }))),
             span: 0..12,
+        }));
+    }
+
+    #[test]
+    fn assign_to_var() {
+        let mut parser = Parser::new("fx = 1 / pi");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Assign(Assign {
+            target: AssignTarget::Symbol(LitSym {
+                name: "fx".to_string(),
+                span: 0..2,
+            }),
+            value: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: 1.0,
+                    span: 5..6,
+                }))),
+                op: BinOp::Div,
+                rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                    name: "pi".to_string(),
+                    span: 9..11,
+                }))),
+                span: 5..11,
+            })),
+            span: 0..11,
+        }));
+    }
+
+    #[test]
+    fn assign_to_function() {
+        let mut parser = Parser::new("f(x) = x^2 + 5x");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Assign(Assign {
+            target: AssignTarget::Func(FuncHeader {
+                name: LitSym {
+                    name: "f".to_string(),
+                    span: 0..1,
+                },
+                params: vec![
+                    Param::Symbol(LitSym {
+                        name: "x".to_string(),
+                        span: 2..3,
+                    }),
+                ],
+                span: 0..4,
+            }),
+            value: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                        name: "x".to_string(),
+                        span: 7..8,
+                    }))),
+                    op: BinOp::Exp,
+                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 2.0,
+                        span: 9..10,
+                    }))),
+                    span: 7..10,
+                })),
+                op: BinOp::Add,
+                rhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 5.0,
+                        span: 13..14,
+                    }))),
+                    op: BinOp::Mul,
+                    rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                        name: "x".to_string(),
+                        span: 14..15,
+                    }))),
+                    span: 13..15,
+                })),
+                span: 7..15,
+            })),
+            span: 0..15,
+        }));
+    }
+
+    #[test]
+    fn assign_to_complicated_function() {
+        let mut parser = Parser::new("discrim(a = 1, b = 5, c) = b^2 - 4a * c");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Assign(Assign {
+            target: AssignTarget::Func(FuncHeader {
+                name: LitSym {
+                    name: "discrim".to_string(),
+                    span: 0..7,
+                },
+                params: vec![
+                    Param::Default(
+                        LitSym {
+                            name: "a".to_string(),
+                            span: 8..9,
+                        },
+                        Expr::Literal(Literal::Number(LitNum {
+                            value: 1.0,
+                            span: 12..13,
+                        })),
+                    ),
+                    Param::Default(
+                        LitSym {
+                            name: "b".to_string(),
+                            span: 15..16,
+                        },
+                        Expr::Literal(Literal::Number(LitNum {
+                            value: 5.0,
+                            span: 19..20,
+                        })),
+                    ),
+                    Param::Symbol(
+                        LitSym {
+                            name: "c".to_string(),
+                            span: 22..23,
+                        },
+                    ),
+                ],
+                span: 0..24,
+            }),
+            value: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                        name: "b".to_string(),
+                        span: 27..28,
+                    }))),
+                    op: BinOp::Exp,
+                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 2.0,
+                        span: 29..30,
+                    }))),
+                    span: 27..30,
+                })),
+                op: BinOp::Sub,
+                rhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Binary(Binary {
+                        lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            value: 4.0,
+                            span: 33..34,
+                        }))),
+                        op: BinOp::Mul,
+                        rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                            name: "a".to_string(),
+                            span: 34..35,
+                        }))),
+                        span: 33..35,
+                    })),
+                    op: BinOp::Mul,
+                    rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                        name: "c".to_string(),
+                        span: 38..39,
+                    }))),
+                    span: 33..39,
+                })),
+                span: 27..39,
+            })),
+            span: 0..39,
         }));
     }
 }

@@ -163,6 +163,43 @@ impl<'source> Parser<'source> {
         }
     }
 
+    /// Speculatively parses multiple values (zero or more) from the given stream of tokens, each
+    /// delimited by a certain token. This function can be used in the [`Parse::parse`]
+    /// implementation of a type with the given [`Parser`], as it will automatically backtrack the
+    /// cursor position if parsing fails.
+    ///
+    /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
+    /// values are returned. Otherwise, the stream is left unchanged and an error is returned.
+    pub fn try_parse_delimited_zero<T: Parse>(
+        &mut self,
+        delimiter: TokenKind,
+    ) -> Result<Vec<T>, Error> {
+        let start = self.cursor;
+        let mut values = Vec::new();
+
+        loop {
+            match self.try_parse::<T>() {
+                Ok(value) => values.push(value),
+                Err(_) => {
+                    if values.is_empty() {
+                        // compare to `try_parse_delimited` here: empty values are no longer an
+                        // error
+                        self.cursor = start;
+                    }
+
+                    return Ok(values);
+                },
+            }
+
+            match self.current_token() {
+                Some(token) if token.kind == delimiter => {
+                    self.cursor += 1;
+                },
+                _ => return Ok(values),
+            }
+        }
+    }
+
     /// Speculatively parses a value from the given stream of tokens, using a custom parsing
     /// function to parse the value. This function can be used in the [`Parse::parse`]
     /// implementation of a type with the given [`Parser`], as it will automatically backtrack the

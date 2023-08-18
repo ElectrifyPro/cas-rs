@@ -1,5 +1,5 @@
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     Attribute,
@@ -52,16 +52,18 @@ impl Parse for ErrorArgs {
 }
 
 /// Creates a `let` expression that destructures the given `ident` into its named fields. Returns
-/// nothing if the fields are not named.
+/// a compile error if the fields are not named.
 fn destructure_fields(ident: &Ident, fields: &Fields) -> TokenStream2 {
-    if let Fields::Named(fields) = fields {
-        let fields = fields.named.iter().map(|field| {
-            let field_name = field.ident.as_ref();
-            quote! { #field_name }
-        });
-        quote! { let #ident { #(#fields),* } = self; }
-    } else {
-        quote! {}
+    match fields {
+        Fields::Named(fields) => {
+            let fields = fields.named.iter().map(|field| {
+                let field_name = field.ident.as_ref();
+                quote! { #field_name }
+            });
+            quote! { let #ident { #(#fields),* } = self; }
+        },
+        Fields::Unnamed(_) => quote_spanned! { ident.span() => compile_error!("`ErrorKind` cannot be derived for tuple structs") },
+        Fields::Unit => quote! {},
     }
 }
 

@@ -12,6 +12,10 @@ use syn::parse_macro_input;
 /// The information of the error can be customized using the `error` attribute by adding the
 /// corresponding tags to it:
 /// ```
+/// use cas_attrs::ErrorKind;
+/// use cas_parser::parser::error::kind::ErrorKind;
+///
+/// #[derive(Debug, ErrorKind)]
 /// #[error(message = "unexpected end of file", label = "add something here")]
 /// pub struct Foo;
 /// ```
@@ -27,13 +31,12 @@ use syn::parse_macro_input;
 /// Each tag accepts an expression that should evaluate to a [`String`]. For structs with named
 /// fields, the expression is evaluated with the members of the struct in scope, so they can be
 /// used in the expression (tuple structs are not supported).
-/// ```
 #[proc_macro_derive(ErrorKind, attributes(error))]
 pub fn error_kind(item: TokenStream) -> TokenStream {
     let target = parse_macro_input!(item as ErrorKindTarget);
     let name = &target.name;
     quote! {
-        impl crate::parser::error::ErrorKind for #name {
+        impl ErrorKind for #name {
             fn as_any(&self) -> &dyn std::any::Any {
                 self
             }

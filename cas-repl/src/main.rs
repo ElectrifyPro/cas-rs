@@ -1,10 +1,10 @@
 use ariadne::Source;
-use cas_eval::{ctxt::Ctxt, eval::Eval};
+use cas_eval::eval::Eval;
 use cas_parser::parser::{expr::Expr, Parser};
 use std::io;
 
 fn main() {
-    let mut ctxt = Ctxt::with_defaults();
+    let mut ctxt = Default::default();
     loop {
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();

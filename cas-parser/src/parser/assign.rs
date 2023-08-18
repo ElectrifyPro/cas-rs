@@ -22,6 +22,16 @@ pub enum Param {
     Default(LitSym, Expr),
 }
 
+impl Param {
+    /// Returns the symbol of the parameter.
+    pub fn symbol(&self) -> &LitSym {
+        match self {
+            Param::Symbol(symbol) => symbol,
+            Param::Default(symbol, _) => symbol,
+        }
+    }
+}
+
 impl Parse for Param {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
         let symbol = input.try_parse::<LitSym>()?;

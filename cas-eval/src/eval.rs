@@ -1,5 +1,6 @@
 use cas_parser::parser::{
-    assign::AssignTarget,
+    assign::{AssignTarget, Param},
+    call::Call,
     expr::{Expr, Primary},
     binary::Binary,
     literal::Literal,
@@ -10,8 +11,8 @@ use super::{ctxt::Ctxt, funcs::{factorial, from_str_radix}};
 
 /// Any type that can be evaluated to produce a value.
 pub trait Eval {
-    /// Evaluate the expression to produce a value. The expression should return [`None`] if it
-    /// cannot be evaluated.
+    /// Evaluate the expression to produce a value, without any available context. The expression
+    /// should return [`None`] if it cannot be evaluated.
     fn eval(&self) -> Option<f64>;
 
     /// Evaluate the expression to produce a value, using the given context. The expression should
@@ -21,7 +22,7 @@ pub trait Eval {
     /// Evaluate the expression to produce a value, using the default context. The expression should
     /// return [`None`] if it cannot be evaluated.
     fn eval_default(&self) -> Option<f64> {
-        self.eval_with(&mut Ctxt::with_defaults())
+        self.eval_with(&mut Default::default())
     }
 }
 
@@ -30,9 +31,10 @@ impl Eval for Expr {
         match self {
             Expr::Literal(literal) => literal.eval(),
             Expr::Paren(paren) => paren.expr.eval(),
+            Expr::Call(call) => call.eval(),
             Expr::Unary(unary) => unary.eval(),
             Expr::Binary(binary) => binary.eval(),
-            Expr::Assign(_) => None, // context needed
+            Expr::Assign(_) => None,
         }
     }
 
@@ -40,17 +42,22 @@ impl Eval for Expr {
         match self {
             Expr::Literal(literal) => literal.eval_with(ctxt),
             Expr::Paren(paren) => paren.expr.eval_with(ctxt),
+            Expr::Call(call) => call.eval_with(ctxt),
             Expr::Unary(unary) => unary.eval_with(ctxt),
             Expr::Binary(binary) => binary.eval_with(ctxt),
             Expr::Assign(assign) => {
-                if let AssignTarget::Symbol(symbol) = &assign.target {
-                    // variable assignment
-                    let value = assign.value.eval_with(ctxt)?;
-                    ctxt.add_var(&symbol.name, value);
-                    Some(value)
-                } else {
-                    // function assignment
-                    todo!() // TODO
+                match &assign.target {
+                    AssignTarget::Symbol(symbol) => {
+                        // variable assignment
+                        let value = assign.value.eval_with(ctxt)?;
+                        ctxt.add_var(&symbol.name, value);
+                        Some(value)
+                    },
+                    AssignTarget::Func(header) => {
+                        // function assignment
+                        ctxt.add_func(header.clone(), *assign.value.clone());
+                        None
+                    },
                 }
             },
         }
@@ -62,6 +69,7 @@ impl Eval for Primary {
         match self {
             Primary::Literal(literal) => literal.eval(),
             Primary::Paren(paren) => paren.expr.eval(),
+            Primary::Call(call) => call.eval(),
         }
     }
 
@@ -69,6 +77,7 @@ impl Eval for Primary {
         match self {
             Primary::Literal(literal) => literal.eval_with(ctxt),
             Primary::Paren(paren) => paren.expr.eval_with(ctxt),
+            Primary::Call(call) => call.eval_with(ctxt),
         }
     }
 }
@@ -88,6 +97,31 @@ impl Eval for Literal {
             Literal::Radix(radix) => Some(from_str_radix(radix.value.as_str(), radix.base)),
             Literal::Symbol(sym) => ctxt.get_var(sym.name.as_str()),
         }
+    }
+}
+
+impl Eval for Call {
+    fn eval(&self) -> Option<f64> {
+        // without a context, we can't evaluate a function call
+        None
+    }
+
+    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
+        let (header, body) = ctxt.get_func(&self.name.name)?;
+        let mut ctxt = ctxt.clone();
+        for (arg, param) in self.args.iter().zip(header.params.iter()) {
+            // evaluate the argument, then add it to the context for use in the function body,
+            // cloning the context to avoid mutating the original
+            // if not provided, try the default value
+            // if there is no default, return None
+            let value = arg.eval_with(&mut ctxt)
+                .or_else(|| match param {
+                    Param::Symbol(_) => None,
+                    Param::Default(_, expr) => expr.eval_with(&mut ctxt),
+                })?;
+            ctxt.add_var(&param.symbol().name, value);
+        }
+        body.eval_with(&mut ctxt)
     }
 }
 
@@ -225,5 +259,20 @@ mod tests {
             expr.eval_default(),
             Some(consts::PI.powf(2.0) * factorial(17.0) / -4.9 + consts::E)
         );
+    }
+
+    #[test]
+    fn func_call() {
+        let mut ctxt = Ctxt::default();
+
+        // assign function
+        let mut parser = Parser::new("f(x) = x^2 + 5x + 6");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+        assert_eq!(expr.eval_with(&mut ctxt), None);
+
+        // call function
+        let mut parser = Parser::new("f(7)");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+        assert_eq!(expr.eval_with(&mut ctxt), Some(90.0));
     }
 }

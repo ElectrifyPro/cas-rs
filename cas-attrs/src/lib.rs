@@ -13,7 +13,7 @@ use syn::parse_macro_input;
 /// corresponding tags to it:
 /// ```
 /// use cas_attrs::ErrorKind;
-/// use cas_parser::parser::error::kind::ErrorKind;
+/// use cas_error::ErrorKind;
 ///
 /// #[derive(Debug, ErrorKind)]
 /// #[error(message = "unexpected end of file", label = "add something here")]

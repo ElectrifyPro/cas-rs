@@ -8,7 +8,8 @@ pub mod paren;
 pub mod token;
 pub mod unary;
 
-use error::{Error, kind::{self, ErrorKind}};
+use cas_error::ErrorKind;
+use error::{Error, kind};
 use super::tokenizer::{tokenize_complete, Token, TokenKind};
 use std::ops::Range;
 

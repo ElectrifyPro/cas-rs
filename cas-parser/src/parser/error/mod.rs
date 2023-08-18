@@ -1,7 +1,7 @@
 pub mod kind;
 
 use ariadne::Report;
-use kind::ErrorKind;
+use cas_error::ErrorKind;
 use std::ops::Range;
 
 /// A general parsing error.

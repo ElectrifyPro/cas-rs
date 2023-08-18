@@ -13,8 +13,11 @@ fn main() {
             Ok(ast) => {
                 let result = ast.eval(&mut ctxt);
                 match result {
-                    Some(res) => println!("{}", res),
-                    None => eprintln!("Error: Could not evaluate expression"),
+                    Ok(res) => println!("{}", res),
+                    Err(e) => {
+                        let report = e.build_report();
+                        report.eprint(("input", Source::from(input))).unwrap();
+                    },
                 }
             },
             Err(e) => {

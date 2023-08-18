@@ -11,6 +11,9 @@ pretty_assertions = "1.3.0"
 [dependencies.cas-attrs]
 path = "../cas-attrs"
 
+[dependencies.cas-error]
+path = "../cas-error"
+
 [dependencies]
 ariadne = "0.2.0"
 logos = "0.13.0"

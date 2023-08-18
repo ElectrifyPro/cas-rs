@@ -7,23 +7,37 @@ use cas_parser::parser::{
     unary::Unary,
     token::op::{BinOp, UnaryOp},
 };
-use super::{ctxt::Ctxt, funcs::{factorial, from_str_radix}};
+use super::{
+    ctxt::Ctxt,
+    error::{
+        kind::{
+            InvalidOperation,
+            MissingArgument,
+            TooManyArguments,
+            UndefinedFunction,
+            UndefinedVariable,
+        },
+        Error,
+    },
+    funcs::{factorial, from_str_radix},
+    value::Value,
+};
 
 /// Any type that can be evaluated to produce a value.
 pub trait Eval {
     /// Evaluate the expression to produce a value, using the given context. The expression should
     /// return [`None`] if it cannot be evaluated.
-    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64>;
+    fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error>;
 
     /// Evaluate the expression to produce a value, using the default context. The expression should
     /// return [`None`] if it cannot be evaluated.
-    fn eval_default(&self) -> Option<f64> {
+    fn eval_default(&self) -> Result<Value, Error> {
         self.eval(&mut Default::default())
     }
 }
 
 impl Eval for Expr {
-    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
+    fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         match self {
             Expr::Literal(literal) => literal.eval(ctxt),
             Expr::Paren(paren) => paren.expr.eval(ctxt),
@@ -35,13 +49,13 @@ impl Eval for Expr {
                     AssignTarget::Symbol(symbol) => {
                         // variable assignment
                         let value = assign.value.eval(ctxt)?;
-                        ctxt.add_var(&symbol.name, value);
-                        Some(value)
+                        ctxt.add_var(&symbol.name, value.clone());
+                        Ok(value)
                     },
                     AssignTarget::Func(header) => {
                         // function assignment
                         ctxt.add_func(header.clone(), *assign.value.clone());
-                        None
+                        Ok(Value::Unit)
                     },
                 }
             },
@@ -50,7 +64,7 @@ impl Eval for Expr {
 }
 
 impl Eval for Primary {
-    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
+    fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         match self {
             Primary::Literal(literal) => literal.eval(ctxt),
             Primary::Paren(paren) => paren.expr.eval(ctxt),
@@ -60,20 +74,29 @@ impl Eval for Primary {
 }
 
 impl Eval for Literal {
-    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
+    fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         match self {
-            Literal::Number(num) => Some(num.value),
-            Literal::Radix(radix) => Some(from_str_radix(radix.value.as_str(), radix.base)),
-            Literal::Symbol(sym) => ctxt.get_var(sym.name.as_str()),
+            Literal::Number(num) => Ok(Value::Number(num.value)),
+            Literal::Radix(radix) => Ok(Value::Number(from_str_radix(radix.value.as_str(), radix.base))),
+            Literal::Symbol(sym) => ctxt.get_var(sym.name.as_str())
+                .ok_or_else(|| Error::new(sym.span.clone(), UndefinedVariable { name: sym.name.clone() })),
         }
     }
 }
 
 impl Eval for Call {
-    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
-        let (header, body) = ctxt.get_func(&self.name.name)?;
+    fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
+        let (header, body) = ctxt.get_func(&self.name.name)
+            .ok_or_else(|| Error::new(self.name.span.clone(), UndefinedFunction {
+                name: self.name.name.clone(),
+                suggestions: ctxt.get_similar_funcs(&self.name.name)
+                    .into_iter()
+                    .map(|(header, _)| header.name.name.clone())
+                    .collect(),
+            }))?;
         let mut ctxt = ctxt.clone();
 
+        let mut index = 0;
         let mut args = self.args.iter();
         let mut params = header.params.iter();
         loop {
@@ -86,14 +109,23 @@ impl Eval for Call {
                 },
 
                 // too many arguments were given
-                (Some(_), None) => return None,
+                (Some(_), None) => return Err(Error::new(self.span(), TooManyArguments {
+                    name: self.name.name.clone(),
+                    expected: header.params.len(),
+                    given: self.args.len(),
+                })),
 
                 // no argument was given for this parameter
                 // use the default value if there is one
                 (None, Some(param)) => {
-                    // if there is no default, return None
+                    // if there is no default, that's an error
                     let value = match param {
-                        Param::Symbol(_) => return None,
+                        Param::Symbol(_) => return Err(Error::new(self.span(), MissingArgument {
+                            name: self.name.name.clone(),
+                            index,
+                            expected: header.params.len(),
+                            given: self.args.len(),
+                        })),
                         Param::Default(_, expr) => expr.eval(&mut ctxt),
                     }?;
                     ctxt.add_var(&param.symbol().name, value);
@@ -102,6 +134,8 @@ impl Eval for Call {
                 // begin evaluation
                 (None, None) => break,
             }
+
+            index += 1;
         }
 
         body.eval(&mut ctxt)
@@ -109,42 +143,48 @@ impl Eval for Call {
 }
 
 impl Eval for Unary {
-    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
+    fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         let operand = self.operand.eval(ctxt)?;
-        Some(match self.op {
-            UnaryOp::Not => if operand == 0.0 { 1.0 } else { 0.0 },
-            UnaryOp::BitNot => !(operand as i64) as f64,
-            UnaryOp::Factorial => factorial(operand),
-            UnaryOp::Neg => -1.0 * operand,
-        })
+        match operand {
+            Value::Number(num) => Ok(Value::Number(match self.op {
+                UnaryOp::Not => if num == 0.0 { 1.0 } else { 0.0 },
+                UnaryOp::BitNot => !(num as i64) as f64,
+                UnaryOp::Factorial => factorial(num),
+                UnaryOp::Neg => -1.0 * num,
+            })),
+            Value::Unit => Err(Error::new(self.span(), InvalidOperation)),
+        }
     }
 }
 
 impl Eval for Binary {
-    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
+    fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         let left = self.lhs.eval(ctxt)?;
         let right = self.rhs.eval(ctxt)?;
-        Some(match self.op {
-            BinOp::Exp => left.powf(right),
-            BinOp::Mul => left * right,
-            BinOp::Div => left / right,
-            BinOp::Add => left + right,
-            BinOp::Sub => left - right,
-            BinOp::BitRight => ((left as i64) >> (right as i64)) as f64,
-            BinOp::BitLeft => ((left as i64) << (right as i64)) as f64,
-            BinOp::BitAnd => ((left as i64) & (right as i64)) as f64,
-            BinOp::BitOr => ((left as i64) | (right as i64)) as f64,
-            BinOp::Greater => (left > right) as u8 as f64,
-            BinOp::GreaterEq => (left >= right) as u8 as f64,
-            BinOp::Less => (left < right) as u8 as f64,
-            BinOp::LessEq => (left <= right) as u8 as f64,
-            BinOp::Eq => (left == right) as u8 as f64,
-            BinOp::NotEq => (left != right) as u8 as f64,
-            BinOp::ApproxEq => ((left - right).abs() < 1e-6) as u8 as f64,
-            BinOp::ApproxNotEq => ((left - right).abs() >= 1e-6) as u8 as f64,
-            BinOp::And => todo!(),
-            BinOp::Or => todo!(),
-        })
+        match (left, right) {
+            (Value::Number(left), Value::Number(right)) => Ok(Value::Number(match self.op {
+                BinOp::Exp => left.powf(right),
+                BinOp::Mul => left * right,
+                BinOp::Div => left / right,
+                BinOp::Add => left + right,
+                BinOp::Sub => left - right,
+                BinOp::BitRight => ((left as i64) >> (right as i64)) as f64,
+                BinOp::BitLeft => ((left as i64) << (right as i64)) as f64,
+                BinOp::BitAnd => ((left as i64) & (right as i64)) as f64,
+                BinOp::BitOr => ((left as i64) | (right as i64)) as f64,
+                BinOp::Greater => (left > right) as u8 as f64,
+                BinOp::GreaterEq => (left >= right) as u8 as f64,
+                BinOp::Less => (left < right) as u8 as f64,
+                BinOp::LessEq => (left <= right) as u8 as f64,
+                BinOp::Eq => (left == right) as u8 as f64,
+                BinOp::NotEq => (left != right) as u8 as f64,
+                BinOp::ApproxEq => ((left - right).abs() < 1e-6) as u8 as f64,
+                BinOp::ApproxNotEq => ((left - right).abs() >= 1e-6) as u8 as f64,
+                BinOp::And => if left != 0.0 && right != 0.0 { 1.0 } else { 0.0 },
+                BinOp::Or => if left != 0.0 || right != 0.0 { 1.0 } else { 0.0 },
+            })),
+            (Value::Unit, _) | (_, Value::Unit) => Err(Error::new(self.span(), InvalidOperation)),
+        }
     }
 }
 
@@ -160,42 +200,42 @@ mod tests {
     fn binary_expr() {
         let mut parser = Parser::new("1 + 2");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default(), Some(3.0));
+        assert_eq!(expr.eval_default().unwrap(), Value::Number(3.0));
     }
 
     #[test]
     fn binary_expr_2() {
         let mut parser = Parser::new("1 + 2 * 3");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default(), Some(7.0));
+        assert_eq!(expr.eval_default().unwrap(), Value::Number(7.0));
     }
 
     #[test]
     fn binary_and_unary() {
         let mut parser = Parser::new("3 * -5 / 5! + 6");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default(), Some(5.875));
+        assert_eq!(expr.eval_default().unwrap(), Value::Number(5.875));
     }
 
     #[test]
     fn parenthesized() {
         let mut parser = Parser::new("((1 + 9) / 5) * 3");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default(), Some(6.0));
+        assert_eq!(expr.eval_default().unwrap(), Value::Number(6.0));
     }
 
     #[test]
     fn degree_to_radian() {
         let mut parser = Parser::new("90 * 2 * pi / 360");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default(), Some(consts::PI / 2.0));
+        assert_eq!(expr.eval_default().unwrap(), Value::Number(consts::PI / 2.0));
     }
 
     #[test]
     fn precision() {
         let mut parser = Parser::new("e^2 - tau");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default(), Some(consts::E.powf(2.0) - consts::TAU));
+        assert_eq!(expr.eval_default().unwrap(), Value::Number(consts::E.powf(2.0) - consts::TAU));
     }
 
     #[test]
@@ -203,8 +243,8 @@ mod tests {
         let mut parser = Parser::new("pi^2 * 17! / -4.9 + e");
         let expr = parser.try_parse_full::<Expr>().unwrap();
         assert_eq!(
-            expr.eval_default(),
-            Some(consts::PI.powf(2.0) * factorial(17.0) / -4.9 + consts::E)
+            expr.eval_default().unwrap(),
+            Value::Number(consts::PI.powf(2.0) * factorial(17.0) / -4.9 + consts::E)
         );
     }
 
@@ -215,12 +255,12 @@ mod tests {
         // assign function
         let mut parser = Parser::new("f(x) = x^2 + 5x + 6");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval(&mut ctxt), None);
+        assert_eq!(expr.eval(&mut ctxt).unwrap(), Value::Unit);
 
         // call function
         let mut parser = Parser::new("f(7)");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval(&mut ctxt), Some(90.0));
+        assert_eq!(expr.eval(&mut ctxt).unwrap(), Value::Number(90.0));
     }
 
     #[test]
@@ -230,7 +270,7 @@ mod tests {
         // assign function
         let mut parser = Parser::new("f(n = 3, k = 6) = n * k");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval(&mut ctxt), None);
+        assert_eq!(expr.eval(&mut ctxt).unwrap(), Value::Unit);
 
         // call function
         let tries = [
@@ -248,8 +288,8 @@ mod tests {
             let mut parser = Parser::new(&source);
             let expr = parser.try_parse_full::<Expr>().unwrap();
             assert_eq!(
-                expr.eval(&mut ctxt),
-                Some(expected_result),
+                expr.eval(&mut ctxt).unwrap(),
+                Value::Number(expected_result),
                 "source: {}",
                 source,
             );

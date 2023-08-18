@@ -1,44 +1,10 @@
-use ariadne::{Color, Fmt, Label, Report, ReportKind};
+use ariadne::Fmt;
 use cas_attrs::ErrorKind;
+use cas_error::{ErrorKind, EXPR};
 use crate::tokenizer::TokenKind;
-use std::{any::Any, fmt::Debug, ops::Range};
 
-const EXPR: Color = Color::RGB(52, 235, 152);
-
-/// Represents any kind of error that can occur.
-pub trait ErrorKind: Debug {
-    fn as_any(&self) -> &dyn Any;
-
-    /// The message to show the user when this error occurs.
-    fn message(&self) -> String;
-
-    /// The label message for the span of the error.
-    fn label(&self) -> String;
-
-    /// The optional help message for the error.
-    fn help(&self) -> Option<String> {
-        None
-    }
-
-    /// Builds the report for this error.
-    fn build_report(&self, src_id: &'static str, span: Range<usize>) -> Report<(&'static str, Range<usize>)> {
-        let mut builder = Report::build(ReportKind::Error, src_id, span.start)
-            .with_message(self.message())
-            .with_labels(vec![
-                Label::new((src_id, span.clone()))
-                    .with_message(self.label())
-                    .with_color(EXPR),
-            ]);
-
-        if let Some(help) = self.help() {
-            builder.set_help(help);
-        }
-
-        builder.finish()
-    }
-}
-
-/// An intentionally useless error. This should only be used for non-fatal errors.
+/// An intentionally useless error. This should only be used for non-fatal errors, as it contains
+/// no useful information.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "an internal non-fatal error occurred while parsing",

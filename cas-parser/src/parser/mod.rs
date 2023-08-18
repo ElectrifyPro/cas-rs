@@ -1,5 +1,6 @@
 pub mod assign;
 pub mod binary;
+pub mod call;
 pub mod error;
 pub mod expr;
 pub mod literal;
@@ -313,6 +314,7 @@ mod tests {
 
     use assign::{Assign, AssignTarget, FuncHeader, Param};
     use binary::Binary;
+    use call::Call;
     use expr::Expr;
     use literal::{Literal, LitNum, LitRadix, LitSym};
     use paren::Paren;
@@ -977,6 +979,26 @@ mod tests {
                 span: 27..39,
             })),
             span: 0..39,
+        }));
+    }
+
+    #[test]
+    fn function_call() {
+        let mut parser = Parser::new("f(x)");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Call(Call {
+            name: LitSym {
+                name: "f".to_string(),
+                span: 0..1,
+            },
+            args: vec![
+                Expr::Literal(Literal::Symbol(LitSym {
+                    name: "x".to_string(),
+                    span: 2..3,
+                })),
+            ],
+            span: 0..4,
         }));
     }
 }

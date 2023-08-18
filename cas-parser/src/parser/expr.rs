@@ -3,6 +3,7 @@ use crate::{
     parser::{
         assign::Assign,
         binary::Binary,
+        call::Call,
         error::{kind, Error},
         literal::Literal,
         paren::Paren,
@@ -29,6 +30,9 @@ pub enum Expr {
     /// A parenthesized expression, such as `(1 + 2)`.
     Paren(Paren),
 
+    /// A function call, such as `abs(-1)`.
+    Call(Call),
+
     /// A unary operation, such as `-1` or `!true`.
     Unary(Unary),
 
@@ -45,6 +49,7 @@ impl Expr {
         match self {
             Expr::Literal(literal) => literal.span(),
             Expr::Paren(paren) => paren.span(),
+            Expr::Call(call) => call.span(),
             Expr::Unary(unary) => unary.span(),
             Expr::Binary(binary) => binary.span(),
             Expr::Assign(assign) => assign.span(),
@@ -75,12 +80,19 @@ pub enum Primary {
 
     /// A parenthesized expression, such as `(1 + 2)`.
     Paren(Paren),
+
+    /// A function call, such as `abs(-1)`.
+    Call(Call),
 }
 
 impl Parse for Primary {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
+        // function calls can overlap with literals, so we need to try parsing a function call
+        // first
+        let _ = try_parse_catch_fatal!(input.try_parse::<Call>().map(|call| Self::Call(call)));
         let _ = try_parse_catch_fatal!(input.try_parse::<Literal>().map(|literal| Self::Literal(literal)));
-        try_parse_catch_fatal!(input.try_parse::<Paren>().map(|paren| Self::Paren(paren)))
+
+        input.try_parse::<Paren>().map(|paren| Self::Paren(paren))
     }
 }
 
@@ -89,6 +101,7 @@ impl From<Primary> for Expr {
         match primary {
             Primary::Literal(literal) => Self::Literal(literal),
             Primary::Paren(paren) => Self::Paren(paren),
+            Primary::Call(call) => Self::Call(call),
         }
     }
 }

@@ -109,18 +109,37 @@ impl Eval for Call {
     fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
         let (header, body) = ctxt.get_func(&self.name.name)?;
         let mut ctxt = ctxt.clone();
-        for (arg, param) in self.args.iter().zip(header.params.iter()) {
-            // evaluate the argument, then add it to the context for use in the function body,
-            // cloning the context to avoid mutating the original
-            // if not provided, try the default value
-            // if there is no default, return None
-            let value = arg.eval_with(&mut ctxt)
-                .or_else(|| match param {
-                    Param::Symbol(_) => None,
-                    Param::Default(_, expr) => expr.eval_with(&mut ctxt),
-                })?;
-            ctxt.add_var(&param.symbol().name, value);
+
+        let mut args = self.args.iter();
+        let mut params = header.params.iter();
+        loop {
+            match (args.next(), params.next()) {
+                // a positional argument
+                // evaluate it and add it to the context for use in the function body
+                (Some(arg), Some(param)) => {
+                    let value = arg.eval_with(&mut ctxt)?;
+                    ctxt.add_var(&param.symbol().name, value);
+                },
+
+                // too many arguments were given
+                (Some(_), None) => return None,
+
+                // no argument was given for this parameter
+                // use the default value if there is one
+                (None, Some(param)) => {
+                    // if there is no default, return None
+                    let value = match param {
+                        Param::Symbol(_) => return None,
+                        Param::Default(_, expr) => expr.eval_with(&mut ctxt),
+                    }?;
+                    ctxt.add_var(&param.symbol().name, value);
+                },
+
+                // begin evaluation
+                (None, None) => break,
+            }
         }
+
         body.eval_with(&mut ctxt)
     }
 }
@@ -274,5 +293,38 @@ mod tests {
         let mut parser = Parser::new("f(7)");
         let expr = parser.try_parse_full::<Expr>().unwrap();
         assert_eq!(expr.eval_with(&mut ctxt), Some(90.0));
+    }
+
+    #[test]
+    fn complicated_func_call() {
+        let mut ctxt = Ctxt::default();
+
+        // assign function
+        let mut parser = Parser::new("f(n = 3, k = 6) = n * k");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+        assert_eq!(expr.eval_with(&mut ctxt), None);
+
+        // call function
+        let tries = [
+            (None, None, 18.0),
+            // (None, Some(4.0), 12.0), // TODO: there is currently no way to pass only the second argument
+            (Some(9.0), None, 54.0),
+            (Some(8.0), Some(14.0), 112.0),
+        ];
+        for (n, k, expected_result) in tries {
+            let source = format!(
+                "f({}{})",
+                n.map_or("".to_string(), |n| n.to_string()),
+                k.map_or("".to_string(), |k| format!(", {}", k)),
+            );
+            let mut parser = Parser::new(&source);
+            let expr = parser.try_parse_full::<Expr>().unwrap();
+            assert_eq!(
+                expr.eval_with(&mut ctxt),
+                Some(expected_result),
+                "source: {}",
+                source,
+            );
+        }
     }
 }

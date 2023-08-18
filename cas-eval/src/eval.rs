@@ -11,45 +11,30 @@ use super::{ctxt::Ctxt, funcs::{factorial, from_str_radix}};
 
 /// Any type that can be evaluated to produce a value.
 pub trait Eval {
-    /// Evaluate the expression to produce a value, without any available context. The expression
-    /// should return [`None`] if it cannot be evaluated.
-    fn eval(&self) -> Option<f64>;
-
     /// Evaluate the expression to produce a value, using the given context. The expression should
     /// return [`None`] if it cannot be evaluated.
-    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64>;
+    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64>;
 
     /// Evaluate the expression to produce a value, using the default context. The expression should
     /// return [`None`] if it cannot be evaluated.
     fn eval_default(&self) -> Option<f64> {
-        self.eval_with(&mut Default::default())
+        self.eval(&mut Default::default())
     }
 }
 
 impl Eval for Expr {
-    fn eval(&self) -> Option<f64> {
+    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
         match self {
-            Expr::Literal(literal) => literal.eval(),
-            Expr::Paren(paren) => paren.expr.eval(),
-            Expr::Call(call) => call.eval(),
-            Expr::Unary(unary) => unary.eval(),
-            Expr::Binary(binary) => binary.eval(),
-            Expr::Assign(_) => None,
-        }
-    }
-
-    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
-        match self {
-            Expr::Literal(literal) => literal.eval_with(ctxt),
-            Expr::Paren(paren) => paren.expr.eval_with(ctxt),
-            Expr::Call(call) => call.eval_with(ctxt),
-            Expr::Unary(unary) => unary.eval_with(ctxt),
-            Expr::Binary(binary) => binary.eval_with(ctxt),
+            Expr::Literal(literal) => literal.eval(ctxt),
+            Expr::Paren(paren) => paren.expr.eval(ctxt),
+            Expr::Call(call) => call.eval(ctxt),
+            Expr::Unary(unary) => unary.eval(ctxt),
+            Expr::Binary(binary) => binary.eval(ctxt),
             Expr::Assign(assign) => {
                 match &assign.target {
                     AssignTarget::Symbol(symbol) => {
                         // variable assignment
-                        let value = assign.value.eval_with(ctxt)?;
+                        let value = assign.value.eval(ctxt)?;
                         ctxt.add_var(&symbol.name, value);
                         Some(value)
                     },
@@ -65,33 +50,17 @@ impl Eval for Expr {
 }
 
 impl Eval for Primary {
-    fn eval(&self) -> Option<f64> {
+    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
         match self {
-            Primary::Literal(literal) => literal.eval(),
-            Primary::Paren(paren) => paren.expr.eval(),
-            Primary::Call(call) => call.eval(),
-        }
-    }
-
-    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
-        match self {
-            Primary::Literal(literal) => literal.eval_with(ctxt),
-            Primary::Paren(paren) => paren.expr.eval_with(ctxt),
-            Primary::Call(call) => call.eval_with(ctxt),
+            Primary::Literal(literal) => literal.eval(ctxt),
+            Primary::Paren(paren) => paren.expr.eval(ctxt),
+            Primary::Call(call) => call.eval(ctxt),
         }
     }
 }
 
 impl Eval for Literal {
-    fn eval(&self) -> Option<f64> {
-        match self {
-            Literal::Number(num) => Some(num.value),
-            Literal::Radix(radix) => Some(from_str_radix(radix.value.as_str(), radix.base)),
-            Literal::Symbol(_) => None, // context needed
-        }
-    }
-
-    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
+    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
         match self {
             Literal::Number(num) => Some(num.value),
             Literal::Radix(radix) => Some(from_str_radix(radix.value.as_str(), radix.base)),
@@ -101,12 +70,7 @@ impl Eval for Literal {
 }
 
 impl Eval for Call {
-    fn eval(&self) -> Option<f64> {
-        // without a context, we can't evaluate a function call
-        None
-    }
-
-    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
+    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
         let (header, body) = ctxt.get_func(&self.name.name)?;
         let mut ctxt = ctxt.clone();
 
@@ -117,7 +81,7 @@ impl Eval for Call {
                 // a positional argument
                 // evaluate it and add it to the context for use in the function body
                 (Some(arg), Some(param)) => {
-                    let value = arg.eval_with(&mut ctxt)?;
+                    let value = arg.eval(&mut ctxt)?;
                     ctxt.add_var(&param.symbol().name, value);
                 },
 
@@ -130,7 +94,7 @@ impl Eval for Call {
                     // if there is no default, return None
                     let value = match param {
                         Param::Symbol(_) => return None,
-                        Param::Default(_, expr) => expr.eval_with(&mut ctxt),
+                        Param::Default(_, expr) => expr.eval(&mut ctxt),
                     }?;
                     ctxt.add_var(&param.symbol().name, value);
                 },
@@ -140,23 +104,13 @@ impl Eval for Call {
             }
         }
 
-        body.eval_with(&mut ctxt)
+        body.eval(&mut ctxt)
     }
 }
 
 impl Eval for Unary {
-    fn eval(&self) -> Option<f64> {
-        let operand = self.operand.eval()?;
-        Some(match self.op {
-            UnaryOp::Not => if operand == 0.0 { 1.0 } else { 0.0 },
-            UnaryOp::BitNot => !(operand as i64) as f64,
-            UnaryOp::Factorial => factorial(operand),
-            UnaryOp::Neg => -1.0 * operand,
-        })
-    }
-
-    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
-        let operand = self.operand.eval_with(ctxt)?;
+    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
+        let operand = self.operand.eval(ctxt)?;
         Some(match self.op {
             UnaryOp::Not => if operand == 0.0 { 1.0 } else { 0.0 },
             UnaryOp::BitNot => !(operand as i64) as f64,
@@ -167,35 +121,9 @@ impl Eval for Unary {
 }
 
 impl Eval for Binary {
-    fn eval(&self) -> Option<f64> {
-        let left = self.lhs.eval()?;
-        let right = self.rhs.eval()?;
-        Some(match self.op {
-            BinOp::Exp => left.powf(right),
-            BinOp::Mul => left * right,
-            BinOp::Div => left / right,
-            BinOp::Add => left + right,
-            BinOp::Sub => left - right,
-            BinOp::BitRight => ((left as i64) >> (right as i64)) as f64,
-            BinOp::BitLeft => ((left as i64) << (right as i64)) as f64,
-            BinOp::BitAnd => ((left as i64) & (right as i64)) as f64,
-            BinOp::BitOr => ((left as i64) | (right as i64)) as f64,
-            BinOp::Greater => (left > right) as u8 as f64,
-            BinOp::GreaterEq => (left >= right) as u8 as f64,
-            BinOp::Less => (left < right) as u8 as f64,
-            BinOp::LessEq => (left <= right) as u8 as f64,
-            BinOp::Eq => (left == right) as u8 as f64,
-            BinOp::NotEq => (left != right) as u8 as f64,
-            BinOp::ApproxEq => ((left - right).abs() < 1e-6) as u8 as f64,
-            BinOp::ApproxNotEq => ((left - right).abs() >= 1e-6) as u8 as f64,
-            BinOp::And => todo!(),
-            BinOp::Or => todo!(),
-        })
-    }
-
-    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
-        let left = self.lhs.eval_with(ctxt)?;
-        let right = self.rhs.eval_with(ctxt)?;
+    fn eval(&self, ctxt: &mut Ctxt) -> Option<f64> {
+        let left = self.lhs.eval(ctxt)?;
+        let right = self.rhs.eval(ctxt)?;
         Some(match self.op {
             BinOp::Exp => left.powf(right),
             BinOp::Mul => left * right,
@@ -232,28 +160,28 @@ mod tests {
     fn binary_expr() {
         let mut parser = Parser::new("1 + 2");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval(), Some(3.0));
+        assert_eq!(expr.eval_default(), Some(3.0));
     }
 
     #[test]
     fn binary_expr_2() {
         let mut parser = Parser::new("1 + 2 * 3");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval(), Some(7.0));
+        assert_eq!(expr.eval_default(), Some(7.0));
     }
 
     #[test]
     fn binary_and_unary() {
         let mut parser = Parser::new("3 * -5 / 5! + 6");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval(), Some(5.875));
+        assert_eq!(expr.eval_default(), Some(5.875));
     }
 
     #[test]
     fn parenthesized() {
         let mut parser = Parser::new("((1 + 9) / 5) * 3");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval(), Some(6.0));
+        assert_eq!(expr.eval_default(), Some(6.0));
     }
 
     #[test]
@@ -287,12 +215,12 @@ mod tests {
         // assign function
         let mut parser = Parser::new("f(x) = x^2 + 5x + 6");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_with(&mut ctxt), None);
+        assert_eq!(expr.eval(&mut ctxt), None);
 
         // call function
         let mut parser = Parser::new("f(7)");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_with(&mut ctxt), Some(90.0));
+        assert_eq!(expr.eval(&mut ctxt), Some(90.0));
     }
 
     #[test]
@@ -302,7 +230,7 @@ mod tests {
         // assign function
         let mut parser = Parser::new("f(n = 3, k = 6) = n * k");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_with(&mut ctxt), None);
+        assert_eq!(expr.eval(&mut ctxt), None);
 
         // call function
         let tries = [
@@ -320,7 +248,7 @@ mod tests {
             let mut parser = Parser::new(&source);
             let expr = parser.try_parse_full::<Expr>().unwrap();
             assert_eq!(
-                expr.eval_with(&mut ctxt),
+                expr.eval(&mut ctxt),
                 Some(expected_result),
                 "source: {}",
                 source,

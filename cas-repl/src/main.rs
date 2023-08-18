@@ -11,7 +11,7 @@ fn main() {
         let expr = Parser::new(input.trim()).try_parse_full::<Expr>();
         match expr {
             Ok(ast) => {
-                let result = ast.eval_with(&mut ctxt);
+                let result = ast.eval(&mut ctxt);
                 match result {
                     Some(res) => println!("{}", res),
                     None => eprintln!("Error: Could not evaluate expression"),

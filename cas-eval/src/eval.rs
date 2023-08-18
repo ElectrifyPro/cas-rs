@@ -1,4 +1,5 @@
 use cas_parser::parser::{
+    assign::AssignTarget,
     expr::{Expr, Primary},
     binary::Binary,
     literal::Literal,
@@ -15,12 +16,12 @@ pub trait Eval {
 
     /// Evaluate the expression to produce a value, using the given context. The expression should
     /// return [`None`] if it cannot be evaluated.
-    fn eval_with(&self, ctxt: &Ctxt) -> Option<f64>;
+    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64>;
 
     /// Evaluate the expression to produce a value, using the default context. The expression should
     /// return [`None`] if it cannot be evaluated.
     fn eval_default(&self) -> Option<f64> {
-        self.eval_with(&Ctxt::with_defaults())
+        self.eval_with(&mut Ctxt::with_defaults())
     }
 }
 
@@ -31,15 +32,27 @@ impl Eval for Expr {
             Expr::Paren(paren) => paren.expr.eval(),
             Expr::Unary(unary) => unary.eval(),
             Expr::Binary(binary) => binary.eval(),
+            Expr::Assign(_) => None, // context needed
         }
     }
 
-    fn eval_with(&self, ctxt: &Ctxt) -> Option<f64> {
+    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
         match self {
             Expr::Literal(literal) => literal.eval_with(ctxt),
             Expr::Paren(paren) => paren.expr.eval_with(ctxt),
             Expr::Unary(unary) => unary.eval_with(ctxt),
             Expr::Binary(binary) => binary.eval_with(ctxt),
+            Expr::Assign(assign) => {
+                if let AssignTarget::Symbol(symbol) = &assign.target {
+                    // variable assignment
+                    let value = assign.value.eval_with(ctxt)?;
+                    ctxt.add_var(&symbol.name, value);
+                    Some(value)
+                } else {
+                    // function assignment
+                    todo!() // TODO
+                }
+            },
         }
     }
 }
@@ -52,7 +65,7 @@ impl Eval for Primary {
         }
     }
 
-    fn eval_with(&self, ctxt: &Ctxt) -> Option<f64> {
+    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
         match self {
             Primary::Literal(literal) => literal.eval_with(ctxt),
             Primary::Paren(paren) => paren.expr.eval_with(ctxt),
@@ -69,7 +82,7 @@ impl Eval for Literal {
         }
     }
 
-    fn eval_with(&self, ctxt: &Ctxt) -> Option<f64> {
+    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
         match self {
             Literal::Number(num) => Some(num.value),
             Literal::Radix(radix) => Some(from_str_radix(radix.value.as_str(), radix.base)),
@@ -89,7 +102,7 @@ impl Eval for Unary {
         })
     }
 
-    fn eval_with(&self, ctxt: &Ctxt) -> Option<f64> {
+    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
         let operand = self.operand.eval_with(ctxt)?;
         Some(match self.op {
             UnaryOp::Not => if operand == 0.0 { 1.0 } else { 0.0 },
@@ -127,7 +140,7 @@ impl Eval for Binary {
         })
     }
 
-    fn eval_with(&self, ctxt: &Ctxt) -> Option<f64> {
+    fn eval_with(&self, ctxt: &mut Ctxt) -> Option<f64> {
         let left = self.lhs.eval_with(ctxt)?;
         let right = self.rhs.eval_with(ctxt)?;
         Some(match self.op {

@@ -10,17 +10,18 @@ use crate::{
     },
     tokenizer::TokenKind,
 };
+use std::ops::Range;
 
 /// The unary operation that is being performed.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum UnaryOp {
+pub enum UnaryOpKind {
     Not,
     BitNot,
     Factorial,
     Neg,
 }
 
-impl UnaryOp {
+impl UnaryOpKind {
     /// Returns the precedence of the unary operation.
     pub fn precedence(&self) -> Precedence {
         match self {
@@ -40,16 +41,37 @@ impl UnaryOp {
     }
 }
 
+/// A unary operator that takes one operand.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnaryOp {
+    /// The kind of unary operator.
+    pub kind: UnaryOpKind,
+
+    /// The region of the source code that this operator was parsed from.
+    pub span: Range<usize>,
+}
+
+impl UnaryOp {
+    /// Returns the precedence of the unary operator.
+    pub fn precedence(&self) -> Precedence {
+        self.kind.precedence()
+    }
+
+    /// Returns the associativity of the unary operator.
+    pub fn associativity(&self) -> Associativity {
+        self.kind.associativity()
+    }
+}
+
 impl Parse for UnaryOp {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
         let token = input.next_token()?;
-
-        match token.kind {
-            TokenKind::Not => Ok(Self::Not),
-            TokenKind::BitNot => Ok(Self::BitNot),
-            TokenKind::Factorial => Ok(Self::Factorial),
-            TokenKind::Sub => Ok(Self::Neg),
-            _ => Err(Error::new(vec![token.span], kind::UnexpectedToken {
+        let kind = match token.kind {
+            TokenKind::Not => Ok(UnaryOpKind::Not),
+            TokenKind::BitNot => Ok(UnaryOpKind::BitNot),
+            TokenKind::Factorial => Ok(UnaryOpKind::Factorial),
+            TokenKind::Sub => Ok(UnaryOpKind::Neg),
+            _ => Err(Error::new(vec![token.span.clone()], kind::UnexpectedToken {
                 expected: &[
                     TokenKind::Not,
                     TokenKind::Factorial,
@@ -57,13 +79,18 @@ impl Parse for UnaryOp {
                 ],
                 found: token.kind,
             })),
-        }
+        }?;
+
+        Ok(Self {
+            kind,
+            span: token.span,
+        })
     }
 }
 
 /// The binary operation that is being performed.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum BinOp {
+pub enum BinOpKind {
     Exp,
     Mul,
     Div,
@@ -85,7 +112,7 @@ pub enum BinOp {
     Or,
 }
 
-impl BinOp {
+impl BinOpKind {
     /// Returns the precedence of the binary operation.
     pub fn precedence(&self) -> Precedence {
         match self {
@@ -117,31 +144,52 @@ impl BinOp {
     }
 }
 
+/// A binary operator that takes two operands.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BinOp {
+    /// The kind of binary operator.
+    pub kind: BinOpKind,
+
+    /// The region of the source code that this operator was parsed from.
+    pub span: Range<usize>,
+}
+
+impl BinOp {
+    /// Returns the precedence of the binary operation.
+    pub fn precedence(&self) -> Precedence {
+        self.kind.precedence()
+    }
+
+    /// Returns the associativity of the binary operation.
+    pub fn associativity(&self) -> Associativity {
+        self.kind.associativity()
+    }
+}
+
 impl Parse for BinOp {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
         let token = input.next_token()?;
-
-        match token.kind {
-            TokenKind::Exp => Ok(Self::Exp),
-            TokenKind::Mul => Ok(Self::Mul),
-            TokenKind::Div => Ok(Self::Div),
-            TokenKind::Add => Ok(Self::Add),
-            TokenKind::Sub => Ok(Self::Sub),
-            TokenKind::BitRight => Ok(Self::BitRight),
-            TokenKind::BitLeft => Ok(Self::BitLeft),
-            TokenKind::BitAnd => Ok(Self::BitAnd),
-            TokenKind::BitOr => Ok(Self::BitOr),
-            TokenKind::Greater => Ok(Self::Greater),
-            TokenKind::GreaterEq => Ok(Self::GreaterEq),
-            TokenKind::Less => Ok(Self::Less),
-            TokenKind::LessEq => Ok(Self::LessEq),
-            TokenKind::Eq => Ok(Self::Eq),
-            TokenKind::NotEq => Ok(Self::NotEq),
-            TokenKind::ApproxEq => Ok(Self::ApproxEq),
-            TokenKind::ApproxNotEq => Ok(Self::ApproxNotEq),
-            TokenKind::And => Ok(Self::And),
-            TokenKind::Or => Ok(Self::Or),
-            _ => Err(Error::new(vec![token.span], kind::UnexpectedToken {
+        let kind = match token.kind {
+            TokenKind::Exp => Ok(BinOpKind::Exp),
+            TokenKind::Mul => Ok(BinOpKind::Mul),
+            TokenKind::Div => Ok(BinOpKind::Div),
+            TokenKind::Add => Ok(BinOpKind::Add),
+            TokenKind::Sub => Ok(BinOpKind::Sub),
+            TokenKind::BitRight => Ok(BinOpKind::BitRight),
+            TokenKind::BitLeft => Ok(BinOpKind::BitLeft),
+            TokenKind::BitAnd => Ok(BinOpKind::BitAnd),
+            TokenKind::BitOr => Ok(BinOpKind::BitOr),
+            TokenKind::Greater => Ok(BinOpKind::Greater),
+            TokenKind::GreaterEq => Ok(BinOpKind::GreaterEq),
+            TokenKind::Less => Ok(BinOpKind::Less),
+            TokenKind::LessEq => Ok(BinOpKind::LessEq),
+            TokenKind::Eq => Ok(BinOpKind::Eq),
+            TokenKind::NotEq => Ok(BinOpKind::NotEq),
+            TokenKind::ApproxEq => Ok(BinOpKind::ApproxEq),
+            TokenKind::ApproxNotEq => Ok(BinOpKind::ApproxNotEq),
+            TokenKind::And => Ok(BinOpKind::And),
+            TokenKind::Or => Ok(BinOpKind::Or),
+            _ => Err(Error::new(vec![token.span.clone()], kind::UnexpectedToken {
                 expected: &[
                     TokenKind::Exp,
                     TokenKind::Mul,
@@ -151,6 +199,11 @@ impl Parse for BinOp {
                 ],
                 found: token.kind,
             })),
-        }
+        }?;
+
+        Ok(Self {
+            kind,
+            span: token.span,
+        })
     }
 }

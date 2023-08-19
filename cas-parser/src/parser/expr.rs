@@ -85,6 +85,17 @@ pub enum Primary {
     Call(Call),
 }
 
+impl Primary {
+    /// Returns the span of the primary expression.
+    pub fn span(&self) -> Range<usize> {
+        match self {
+            Primary::Literal(literal) => literal.span(),
+            Primary::Paren(paren) => paren.span(),
+            Primary::Call(call) => call.span(),
+        }
+    }
+}
+
 impl Parse for Primary {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
         // function calls can overlap with literals, so we need to try parsing a function call

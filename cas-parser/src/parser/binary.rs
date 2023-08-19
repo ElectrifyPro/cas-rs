@@ -2,7 +2,7 @@ use std::ops::Range;
 use super::{
     expr::{Expr, Primary},
     error::{kind, Error},
-    token::op::BinOp,
+    token::op::{BinOp, BinOpKind},
     unary::Unary,
     Associativity,
     Parse,
@@ -48,10 +48,16 @@ impl Binary {
                        }
                    },
                    Err(_) => {
-                       if BinOp::Mul.precedence() >= precedence {
-                           let rhs = input.try_parse::<Primary>()
+                       if BinOpKind::Mul.precedence() >= precedence {
+                           let rhs = input.try_parse_with_fn(Unary::parse_or_lower)
                                .map_err(|_| input.error(kind::NonFatal))?;
-                           Ok((BinOp::Mul, rhs.into()))
+                           Ok((
+                               BinOp {
+                                   kind: BinOpKind::Mul,
+                                   span: lhs.span().end..rhs.span().start,
+                               },
+                               rhs.into(),
+                            ))
                        } else {
                            Err(input.error(kind::NonFatal))
                        }
@@ -95,9 +101,13 @@ impl Binary {
                    if let Ok(primary) = input.try_parse::<Primary>() {
                        let expr: Expr = primary.into();
                        let (start_span, end_span) = (rhs.span().start, expr.span().end);
+                       let op_span = rhs.span().end..expr.span().start;
                        rhs = Expr::Binary(Binary {
                            lhs: Box::new(rhs),
-                           op: BinOp::Mul,
+                           op: BinOp {
+                               kind: BinOpKind::Mul,
+                               span: op_span,
+                           },
                            rhs: Box::new(expr),
                            span: start_span..end_span,
                        });

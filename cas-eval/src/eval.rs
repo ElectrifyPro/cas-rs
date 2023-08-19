@@ -5,13 +5,14 @@ use cas_parser::parser::{
     binary::Binary,
     literal::Literal,
     unary::Unary,
-    token::op::{BinOp, UnaryOp},
+    token::op::{BinOpKind, UnaryOpKind},
 };
 use super::{
     ctxt::Ctxt,
     error::{
         kind::{
-            InvalidOperation,
+            InvalidBinaryOperation,
+            InvalidUnaryOperation,
             MissingArgument,
             TooManyArguments,
             UndefinedFunction,
@@ -146,13 +147,16 @@ impl Eval for Unary {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         let operand = self.operand.eval(ctxt)?;
         match operand {
-            Value::Number(num) => Ok(Value::Number(match self.op {
-                UnaryOp::Not => if num == 0.0 { 1.0 } else { 0.0 },
-                UnaryOp::BitNot => !(num as i64) as f64,
-                UnaryOp::Factorial => factorial(num),
-                UnaryOp::Neg => -1.0 * num,
+            Value::Number(num) => Ok(Value::Number(match self.op.kind {
+                UnaryOpKind::Not => if num == 0.0 { 1.0 } else { 0.0 },
+                UnaryOpKind::BitNot => !(num as i64) as f64,
+                UnaryOpKind::Factorial => factorial(num),
+                UnaryOpKind::Neg => -1.0 * num,
             })),
-            Value::Unit => Err(Error::new(vec![self.span()], InvalidOperation)),
+            Value::Unit => Err(Error::new(vec![self.operand.span(), self.op.span.clone()], InvalidUnaryOperation {
+                op: self.op.kind,
+                expr_type: format!("{:?}", operand),
+            })),
         }
     }
 }
@@ -162,28 +166,35 @@ impl Eval for Binary {
         let left = self.lhs.eval(ctxt)?;
         let right = self.rhs.eval(ctxt)?;
         match (left, right) {
-            (Value::Number(left), Value::Number(right)) => Ok(Value::Number(match self.op {
-                BinOp::Exp => left.powf(right),
-                BinOp::Mul => left * right,
-                BinOp::Div => left / right,
-                BinOp::Add => left + right,
-                BinOp::Sub => left - right,
-                BinOp::BitRight => ((left as i64) >> (right as i64)) as f64,
-                BinOp::BitLeft => ((left as i64) << (right as i64)) as f64,
-                BinOp::BitAnd => ((left as i64) & (right as i64)) as f64,
-                BinOp::BitOr => ((left as i64) | (right as i64)) as f64,
-                BinOp::Greater => (left > right) as u8 as f64,
-                BinOp::GreaterEq => (left >= right) as u8 as f64,
-                BinOp::Less => (left < right) as u8 as f64,
-                BinOp::LessEq => (left <= right) as u8 as f64,
-                BinOp::Eq => (left == right) as u8 as f64,
-                BinOp::NotEq => (left != right) as u8 as f64,
-                BinOp::ApproxEq => ((left - right).abs() < 1e-6) as u8 as f64,
-                BinOp::ApproxNotEq => ((left - right).abs() >= 1e-6) as u8 as f64,
-                BinOp::And => if left != 0.0 && right != 0.0 { 1.0 } else { 0.0 },
-                BinOp::Or => if left != 0.0 || right != 0.0 { 1.0 } else { 0.0 },
+            (Value::Number(left), Value::Number(right)) => Ok(Value::Number(match self.op.kind {
+                BinOpKind::Exp => left.powf(right),
+                BinOpKind::Mul => left * right,
+                BinOpKind::Div => left / right,
+                BinOpKind::Add => left + right,
+                BinOpKind::Sub => left - right,
+                BinOpKind::BitRight => ((left as i64) >> (right as i64)) as f64,
+                BinOpKind::BitLeft => ((left as i64) << (right as i64)) as f64,
+                BinOpKind::BitAnd => ((left as i64) & (right as i64)) as f64,
+                BinOpKind::BitOr => ((left as i64) | (right as i64)) as f64,
+                BinOpKind::Greater => (left > right) as u8 as f64,
+                BinOpKind::GreaterEq => (left >= right) as u8 as f64,
+                BinOpKind::Less => (left < right) as u8 as f64,
+                BinOpKind::LessEq => (left <= right) as u8 as f64,
+                BinOpKind::Eq => (left == right) as u8 as f64,
+                BinOpKind::NotEq => (left != right) as u8 as f64,
+                BinOpKind::ApproxEq => ((left - right).abs() < 1e-6) as u8 as f64,
+                BinOpKind::ApproxNotEq => ((left - right).abs() >= 1e-6) as u8 as f64,
+                BinOpKind::And => if left != 0.0 && right != 0.0 { 1.0 } else { 0.0 },
+                BinOpKind::Or => if left != 0.0 || right != 0.0 { 1.0 } else { 0.0 },
             })),
-            (Value::Unit, _) | (_, Value::Unit) => Err(Error::new(vec![self.span()], InvalidOperation)),
+            (left, right) => Err(Error::new(
+                vec![self.lhs.span(), self.op.span.clone(), self.rhs.span()],
+                InvalidBinaryOperation {
+                    op: self.op.kind,
+                    left: format!("{:?}", left),
+                    right: format!("{:?}", right),
+                },
+            )),
         }
     }
 }

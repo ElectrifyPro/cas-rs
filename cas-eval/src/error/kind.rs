@@ -1,15 +1,45 @@
 use ariadne::Fmt;
 use cas_attrs::ErrorKind;
 use cas_error::{ErrorKind, EXPR};
+use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
 
-/// The given operation cannot be applied to the given operand(s).
+/// The given binary operation cannot be applied to the given operands.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = "cannot apply `{}` to `{}`",
-    labels = ["while trying to evaluate this"],
-    help = "you cannot apply this operation to this operand"
+    message = format!("cannot apply the `{:?}` operator to these operands", op),
+    labels = [
+        format!("this operand has type `{}`", left),
+        "this operator".to_string(),
+        format!("this operand has type `{}`", right),
+    ],
 )]
-pub struct InvalidOperation; // TODO
+pub struct InvalidBinaryOperation {
+    /// The operator that was used.
+    pub op: BinOpKind,
+
+    /// The type the left side evaluated to.
+    pub left: String,
+
+    /// The type the right side evaluated to.
+    pub right: String,
+}
+
+/// The given unary operation cannot be applied to the given operand.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!("cannot apply the `{:?}` operator to this operand", op),
+    labels = [
+        format!("this operand has type `{}`", expr_type),
+        "this operator".to_string(),
+    ],
+)]
+pub struct InvalidUnaryOperation {
+    /// The operator that was used.
+    pub op: UnaryOpKind,
+
+    /// The type the operand evaluated to.
+    pub expr_type: String,
+}
 
 /// The variable is undefined.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]

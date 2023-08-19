@@ -150,6 +150,9 @@ pub struct BinOp {
     /// The kind of binary operator.
     pub kind: BinOpKind,
 
+    /// Whether this binary operator was implicitly inserted by the parser.
+    pub implicit: bool,
+
     /// The region of the source code that this operator was parsed from.
     pub span: Range<usize>,
 }
@@ -203,6 +206,7 @@ impl Parse for BinOp {
 
         Ok(Self {
             kind,
+            implicit: false,
             span: token.span,
         })
     }

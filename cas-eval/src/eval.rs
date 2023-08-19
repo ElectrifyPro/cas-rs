@@ -191,6 +191,7 @@ impl Eval for Binary {
                 vec![self.lhs.span(), self.op.span.clone(), self.rhs.span()],
                 InvalidBinaryOperation {
                     op: self.op.kind,
+                    implicit: self.op.implicit,
                     left: format!("{:?}", left),
                     right: format!("{:?}", right),
                 },

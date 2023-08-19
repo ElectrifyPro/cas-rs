@@ -506,6 +506,7 @@ mod tests {
                 }))),
                 op: BinOp {
                     kind: BinOpKind::Mul,
+                    implicit: false,
                     span: 2..3,
                 },
                 rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -516,6 +517,7 @@ mod tests {
             })),
             op: BinOp {
                 kind: BinOpKind::Mul,
+                implicit: false,
                 span: 6..7,
             },
             rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -539,6 +541,7 @@ mod tests {
                 }))),
                 op: BinOp {
                     kind: BinOpKind::Add,
+                    implicit: false,
                     span: 2..3,
                 },
                 rhs: Box::new(Expr::Binary(Binary {
@@ -548,6 +551,7 @@ mod tests {
                     }))),
                     op: BinOp {
                         kind: BinOpKind::Mul,
+                        implicit: false,
                         span: 6..7,
                     },
                     rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -560,6 +564,7 @@ mod tests {
             })),
             op: BinOp {
                 kind: BinOpKind::Add,
+                implicit: false,
                 span: 10..11,
             },
             rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -582,6 +587,7 @@ mod tests {
             }))),
             op: BinOp {
                 kind: BinOpKind::Exp,
+                implicit: false,
                 span: 2..3,
             },
             rhs: Box::new(Expr::Binary(Binary {
@@ -591,6 +597,7 @@ mod tests {
                 }))),
                 op: BinOp {
                     kind: BinOpKind::Exp,
+                    implicit: false,
                     span: 6..7,
                 },
                 rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -616,6 +623,7 @@ mod tests {
             }))),
             op: BinOp {
                 kind: BinOpKind::Mul,
+                implicit: false,
                 span: 6..7,
             },
             rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -633,6 +641,7 @@ mod tests {
             }))),
             op: BinOp {
                 kind: BinOpKind::Add,
+                implicit: false,
                 span: 2..3,
             },
             rhs: Box::new(mul),
@@ -647,6 +656,7 @@ mod tests {
             }))),
             op: BinOp {
                 kind: BinOpKind::Exp,
+                implicit: false,
                 span: 18..19,
             },
             rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -664,6 +674,7 @@ mod tests {
             }))),
             op: BinOp {
                 kind: BinOpKind::Div,
+                implicit: false,
                 span: 14..15,
             },
             rhs: Box::new(exp),
@@ -675,6 +686,7 @@ mod tests {
             lhs: Box::new(add),
             op: BinOp {
                 kind: BinOpKind::Sub,
+                implicit: false,
                 span: 10..11,
             },
             rhs: Box::new(div),
@@ -698,6 +710,7 @@ mod tests {
                     }))),
                     op: BinOp {
                         kind: BinOpKind::Exp,
+                        implicit: false,
                         span: 3..4,
                     },
                     rhs: Box::new(Expr::Unary(Unary {
@@ -721,6 +734,7 @@ mod tests {
             })),
             op: BinOp {
                 kind: BinOpKind::Mul,
+                implicit: false,
                 span: 8..9,
             },
             rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -746,6 +760,7 @@ mod tests {
                         }))),
                         op: BinOp {
                             kind: BinOpKind::Exp,
+                            implicit: false,
                             span: 2..3,
                         },
                         rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -756,6 +771,7 @@ mod tests {
                     })),
                     op: BinOp {
                         kind: BinOpKind::Mul,
+                        implicit: false,
                         span: 5..6,
                     },
                     rhs: Box::new(Expr::Unary(Unary {
@@ -773,6 +789,7 @@ mod tests {
                 })),
                 op: BinOp {
                     kind: BinOpKind::Div,
+                    implicit: false,
                     span: 11..12,
                 },
                 rhs: Box::new(Expr::Unary(Unary {
@@ -790,6 +807,7 @@ mod tests {
             })),
             op: BinOp {
                 kind: BinOpKind::Add,
+                implicit: false,
                 span: 18..19,
             },
             rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -812,6 +830,7 @@ mod tests {
             }))),
             op: BinOp {
                 kind: BinOpKind::Mul,
+                implicit: true,
                 span: 1..1,
             },
             rhs: Box::new(Expr::Paren(Paren {
@@ -822,6 +841,7 @@ mod tests {
                     }))),
                     op: BinOp {
                         kind: BinOpKind::Add,
+                        implicit: false,
                         span: 4..5,
                     },
                     rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -850,6 +870,7 @@ mod tests {
                     }))),
                     op: BinOp {
                         kind: BinOpKind::Mul,
+                        implicit: true,
                         span: 1..1,
                     },
                     rhs: Box::new(Expr::Binary(Binary {
@@ -859,6 +880,7 @@ mod tests {
                         }))),
                         op: BinOp {
                             kind: BinOpKind::Exp,
+                            implicit: false,
                             span: 2..3,
                         },
                         rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -871,6 +893,7 @@ mod tests {
                 })),
                 op: BinOp {
                     kind: BinOpKind::Add,
+                    implicit: false,
                     span: 5..6,
                 },
                 rhs: Box::new(Expr::Binary(Binary {
@@ -880,6 +903,7 @@ mod tests {
                     }))),
                     op: BinOp {
                         kind: BinOpKind::Mul,
+                        implicit: true,
                         span: 8..8,
                     },
                     rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -892,6 +916,7 @@ mod tests {
             })),
             op: BinOp {
                 kind: BinOpKind::Add,
+                implicit: false,
                 span: 10..11,
             },
             rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -928,6 +953,7 @@ mod tests {
             })),
             op: BinOp {
                 kind: BinOpKind::Mul,
+                implicit: true,
                 span: 3..4,
             },
             rhs: Box::new(Expr::Unary(Unary {
@@ -966,6 +992,7 @@ mod tests {
                     }))),
                     op: BinOp {
                         kind: BinOpKind::Add,
+                        implicit: false,
                         span: 3..4,
                     },
                     rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -978,6 +1005,7 @@ mod tests {
             })),
             op: BinOp {
                 kind: BinOpKind::Mul,
+                implicit: false,
                 span: 8..9,
             },
             rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -1005,6 +1033,7 @@ mod tests {
                 }))),
                 op: BinOp {
                     kind: BinOpKind::Div,
+                    implicit: false,
                     span: 7..8,
                 },
                 rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -1044,6 +1073,7 @@ mod tests {
                     }))),
                     op: BinOp {
                         kind: BinOpKind::Exp,
+                        implicit: false,
                         span: 8..9,
                     },
                     rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -1054,6 +1084,7 @@ mod tests {
                 })),
                 op: BinOp {
                     kind: BinOpKind::Add,
+                    implicit: false,
                     span: 11..12,
                 },
                 rhs: Box::new(Expr::Binary(Binary {
@@ -1063,6 +1094,7 @@ mod tests {
                     }))),
                     op: BinOp {
                         kind: BinOpKind::Mul,
+                        implicit: true,
                         span: 14..14,
                     },
                     rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -1126,6 +1158,7 @@ mod tests {
                     }))),
                     op: BinOp {
                         kind: BinOpKind::Exp,
+                        implicit: false,
                         span: 28..29,
                     },
                     rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
@@ -1136,6 +1169,7 @@ mod tests {
                 })),
                 op: BinOp {
                     kind: BinOpKind::Sub,
+                    implicit: false,
                     span: 31..32,
                 },
                 rhs: Box::new(Expr::Binary(Binary {
@@ -1146,6 +1180,7 @@ mod tests {
                         }))),
                         op: BinOp {
                             kind: BinOpKind::Mul,
+                            implicit: true,
                             span: 34..34,
                         },
                         rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -1156,6 +1191,7 @@ mod tests {
                     })),
                     op: BinOp {
                         kind: BinOpKind::Mul,
+                        implicit: false,
                         span: 36..37,
                     },
                     rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {

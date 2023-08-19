@@ -9,13 +9,16 @@ use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
     message = format!("cannot apply the `{:?}` operator to these operands", op),
     labels = [
         format!("this operand has type `{}`", left),
-        "this operator".to_string(),
+        format!("this {}operator", if *implicit { "(implicit) " } else { "" }),
         format!("this operand has type `{}`", right),
     ],
 )]
 pub struct InvalidBinaryOperation {
     /// The operator that was used.
     pub op: BinOpKind,
+
+    /// Whether the operator was implicitly inserted by the parser.
+    pub implicit: bool,
 
     /// The type the left side evaluated to.
     pub left: String,

@@ -54,6 +54,7 @@ impl Binary {
                            Ok((
                                BinOp {
                                    kind: BinOpKind::Mul,
+                                   implicit: true,
                                    span: lhs.span().end..rhs.span().start,
                                },
                                rhs.into(),
@@ -106,6 +107,7 @@ impl Binary {
                            lhs: Box::new(rhs),
                            op: BinOp {
                                kind: BinOpKind::Mul,
+                               implicit: true,
                                span: op_span,
                            },
                            rhs: Box::new(expr),

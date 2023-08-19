@@ -10,6 +10,7 @@ proc-macro = true
 
 [dev-dependencies]
 ariadne = "0.2.0"
+cas-eval = { path = "../cas-eval" }
 cas-error = { path = "../cas-error" }
 
 [dependencies]

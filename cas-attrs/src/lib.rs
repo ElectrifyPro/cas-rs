@@ -1,13 +1,15 @@
-mod structures;
+mod args;
+mod error_kind;
 
+use args::Args;
+use error_kind::ErrorKindTarget;
 use proc_macro::TokenStream;
 use quote::quote;
-use structures::ErrorKindTarget;
-use syn::parse_macro_input;
+use syn::{ItemFn, parse_macro_input};
 
-/// Derives the [`ErrorKind`] trait for the given struct.
+/// Derives the [`ErrorKind`] trait for the given struct, provided in the `cas_error` crate.
 ///
-/// This trait can be derived for any kind of struct.
+/// This trait can be derived for any kind of struct, except for tuple structs.
 ///
 /// The information of the error can be customized using the `error` attribute by adding the
 /// corresponding tags to it:
@@ -32,6 +34,8 @@ use syn::parse_macro_input;
 /// the `labels` tag accepts an expression that can be converted to a [`Vec`] of [`String`]s. For
 /// structs with named fields, the expression is evaluated with the members of the struct in scope,
 /// so they can be used in the expression (tuple structs are not supported).
+///
+/// [`ErrorKind`]: cas_error::ErrorKind
 #[proc_macro_derive(ErrorKind, attributes(error))]
 pub fn error_kind(item: TokenStream) -> TokenStream {
     let target = parse_macro_input!(item as ErrorKindTarget);
@@ -44,4 +48,61 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
             #target
         }
     }.into()
+}
+
+/// An attribute that implements runtime type-checking for the function it is applied to, intended
+/// for use in `cas_eval` builtins.
+///
+/// This attribute can be applied to any function that takes a slice of [`Value`]s as its argument,
+/// and returns a `Result<Value, BuiltinError>`. It will check that the number of arguments given
+/// to the function is correct, and that the types of the arguments are correct.
+///
+/// The attribute accepts a comma-separated list of [`Value`] patterns, which are used to check the
+/// types of the arguments. The patterns are matched against the arguments in order, and the
+/// function body will only be executed if all the patterns match.
+///
+/// Parameters can be given default values by using the `= <value>` syntax after the pattern. The default value will
+/// be used if the argument is not given.
+///
+/// # Examples
+///
+/// ```
+/// extern crate cas_attrs;
+///
+/// use cas_attrs::args;
+/// use cas_eval::{
+///     builtins::BuiltinError,
+///     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
+///     value::Value,
+/// };
+///
+/// /// Returns the absolute value of a number.
+/// #[args(Value::Number(n))]
+/// fn abs(args: &[Value]) -> Result<Value, BuiltinError> {
+///    // if the argument is not a number, this will never be executed
+///    Ok(Value::Number(n.abs()))
+/// }
+///
+/// /// Returns the logarithm of a number with a given base.
+/// #[args(Value::Number(n), Value::Number(base) = 10.0)]
+/// fn log(args: &[Value]) -> Result<Value, BuiltinError> {
+///     Ok(Value::Number(n.log(*base)))
+/// }
+/// ```
+///
+/// [`Value`]: cas_eval::Value
+#[proc_macro_attribute]
+pub fn args(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(attr as Args);
+    let mut item = parse_macro_input!(item as ItemFn);
+    let check_stmts = args.generate_check_stmts(&item);
+    let (attrs, vis, sig) = (&mut item.attrs, &mut item.vis, &mut item.sig);
+    let x = quote! {
+        #(#attrs)*
+        #vis #sig {
+            #check_stmts
+        }
+    }.into();
+    // println!("{}", x);
+    x
 }

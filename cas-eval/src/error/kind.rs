@@ -132,3 +132,31 @@ pub struct MissingArgument {
     /// The number of arguments that were given.
     pub given: usize,
 }
+
+/// An argument to a function call has the wrong type.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!(
+        "incorrect type for argument #{} for the `{}` function",
+        index + 1,
+        name
+    ),
+    labels = [
+        "this function call".to_string(),
+        format!("this argument has type `{}`", given),
+    ],
+    help = format!("should be of type `{}`", expected),
+)]
+pub struct TypeMismatch {
+    /// The name of the function that was called.
+    pub name: String,
+
+    /// The index of the argument that was mismatched.
+    pub index: usize,
+
+    /// The type of the argument that was expected.
+    pub expected: String,
+
+    /// The type of the argument that was given.
+    pub given: String,
+}

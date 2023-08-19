@@ -8,6 +8,7 @@ use cas_parser::parser::{
     token::op::{BinOpKind, UnaryOpKind},
 };
 use super::{
+    builtins,
     ctxt::Ctxt,
     error::{
         kind::{
@@ -87,6 +88,15 @@ impl Eval for Literal {
 
 impl Eval for Call {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
+        // try using a builtin function
+        if let Some(builtin) = builtins::get_builtin(&self.name.name) {
+            let args = self.args.iter()
+                .map(|arg| arg.eval(ctxt))
+                .collect::<Result<Vec<_>, _>>()?;
+            return builtin(&args)
+                .map_err(|err| err.into_error(self));
+        }
+
         let (header, body) = ctxt.get_func(&self.name.name)
             .ok_or_else(|| Error::new(vec![self.name.span.clone()], UndefinedFunction {
                 name: self.name.name.clone(),
@@ -203,6 +213,7 @@ impl Eval for Binary {
 /// Eval tests depend on the parser, so ensure that parser tests pass before running these.
 #[cfg(test)]
 mod tests {
+    use crate::builtins;
     use super::*;
 
     use cas_parser::parser::Parser;
@@ -306,5 +317,11 @@ mod tests {
                 source,
             );
         }
+    }
+
+    #[test]
+    fn builtin_func_arg_check() {
+        assert_eq!(builtins::abs(&[Value::Number(-4.0)]).unwrap(), Value::Number(4.0));
+        assert!(builtins::abs(&[Value::Unit]).is_err());
     }
 }

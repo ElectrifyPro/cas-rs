@@ -32,7 +32,7 @@ impl Parse for Paren {
             Err(err) => {
                 if let Ok(close_paren) = input.try_parse::<CloseParen>() {
                     return Err(Error::new_fatal(
-                        open_paren.span.start..close_paren.span.end,
+                        vec![open_paren.span.start..close_paren.span.end],
                         kind::EmptyParenthesis,
                     ));
                 } else {
@@ -42,7 +42,7 @@ impl Parse for Paren {
         };
         let close_paren = input.try_parse::<CloseParen>().map_err(|_| {
             Error::new_fatal(
-                open_paren.span.clone(),
+                vec![open_paren.span.clone()],
                 kind::UnclosedParenthesis { opening: true },
             )
         })?;

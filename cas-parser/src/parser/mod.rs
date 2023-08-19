@@ -60,13 +60,13 @@ impl<'source> Parser<'source> {
     /// Creates an error that points at the current token, or the end of the source code if the
     /// cursor is at the end of the stream.
     pub fn error(&self, kind: impl ErrorKind + 'static) -> Error {
-        Error::new(self.span(), kind)
+        Error::new(vec![self.span()], kind)
     }
 
     /// Creates a fatal error that points at the current token, or the end of the source code if
     /// the cursor is at the end of the stream.
     pub fn error_fatal(&self, kind: impl ErrorKind + 'static) -> Error {
-        Error::new_fatal(self.span(), kind)
+        Error::new_fatal(vec![self.span()], kind)
     }
 
     /// Returns a span pointing at the end of the source code.

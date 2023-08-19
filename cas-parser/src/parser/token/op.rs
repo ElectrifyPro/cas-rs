@@ -49,7 +49,7 @@ impl Parse for UnaryOp {
             TokenKind::BitNot => Ok(Self::BitNot),
             TokenKind::Factorial => Ok(Self::Factorial),
             TokenKind::Sub => Ok(Self::Neg),
-            _ => Err(Error::new(token.span, kind::UnexpectedToken {
+            _ => Err(Error::new(vec![token.span], kind::UnexpectedToken {
                 expected: &[
                     TokenKind::Not,
                     TokenKind::Factorial,
@@ -141,7 +141,7 @@ impl Parse for BinOp {
             TokenKind::ApproxNotEq => Ok(Self::ApproxNotEq),
             TokenKind::And => Ok(Self::And),
             TokenKind::Or => Ok(Self::Or),
-            _ => Err(Error::new(token.span, kind::UnexpectedToken {
+            _ => Err(Error::new(vec![token.span], kind::UnexpectedToken {
                 expected: &[
                     TokenKind::Exp,
                     TokenKind::Mul,

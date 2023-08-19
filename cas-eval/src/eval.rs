@@ -79,7 +79,7 @@ impl Eval for Literal {
             Literal::Number(num) => Ok(Value::Number(num.value)),
             Literal::Radix(radix) => Ok(Value::Number(from_str_radix(radix.value.as_str(), radix.base))),
             Literal::Symbol(sym) => ctxt.get_var(sym.name.as_str())
-                .ok_or_else(|| Error::new(sym.span.clone(), UndefinedVariable { name: sym.name.clone() })),
+                .ok_or_else(|| Error::new(vec![sym.span.clone()], UndefinedVariable { name: sym.name.clone() })),
         }
     }
 }
@@ -87,7 +87,7 @@ impl Eval for Literal {
 impl Eval for Call {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         let (header, body) = ctxt.get_func(&self.name.name)
-            .ok_or_else(|| Error::new(self.name.span.clone(), UndefinedFunction {
+            .ok_or_else(|| Error::new(vec![self.name.span.clone()], UndefinedFunction {
                 name: self.name.name.clone(),
                 suggestions: ctxt.get_similar_funcs(&self.name.name)
                     .into_iter()
@@ -109,7 +109,7 @@ impl Eval for Call {
                 },
 
                 // too many arguments were given
-                (Some(_), None) => return Err(Error::new(self.span(), TooManyArguments {
+                (Some(_), None) => return Err(Error::new(vec![self.span()], TooManyArguments {
                     name: self.name.name.clone(),
                     expected: header.params.len(),
                     given: self.args.len(),
@@ -120,7 +120,7 @@ impl Eval for Call {
                 (None, Some(param)) => {
                     // if there is no default, that's an error
                     let value = match param {
-                        Param::Symbol(_) => return Err(Error::new(self.span(), MissingArgument {
+                        Param::Symbol(_) => return Err(Error::new(vec![self.span()], MissingArgument {
                             name: self.name.name.clone(),
                             index,
                             expected: header.params.len(),
@@ -152,7 +152,7 @@ impl Eval for Unary {
                 UnaryOp::Factorial => factorial(num),
                 UnaryOp::Neg => -1.0 * num,
             })),
-            Value::Unit => Err(Error::new(self.span(), InvalidOperation)),
+            Value::Unit => Err(Error::new(vec![self.span()], InvalidOperation)),
         }
     }
 }
@@ -183,7 +183,7 @@ impl Eval for Binary {
                 BinOp::And => if left != 0.0 && right != 0.0 { 1.0 } else { 0.0 },
                 BinOp::Or => if left != 0.0 || right != 0.0 { 1.0 } else { 0.0 },
             })),
-            (Value::Unit, _) | (_, Value::Unit) => Err(Error::new(self.span(), InvalidOperation)),
+            (Value::Unit, _) | (_, Value::Unit) => Err(Error::new(vec![self.span()], InvalidOperation)),
         }
     }
 }

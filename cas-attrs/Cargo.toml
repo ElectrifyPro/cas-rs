@@ -9,6 +9,7 @@ edition = "2021"
 proc-macro = true
 
 [dev-dependencies]
+ariadne = "0.2.0"
 cas-error = { path = "../cas-error" }
 
 [dependencies]

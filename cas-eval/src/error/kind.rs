@@ -6,7 +6,7 @@ use cas_error::{ErrorKind, EXPR};
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "cannot apply `{}` to `{}`",
-    label = "while trying to evaluate this",
+    labels = ["while trying to evaluate this"],
     help = "you cannot apply this operation to this operand"
 )]
 pub struct InvalidOperation; // TODO
@@ -15,7 +15,7 @@ pub struct InvalidOperation; // TODO
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = format!("`{}` is not defined", name),
-    label = "this variable",
+    labels = ["this variable"],
     help = format!("to define it, type: {} = {}", name.fg(EXPR), "<expression>".fg(EXPR)),
 )]
 pub struct UndefinedVariable {
@@ -27,7 +27,7 @@ pub struct UndefinedVariable {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = format!("the `{}` function does not exist", name),
-    label = "this function",
+    labels = ["this function"],
     help = if suggestions.is_empty() {
         "see the documentation for a list of available functions".to_string()
     } else if suggestions.len() == 1 {
@@ -55,7 +55,7 @@ pub struct UndefinedFunction {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = format!("too many arguments were given to the `{}` function", name),
-    label = "this function call",
+    labels = ["this function call"],
     help = format!(
         "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
         name.fg(EXPR),
@@ -78,7 +78,7 @@ pub struct TooManyArguments {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = format!("missing argument #{} for the `{}` function", index + 1, name),
-    label = "this function call",
+    labels = ["this function call"],
     help = format!(
         "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
         name.fg(EXPR),

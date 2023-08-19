@@ -8,7 +8,7 @@ use crate::tokenizer::TokenKind;
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "an internal non-fatal error occurred while parsing",
-    label = "here",
+    labels = ["here"],
     help = "you should never see this error; please report this as a bug"
 )]
 pub struct NonFatal;
@@ -17,7 +17,7 @@ pub struct NonFatal;
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "unexpected end of file",
-    label = format!("you might need to add another {} here", "expression".fg(EXPR)),
+    labels = [format!("you might need to add another {} here", "expression".fg(EXPR))],
 )]
 pub struct UnexpectedEof;
 
@@ -25,7 +25,7 @@ pub struct UnexpectedEof;
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "expected end of file",
-    label = format!("I could not understand the remaining {} here", "expression".fg(EXPR)),
+    labels = [format!("I could not understand the remaining {} here", "expression".fg(EXPR))],
 )]
 pub struct ExpectedEof;
 
@@ -33,7 +33,7 @@ pub struct ExpectedEof;
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "unexpected token",
-    label = format!("expected one of: {}", expected.iter().map(|t| format!("{:?}", t)).collect::<Vec<_>>().join(", ")),
+    labels = [format!("expected one of: {}", expected.iter().map(|t| format!("{:?}", t)).collect::<Vec<_>>().join(", "))],
     help = format!("found {:?}", found),
 )]
 pub struct UnexpectedToken {
@@ -48,11 +48,11 @@ pub struct UnexpectedToken {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "invalid base in radix notation",
-    label = if *too_large {
+    labels = [if *too_large {
         "this value is too large"
     } else {
         "this value is too small"
-    },
+    }],
     help = format!("the base must be {}", "between 2 and 64, inclusive".fg(EXPR)),
 )]
 pub struct InvalidRadixBase {
@@ -64,7 +64,7 @@ pub struct InvalidRadixBase {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = format!("invalid digit in radix notation: `{}`", digit),
-    label = "here",
+    labels = ["here"],
     help = format!("base {} uses these digits (from lowest to highest value): {}", radix, allowed.iter().collect::<String>().fg(EXPR)),
 )]
 pub struct InvalidRadixDigit {
@@ -82,7 +82,7 @@ pub struct InvalidRadixDigit {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "unclosed parenthesis",
-    label = "this parenthesis is not closed",
+    labels = ["this parenthesis is not closed"],
     help = if *opening {
         "add a closing parenthesis `)` somewhere after this"
     } else {
@@ -99,6 +99,6 @@ pub struct UnclosedParenthesis {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "missing expression inside parenthesis",
-    label = "add an expression here",
+    labels = ["add an expression here"],
 )]
 pub struct EmptyParenthesis;

@@ -28,7 +28,7 @@ macro_rules! token_kinds {
                             span: token.span,
                         })
                     } else {
-                        Err(Error::new(token.span, kind::UnexpectedToken {
+                        Err(Error::new(vec![token.span], kind::UnexpectedToken {
                             expected: &[TokenKind::$name],
                             found: token.kind,
                         }))

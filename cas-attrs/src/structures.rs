@@ -1,4 +1,4 @@
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
@@ -15,7 +15,7 @@ use syn::{
 #[derive(Debug, Default)]
 pub struct ErrorArgs {
     pub message: Option<Expr>,
-    pub label: Option<Expr>,
+    pub labels: Option<Expr>,
     pub help: Option<Expr>,
 }
 
@@ -28,7 +28,7 @@ impl ErrorArgs {
         let ident_str = ident.to_string();
         match ident_str.as_str() {
             "message" => self.message = Some(input.parse()?),
-            "label" => self.label = Some(input.parse()?),
+            "labels" => self.labels = Some(input.parse()?),
             "help" => self.help = Some(input.parse()?),
             _ => return Err(syn::Error::new_spanned(ident, format!("unknown tag `{}`", ident_str))),
         }
@@ -105,26 +105,38 @@ impl Parse for ErrorKindTarget {
 impl ToTokens for ErrorKindTarget {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let destructure_expr = destructure_fields(&self.name, &self.fields);
-        let create_function = |name: &str, body: &Expr, output_type: TokenStream2| {
-            let name = Ident::new(name, Span::call_site());
-            quote! {
-                #[allow(unused_variables)]
-                fn #name(&self) -> #output_type {
-                    #destructure_expr
-                    (#body).to_owned().into()
-                }
-            }
-        };
-        let (message, label, help) = (
-            self.error_args.message.as_ref().map(|e| create_function("message", e, quote! { String })),
-            self.error_args.label.as_ref().map(|e| create_function("label", e, quote! { String })),
-            self.error_args.help.as_ref().map(|e| create_function("help", e, quote! { Option<String> })),
+        let (message, labels, help) = (
+            self.error_args.message.as_ref(),
+            self.error_args.labels.as_ref(),
+            self.error_args.help.as_ref().map(|e| quote! { builder.set_help(#e); }),
         );
 
         tokens.extend(quote! {
-            #message
-            #label
-            #help
+            fn build_report(
+                &self,
+                src_id: &'static str,
+                spans: &[std::ops::Range<usize>],
+            ) -> ariadne::Report<(&'static str, std::ops::Range<usize>)> {
+                #[allow(unused_variables)]
+                #destructure_expr
+
+                let mut builder = ariadne::Report::build(ariadne::ReportKind::Error, src_id, spans[0].start)
+                    .with_message(#message)
+                    .with_labels(
+                        #labels
+                            .into_iter()
+                            .enumerate()
+                            .map(|(i, label)| {
+                                ariadne::Label::new((src_id, spans[i].clone()))
+                                    .with_message(label)
+                                    .with_color(cas_error::EXPR)
+                            })
+                            .collect::<Vec<_>>()
+                    );
+
+                #help
+                builder.finish()
+            }
         });
     }
 }

@@ -16,21 +16,22 @@ use syn::parse_macro_input;
 /// use cas_error::ErrorKind;
 ///
 /// #[derive(Debug, ErrorKind)]
-/// #[error(message = "unexpected end of file", label = "add something here")]
+/// #[error(message = "unexpected end of file", labels = ["add something here"])]
 /// pub struct Foo;
 /// ```
 ///
 /// The following tags are available:
 ///
-/// | Tag         | Description                                                                  |
-/// | ----------- | ---------------------------------------------------------------------------- |
-/// | `message`   | The message displayed at the top of the error when it is displayed.          |
-/// | `label`     | The text of the label that points to the span of the error.                  |
-/// | `help`      | Optional help text for the error, describing what the user can do to fix it. |
+/// | Tag         | Description                                                                                                                                                      |
+/// | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+/// | `message`   | The message displayed at the top of the error when it is displayed.                                                                                              |
+/// | `labels`    | A list of labels that point to the spans of the error. The first label will be associated with the first span, the second label with the second span, and so on. |
+/// | `help`      | Optional help text for the error, describing what the user can do to fix it.                                                                                     |
 ///
-/// Each tag accepts an expression that should evaluate to a [`String`]. For structs with named
-/// fields, the expression is evaluated with the members of the struct in scope, so they can be
-/// used in the expression (tuple structs are not supported).
+/// The `message` and `help` tags accept an expression that can be converted to a [`String`], and
+/// the `labels` tag accepts an expression that can be converted to a [`Vec`] of [`String`]s. For
+/// structs with named fields, the expression is evaluated with the members of the struct in scope,
+/// so they can be used in the expression (tuple structs are not supported).
 #[proc_macro_derive(ErrorKind, attributes(error))]
 pub fn error_kind(item: TokenStream) -> TokenStream {
     let target = parse_macro_input!(item as ErrorKindTarget);

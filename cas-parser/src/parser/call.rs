@@ -35,7 +35,7 @@ impl Parse for Call {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
         let name = input.try_parse::<LitSym>()?;
         input.try_parse::<OpenParen>()?;
-        let args = input.try_parse_delimited_zero::<Expr>(TokenKind::Comma)?;
+        let args = input.try_parse_delimited::<Expr>(TokenKind::Comma)?;
         let close_paren = input.try_parse::<CloseParen>()?;
 
         let span = name.span.start..close_paren.span.end;

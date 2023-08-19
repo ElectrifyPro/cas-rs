@@ -102,23 +102,30 @@ impl<'source> Parser<'source> {
         self.tokens.get(self.cursor)
     }
 
-    /// Returns the next token to be parsed, then advances the cursor. Whitespace tokens are
-    /// skipped.
+    /// Advances the cursor past whitespace tokens to the next non-whitespace token. The cursor is
+    /// not guaranteed to point to a valid token (might be out of bounds), but if the token is
+    /// valid, it is guaranteed to be non-whitespace.
+    pub fn advance_past_whitespace(&mut self) {
+        while let Some(token) = self.tokens.get(self.cursor) {
+            if token.is_whitespace() {
+                self.cursor += 1;
+                continue;
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// Returns the current token, then advances the cursor. Whitespace tokens are skipped.
     ///
     /// Returns an EOF error if there are no more tokens.
     pub fn next_token(&mut self) -> Result<Token<'source>, Error> {
-        while self.cursor < self.tokens.len() {
-            let token = &self.tokens[self.cursor];
-            self.cursor += 1;
-            if token.is_whitespace() {
-                continue;
-            } else {
-                // cloning is cheap: only Range<_> is cloned
-                return Ok(token.clone());
-            }
-        }
-
-        Err(self.error(kind::UnexpectedEof))
+        self.advance_past_whitespace();
+        let result = self.current_token()
+            .cloned() // cloning is cheap; only Range<_> is cloned
+            .ok_or_else(|| self.error(kind::UnexpectedEof));
+        self.cursor += 1;
+        result
     }
 
     /// Speculatively parses a value from the given stream of tokens. This function can be used
@@ -219,7 +226,11 @@ impl<'source> Parser<'source> {
     /// by the parser; if not, an error is returned.
     pub fn try_parse_full<T: Parse>(&mut self) -> Result<T, Error> {
         let value = T::parse(self)?;
-        if self.cursor == self.tokens.len() {
+
+        // consume whitespace
+        self.advance_past_whitespace();
+
+        if self.cursor >= self.tokens.len() {
             Ok(value)
         } else {
             Err(self.error(kind::ExpectedEof))

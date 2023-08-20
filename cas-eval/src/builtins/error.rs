@@ -1,12 +1,6 @@
-//! Built-in functions for CalcScript.
-
-use cas_attrs::args;
 use cas_error::ErrorKind;
 use cas_parser::parser::call::Call;
-use super::{
-    error::{kind::{MissingArgument, TooManyArguments, TypeMismatch}, Error},
-    value::Value::{self, *},
-};
+use crate::error::{kind::{MissingArgument, TooManyArguments, TypeMismatch}, Error};
 
 /// Represents an error that can occur while evaluating a builtin function.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,19 +33,5 @@ impl BuiltinError {
                 kind: Box::new(e) as Box<dyn ErrorKind>,
             },
         }
-    }
-}
-
-/// Returns the absolute value of a value.
-#[args(Number(n))]
-pub fn abs(args: &[Value]) -> Result<Value, BuiltinError> {
-    Ok(Number(n.abs()))
-}
-
-/// Returns the builtin function with the given name.
-pub fn get_builtin(name: &str) -> Option<fn(&[Value]) -> Result<Value, BuiltinError>> {
-    match name {
-        "abs" => Some(abs),
-        _ => None,
     }
 }

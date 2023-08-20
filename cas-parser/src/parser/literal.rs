@@ -140,6 +140,15 @@ pub struct LitSym {
 impl Parse for LitSym {
     fn parse(input: &mut Parser) -> Result<Self, Error> {
         let token = input.try_parse::<Name>()?;
+
+        // TODO: terrible hard-coded test for `atan2`
+        if token.lexeme == "atan" && input.try_parse_with_fn(|input| input.try_parse::<Int>().map(|int| int.lexeme == "2")).is_ok() {
+            return Ok(Self {
+                name: "atan2".to_string(),
+                span: token.span.start..token.span.start + 5,
+            });
+        }
+
         Ok(Self {
             name: token.lexeme,
             span: token.span,

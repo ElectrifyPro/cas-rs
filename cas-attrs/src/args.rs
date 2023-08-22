@@ -1,119 +1,157 @@
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     Expr,
+    Ident,
     ItemFn,
-    Pat,
     Result,
     Token,
 };
 
+/// One of the possible types for the `Value` enum.
+#[derive(Debug)]
+pub enum Type {
+    /// A number value.
+    Number,
+
+    /// The unit type, analogous to `()` in Rust.
+    Unit,
+}
+
+impl Parse for Type {
+    fn parse(input: ParseStream) -> Result<Self> {
+        match &*input.parse::<Ident>()?.to_string() {
+            "Number" => Ok(Type::Number),
+            "Unit" => Ok(Type::Unit),
+            _ => Err(input.error("expected `Number` or `Unit`")),
+        }
+    }
+}
+
+impl ToTokens for Type {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        match self {
+            Type::Number => tokens.extend(quote! { Number }),
+            Type::Unit => tokens.extend(quote! { Unit }),
+        }
+    }
+}
+
 /// Represents a parameter provided in the `args` attribute.
 #[derive(Debug)]
 pub struct Param {
-    /// The pattern that the argument must match.
-    pub pattern: Pat,
+    /// The variable to bind the argument to.
+    pub ident: Ident,
+
+    /// The expected type of the parameter.
+    pub ty: Type,
 
     /// An optional default value for the parameter, if the user does not provide one.
     pub default: Option<Expr>,
 }
 
-/// The arguments that can be passed to the `args` attribute.
-#[derive(Debug, Default)]
-pub struct Args {
-    /// The patterns that the arguments must match.
-    pub patterns: Vec<Param>,
-}
-
-impl Args {
-    /// Parse the next argument in the input stream and apply it to itself.
-    fn parse_arg(&mut self, input: ParseStream) -> Result<()> {
-        let pattern = Pat::parse_single(input)?;
+impl Parse for Param {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let ident = input.parse::<Ident>()?;
+        input.parse::<Token![:]>()?;
+        let ty = input.parse::<Type>()?;
         let default = if input.peek(Token![=]) {
             input.parse::<Token![=]>()?;
             input.parse::<Expr>().ok()
         } else {
             None
         };
-        self.patterns.push(Param { pattern, default });
+
+        Ok(Param {
+            ident,
+            ty,
+            default,
+        })
+    }
+}
+
+/// The arguments that can be passed to the `args` attribute.
+#[derive(Debug, Default)]
+pub struct Args {
+    /// The patterns that the arguments must match.
+    pub params: Vec<Param>,
+}
+
+impl Args {
+    /// Parse the next argument in the input stream and apply it to itself.
+    fn parse_arg(&mut self, input: ParseStream) -> Result<()> {
+        self.params.push(input.parse::<Param>()?);
         Ok(())
     }
 
     /// Generates the statements that check the arguments.
     pub fn generate_check_stmts(&self, func: &ItemFn) -> TokenStream2 {
         let (name, block) = (&func.sig.ident, &func.block);
-        let num_patterns = self.patterns.len();
-        let pattern_tokens = self.patterns
+        let num_patterns = self.params.len();
+
+        // for each parameter, we generate a binding with three patterns to typecheck the arguments, and
+        // possibly use the default expression if the argument is not provided
+        //
+        // the three patterns serve these purposes:
+        //
+        // - `Some(#ty(#ident))`: argument is provided, correct type
+        // - `Some(_)`: argument is provided, incorrect type
+        // - `None`: argument is not provided
+        //
+        // notice use of `Cow` to avoid cloning of the default expression; the argument is borrowed
+        // if provided, and owned if not
+        let type_checkers = self.params
             .iter()
-            .map(|pattern| {
-                let pattern = &pattern.pattern;
-                quote! { #pattern }
-            })
-            .collect::<Vec<_>>();
-
-        // for all `n` patterns given, we create `n` more new patterns
-        // each `i`th pattern is intended to typecheck the `i`th argument, by ignoring the
-        // following arguments and using a wildcard binding for the `i`th argument
-        //
-        // for example, if the given patterns are [Number(n), Number(k), Number(m)], the patterns
-        // generated are
-        //
-        // [Number(_), Number(_), _, ..] // 1st, 2nd arguments are ok, is the 3rd ok?
-        // [Number(_), _, ..] // 1st argument is ok, is the 2nd ok?
-        // [_, ..] // is the 1st argument ok?
-        let extra_matches = {
-            let mut out = Vec::new();
-
-            for index in (0..num_patterns).rev() {
-                let mut new_patterns = pattern_tokens.clone();
-                new_patterns.splice(index.., [quote! { _ }, quote! { .. }]);
-                let expected = &self.patterns[index].pattern;
-                out.push(quote! {
-                    #[allow(unused_variables)]
-                    [ #(#new_patterns),* ] => {
-                        Err(BuiltinError::TypeMismatch(TypeMismatch {
-                            name: stringify!(#name).to_owned(),
-                            index: #index,
-                            expected: stringify!(#expected).to_string(),
-                            given: args[#index].to_string(),
-                        }))
-                    }
-                });
-            }
-
-            out
-        };
+            .enumerate()
+            .map(|(i, param)| {
+                let (ident, ty, default) = (&param.ident, &param.ty, &param.default);
+                match default {
+                    Some(default) => {
+                        quote! {
+                            let #ident = match args.get(#i) {
+                                Some(#ty(#ident)) => std::borrow::Cow::Borrowed(#ident),
+                                Some(_) => {
+                                    return Err(BuiltinError::TypeMismatch(TypeMismatch {
+                                        name: stringify!(#name).to_owned(),
+                                        index: #i,
+                                        expected: stringify!(#ty).to_string(),
+                                        given: args[#i].to_string(),
+                                    }));
+                                },
+                                None => std::borrow::Cow::Owned(#default),
+                            };
+                        }
+                    },
+                    None => {
+                        quote! {
+                            let #ident = match args.get(#i) {
+                                Some(#ty(#ident)) => std::borrow::Cow::Borrowed(#ident),
+                                Some(_) => {
+                                    return Err(BuiltinError::TypeMismatch(TypeMismatch {
+                                        name: stringify!(#name).to_owned(),
+                                        index: #i,
+                                        expected: stringify!(#ty).to_string(),
+                                        given: args[#i].to_string(),
+                                    }));
+                                },
+                                None => {
+                                    return Err(BuiltinError::MissingArgument(MissingArgument {
+                                        name: stringify!(#name).to_owned(),
+                                        index: #i,
+                                        expected: #num_patterns,
+                                        given: args.len(),
+                                    }));
+                                },
+                            };
+                        }
+                    },
+                }
+            });
 
         quote! {
-            match args {
-                // successful typecheck
-                [ #(#pattern_tokens),* ] => {
-                    #block
-                },
-
-                // catch various errors
-                #[allow(unused_variables)]
-                [ #(#pattern_tokens),* , .. ] => {
-                    Err(BuiltinError::TooManyArguments(TooManyArguments {
-                        name: stringify!(#name).to_owned(),
-                        expected: #num_patterns,
-                        given: args.len(),
-                    }))
-                },
-
-                #(#extra_matches),*,
-
-                [] => {
-                    // TODO: for empty functions, this is not an error
-                    Err(BuiltinError::MissingArgument(MissingArgument {
-                        name: stringify!(#name).to_owned(),
-                        index: 0,
-                        expected: #num_patterns,
-                        given: args.len(),
-                    }))
-                },
-            }
+            #( #type_checkers )*
+            #block
         }
     }
 }

@@ -5,7 +5,7 @@ mod error;
 use cas_attrs::args;
 use error::BuiltinError;
 use super::{
-    error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
+    error::kind::{MissingArgument, TypeMismatch},
     value::Value::{self, *},
 };
 
@@ -13,7 +13,7 @@ use super::{
 macro_rules! generate_number_builtin {
     ($($name:ident)+) => {
         $(
-            #[args(Number(n))]
+            #[args(n: Number)]
             pub fn $name(args: &[Value]) -> Result<Value, BuiltinError> {
                 Ok(Number(n.$name()))
             }
@@ -28,39 +28,39 @@ generate_number_builtin!(
     abs
 );
 
-#[args(Number(y), Number(x))]
+#[args(y: Number, x: Number)]
 pub fn atan2(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(y.atan2(*x)))
 }
 
-#[args(Number(n))]
+#[args(n: Number)]
 pub fn csc(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(1.0 / n.sin()))
 }
 
-#[args(Number(n))]
+#[args(n: Number)]
 pub fn sec(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(1.0 / n.cos()))
 }
 
-#[args(Number(n))]
+#[args(n: Number)]
 pub fn cot(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(1.0 / n.tan()))
 }
 
-#[args(Number(n))]
+#[args(n: Number)]
 pub fn acsc(args: &[Value]) -> Result<Value, BuiltinError> {
-    Ok(Number((1.0 / n).asin()))
+    Ok(Number((1.0 / *n).asin()))
 }
 
-#[args(Number(n))]
+#[args(n: Number)]
 pub fn asec(args: &[Value]) -> Result<Value, BuiltinError> {
-    Ok(Number((1.0 / n).acos()))
+    Ok(Number((1.0 / *n).acos()))
 }
 
-#[args(Number(n))]
+#[args(n: Number)]
 pub fn acot(args: &[Value]) -> Result<Value, BuiltinError> {
-    Ok(Number((1.0 / n).atan()))
+    Ok(Number((1.0 / *n).atan()))
 }
 
 /// Returns the builtin function with the given name.

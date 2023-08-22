@@ -97,12 +97,10 @@ pub fn args(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut item = parse_macro_input!(item as ItemFn);
     let check_stmts = args.generate_check_stmts(&item);
     let (attrs, vis, sig) = (&mut item.attrs, &mut item.vis, &mut item.sig);
-    let x = quote! {
+    quote! {
         #(#attrs)*
         #vis #sig {
             #check_stmts
         }
-    }.into();
-    // println!("{}", x);
-    x
+    }.into()
 }

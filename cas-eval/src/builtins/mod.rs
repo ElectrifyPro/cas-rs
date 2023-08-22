@@ -1,6 +1,6 @@
 //! Built-in functions for CalcScript.
 
-mod error;
+pub mod error;
 
 use cas_attrs::args;
 use error::BuiltinError;

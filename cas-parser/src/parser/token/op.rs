@@ -94,6 +94,7 @@ pub enum BinOpKind {
     Exp,
     Mul,
     Div,
+    Mod,
     Add,
     Sub,
     BitRight,
@@ -117,7 +118,7 @@ impl BinOpKind {
     pub fn precedence(&self) -> Precedence {
         match self {
             Self::Exp => Precedence::Exp,
-            Self::Mul | Self::Div => Precedence::Factor,
+            Self::Mul | Self::Div | Self::Mod => Precedence::Factor,
             Self::Add | Self::Sub => Precedence::Term,
             Self::BitRight | Self::BitLeft => Precedence::Shift,
             Self::BitAnd => Precedence::BitAnd,
@@ -133,7 +134,7 @@ impl BinOpKind {
     pub fn associativity(&self) -> Associativity {
         match self {
             Self::Exp => Associativity::Right,
-            Self::Mul | Self::Div
+            Self::Mul | Self::Div | Self::Mod
                 | Self::Add | Self::Sub
                 | Self::BitRight | Self::BitLeft
                 | Self::BitAnd | Self::BitOr
@@ -176,6 +177,7 @@ impl Parse for BinOp {
             TokenKind::Exp => Ok(BinOpKind::Exp),
             TokenKind::Mul => Ok(BinOpKind::Mul),
             TokenKind::Div => Ok(BinOpKind::Div),
+            TokenKind::Mod => Ok(BinOpKind::Mod),
             TokenKind::Add => Ok(BinOpKind::Add),
             TokenKind::Sub => Ok(BinOpKind::Sub),
             TokenKind::BitRight => Ok(BinOpKind::BitRight),

@@ -71,20 +71,20 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 ///
 /// use cas_attrs::args;
 /// use cas_eval::{
-///     builtins::BuiltinError,
+///     builtins::error::BuiltinError,
 ///     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
-///     value::Value,
+///     value::Value::{self, *},
 /// };
 ///
 /// /// Returns the absolute value of a number.
-/// #[args(Value::Number(n))]
+/// #[args(n: Number)]
 /// fn abs(args: &[Value]) -> Result<Value, BuiltinError> {
 ///    // if the argument is not a number, this will never be executed
 ///    Ok(Value::Number(n.abs()))
 /// }
 ///
 /// /// Returns the logarithm of a number with a given base.
-/// #[args(Value::Number(n), Value::Number(base) = 10.0)]
+/// #[args(n: Number, base: Number = 10.0)]
 /// fn log(args: &[Value]) -> Result<Value, BuiltinError> {
 ///     Ok(Value::Number(n.log(*base)))
 /// }

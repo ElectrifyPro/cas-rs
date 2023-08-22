@@ -183,6 +183,7 @@ impl Eval for Binary {
                 BinOpKind::Exp => left.powf(right),
                 BinOpKind::Mul => left * right,
                 BinOpKind::Div => left / right,
+                BinOpKind::Mod => left % right,
                 BinOpKind::Add => left + right,
                 BinOpKind::Sub => left - right,
                 BinOpKind::BitRight => ((left as i64) >> (right as i64)) as f64,

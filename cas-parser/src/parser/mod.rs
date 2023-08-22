@@ -1028,6 +1028,83 @@ mod tests {
     }
 
     #[test]
+    fn parenthesized_complicated() {
+        let mut parser = Parser::new("(3 * 9 + 4.0 / 11.9 % (6 - 3))");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Paren(Paren {
+            expr: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 3.0,
+                        span: 1..2,
+                    }))),
+                    op: BinOp {
+                        kind: BinOpKind::Mul,
+                        implicit: false,
+                        span: 3..4,
+                    },
+                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: 9.0,
+                        span: 5..6,
+                    }))),
+                    span: 1..6,
+                })),
+                op: BinOp {
+                    kind: BinOpKind::Add,
+                    implicit: false,
+                    span: 7..8,
+                },
+                rhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Binary(Binary {
+                        lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            value: 4.0,
+                            span: 9..12,
+                        }))),
+                        op: BinOp {
+                            kind: BinOpKind::Div,
+                            implicit: false,
+                            span: 13..14,
+                        },
+                        rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            value: 11.9,
+                            span: 15..19,
+                        }))),
+                        span: 9..19,
+                    })),
+                    op: BinOp {
+                        kind: BinOpKind::Mod,
+                        implicit: false,
+                        span: 20..21,
+                    },
+                    rhs: Box::new(Expr::Paren(Paren {
+                        expr: Box::new(Expr::Binary(Binary {
+                            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                                value: 6.0,
+                                span: 23..24,
+                            }))),
+                            op: BinOp {
+                                kind: BinOpKind::Sub,
+                                implicit: false,
+                                span: 25..26,
+                            },
+                            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                                value: 3.0,
+                                span: 27..28,
+                            }))),
+                            span: 23..28,
+                        })),
+                        span: 22..29,
+                    })),
+                    span: 9..29,
+                })),
+                span: 1..29,
+            })),
+            span: 0..30,
+        }));
+    }
+
+    #[test]
     fn assign_to_var() {
         let mut parser = Parser::new("fx = 1 / pi");
         let expr = parser.try_parse_full::<Expr>().unwrap();
@@ -1234,6 +1311,7 @@ mod tests {
                 })),
             ],
             span: 0..4,
+            paren_span: 1..4,
         }));
     }
 

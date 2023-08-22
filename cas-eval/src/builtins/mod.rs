@@ -5,7 +5,9 @@ pub mod error;
 use cas_attrs::args;
 use error::BuiltinError;
 use super::{
+    consts::PHI,
     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
+    funcs::factorial as rs_factorial,
     value::Value::{self, *},
 };
 
@@ -29,8 +31,13 @@ generate_number_builtin!(
     // exponential and logarithmic functions
     exp ln
 
+    // root / power functions
+    sqrt cbrt
+
     abs
 );
+
+// trigonometric functions
 
 #[args(y: Number, x: Number)]
 pub fn atan2(args: &[Value]) -> Result<Value, BuiltinError> {
@@ -96,6 +103,8 @@ pub fn rtd(args: &[Value]) -> Result<Value, BuiltinError> {
 
 // TODO: circle
 
+// exponential and logarithmic functions
+
 #[args(a: Number, b: Number)]
 pub fn scientific(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(*a * 10.0_f64.powf(*b)))
@@ -104,6 +113,48 @@ pub fn scientific(args: &[Value]) -> Result<Value, BuiltinError> {
 #[args(x: Number, y: Number = 10.0)]
 pub fn log(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(x.log(*y)))
+}
+
+// root / power functions
+
+#[args(a: Number, b: Number)]
+pub fn hypot(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(a.hypot(*b)))
+}
+
+#[args(n: Number, i: Number)]
+pub fn root(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(n.powf(1.0 / *i)))
+}
+
+#[args(n: Number, p: Number)]
+pub fn pow(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(n.powf(*p)))
+}
+
+// sequences
+
+/// Returns the `n`th term of the Fibonacci sequence, using Binet's formula.
+#[args(n: Number)]
+pub fn fib(args: &[Value]) -> Result<Value, BuiltinError> {
+    // NOTE: inaccurate until we use arbitrary-precision numbers
+    let result_negative = if *n < 0.0 {
+        *n % 2.0 == 0.0
+    } else {
+        false
+    };
+
+    let n = n.abs();
+    let raw = ((PHI.powf(n) - (1.0 - PHI).powf(n)) / 5.0_f64.sqrt()).round();
+
+    Ok(Number(if result_negative { -raw } else { raw }))
+}
+
+// miscellaneous functions
+
+#[args(n: Number)]
+pub fn factorial(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(rs_factorial(*n)))
 }
 
 /// Returns the builtin function with the given name.
@@ -131,6 +182,15 @@ pub fn get_builtin(name: &str) -> Option<fn(&[Value]) -> Result<Value, BuiltinEr
 
         // exponential and logarithmic functions
         exp scientific log ln
+
+        // root / power functions
+        hypot sqrt cbrt root pow
+
+        // sequences
+        fib
+
+        // miscellaneous functions
+        factorial
 
         abs
     )

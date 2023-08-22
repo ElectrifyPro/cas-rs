@@ -21,16 +21,20 @@ impl BuiltinError {
     pub fn into_error(self, call: &Call) -> Error {
         match self {
             BuiltinError::TooManyArguments(e) => Error {
-                spans: vec![call.span.clone()],
+                spans: call.outer_span().to_vec(),
                 kind: Box::new(e) as Box<dyn ErrorKind>,
             },
             BuiltinError::MissingArgument(e) => Error {
-                spans: vec![call.span.clone()],
+                spans: call.outer_span().to_vec(),
                 kind: Box::new(e) as Box<dyn ErrorKind>,
             },
-            BuiltinError::TypeMismatch(e) => Error {
-                spans: vec![call.span.clone(), call.args[e.index].span()],
-                kind: Box::new(e) as Box<dyn ErrorKind>,
+            BuiltinError::TypeMismatch(e) => {
+                let mut this_function_call = call.outer_span().to_vec();
+                this_function_call.extend([call.args[e.index].span()]);
+                Error {
+                    spans: this_function_call,
+                    kind: Box::new(e) as Box<dyn ErrorKind>,
+                }
             },
         }
     }

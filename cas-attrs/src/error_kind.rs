@@ -126,10 +126,15 @@ impl ToTokens for ErrorKindTarget {
                         #labels
                             .into_iter()
                             .enumerate()
-                            .map(|(i, label)| {
-                                ariadne::Label::new((src_id, spans[i].clone()))
-                                    .with_message(label)
-                                    .with_color(cas_error::EXPR)
+                            .map(|(i, label_str)| {
+                                let mut label = ariadne::Label::new((src_id, spans[i].clone()))
+                                    .with_color(cas_error::EXPR);
+
+                                if !label_str.is_empty() {
+                                    label = label.with_message(label_str);
+                                }
+
+                                label
                             })
                             .collect::<Vec<_>>()
                     );

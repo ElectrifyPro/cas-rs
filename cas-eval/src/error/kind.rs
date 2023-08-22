@@ -88,7 +88,7 @@ pub struct UndefinedFunction {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = format!("too many arguments were given to the `{}` function", name),
-    labels = ["this function call"],
+    labels = ["this function call", ""],
     help = format!(
         "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
         name.fg(EXPR),
@@ -111,7 +111,7 @@ pub struct TooManyArguments {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = format!("missing argument #{} for the `{}` function", index + 1, name),
-    labels = ["this function call"],
+    labels = ["this function call", ""],
     help = format!(
         "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
         name.fg(EXPR),
@@ -143,6 +143,7 @@ pub struct MissingArgument {
     ),
     labels = [
         "this function call".to_string(),
+        "".to_string(),
         format!("this argument has type `{}`", given),
     ],
     help = format!("should be of type `{}`", expected),

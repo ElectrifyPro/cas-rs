@@ -150,6 +150,13 @@ impl Args {
             });
 
         quote! {
+            if args.len() > #num_patterns {
+                return Err(BuiltinError::TooManyArguments(TooManyArguments {
+                    name: stringify!(#name).to_owned(),
+                    expected: #num_patterns,
+                    given: args.len(),
+                }));
+            }
             #( #type_checkers )*
             #block
         }

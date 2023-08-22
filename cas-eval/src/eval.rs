@@ -120,7 +120,7 @@ impl Eval for Call {
                 },
 
                 // too many arguments were given
-                (Some(_), None) => return Err(Error::new(vec![self.span()], TooManyArguments {
+                (Some(_), None) => return Err(Error::new(self.outer_span().to_vec(), TooManyArguments {
                     name: self.name.name.clone(),
                     expected: header.params.len(),
                     given: self.args.len(),
@@ -131,12 +131,15 @@ impl Eval for Call {
                 (None, Some(param)) => {
                     // if there is no default, that's an error
                     let value = match param {
-                        Param::Symbol(_) => return Err(Error::new(vec![self.span()], MissingArgument {
-                            name: self.name.name.clone(),
-                            index,
-                            expected: header.params.len(),
-                            given: self.args.len(),
-                        })),
+                        Param::Symbol(_) => return Err(Error::new(
+                            self.outer_span().to_vec(),
+                            MissingArgument {
+                                name: self.name.name.clone(),
+                                index,
+                                expected: header.params.len(),
+                                given: self.args.len(),
+                            },
+                        )),
                         Param::Default(_, expr) => expr.eval(&mut ctxt),
                     }?;
                     ctxt.add_var(&param.symbol().name, value);

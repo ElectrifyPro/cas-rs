@@ -5,7 +5,7 @@ mod error;
 use cas_attrs::args;
 use error::BuiltinError;
 use super::{
-    error::kind::{MissingArgument, TypeMismatch},
+    error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
     value::Value::{self, *},
 };
 

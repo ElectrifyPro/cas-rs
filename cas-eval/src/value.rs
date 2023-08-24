@@ -8,6 +8,9 @@ pub enum Value {
     /// A number value.
     Number(Float),
 
+    /// A boolean.
+    Boolean(bool),
+
     /// The unit type, analogous to `()` in Rust.
     Unit,
 }
@@ -35,10 +38,17 @@ impl From<Float> for Value {
     }
 }
 
+impl From<bool> for Value {
+    fn from(b: bool) -> Self {
+        Value::Boolean(b)
+    }
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Number(n) => write!(f, "{}", n),
+            Value::Boolean(b) => write!(f, "{}", b),
             Value::Unit => write!(f, "()"),
         }
     }

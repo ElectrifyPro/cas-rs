@@ -34,11 +34,6 @@ pub fn float_from_str(s: &str) -> Float {
     Float::with_val(PRECISION, Float::parse(s).unwrap())
 }
 
-/// Returns [`ONE`] if the given boolean is true, otherwise [`ZERO`].
-pub fn float_from_bool(b: bool) -> Float {
-    if b { float(1) } else { float(0) }
-}
-
 pub static ZERO: Lazy<Float> = Lazy::new(|| float(0));
 
 pub static ONE: Lazy<Float> = Lazy::new(|| float(1));

@@ -10,7 +10,7 @@ use cas_parser::parser::{
 use rug::ops::Pow;
 use super::{
     builtins,
-    consts::{self, int_from_float, float, float_from_bool, float_from_str},
+    consts::{int_from_float, float, float_from_str},
     ctxt::Ctxt,
     error::{
         kind::{
@@ -163,12 +163,22 @@ impl Eval for Unary {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         let operand = self.operand.eval(ctxt)?;
         match operand {
-            Value::Number(num) => Ok(Value::Number(match self.op.kind {
-                UnaryOpKind::Not => if num.is_zero() { float(&*consts::ONE) } else { float(&*consts::ZERO) },
-                UnaryOpKind::BitNot => float(!int_from_float(num)),
-                UnaryOpKind::Factorial => float(factorial(int_from_float(num))),
-                UnaryOpKind::Neg => -num,
-            })),
+            Value::Number(num) => Ok(match self.op.kind {
+                UnaryOpKind::Not => Value::Boolean(num.is_zero()),
+                UnaryOpKind::BitNot => Value::Number(float(!int_from_float(num))),
+                UnaryOpKind::Factorial => Value::Number(float(factorial(int_from_float(num)))),
+                UnaryOpKind::Neg => Value::Number(-num),
+            }),
+            Value::Boolean(b) => {
+                if self.op.kind == UnaryOpKind::Not {
+                    Ok(Value::Boolean(!b))
+                } else {
+                    Err(Error::new(vec![self.op.span.clone()], InvalidUnaryOperation {
+                        op: self.op.kind,
+                        expr_type: format!("{:?}", operand),
+                    }))
+                }
+            },
             Value::Unit => Err(Error::new(vec![self.operand.span(), self.op.span.clone()], InvalidUnaryOperation {
                 op: self.op.kind,
                 expr_type: format!("{:?}", operand),
@@ -182,34 +192,34 @@ impl Eval for Binary {
         let left = self.lhs.eval(ctxt)?;
         let right = self.rhs.eval(ctxt)?;
         match (left, right) {
-            (Value::Number(left), Value::Number(right)) => Ok(Value::Number(match self.op.kind {
-                BinOpKind::Exp => left.pow(right),
-                BinOpKind::Mul => left * right,
-                BinOpKind::Div => left / right,
-                BinOpKind::Mod => left % right,
-                BinOpKind::Add => left + right,
-                BinOpKind::Sub => left - right,
-                BinOpKind::BitRight => float(int_from_float(left) >> int_from_float(right).to_usize().ok_or_else(|| Error::new(
+            (Value::Number(left), Value::Number(right)) => Ok(match self.op.kind {
+                BinOpKind::Exp => Value::Number(left.pow(right)),
+                BinOpKind::Mul => Value::Number(left * right),
+                BinOpKind::Div => Value::Number(left / right),
+                BinOpKind::Mod => Value::Number(left % right),
+                BinOpKind::Add => Value::Number(left + right),
+                BinOpKind::Sub => Value::Number(left - right),
+                BinOpKind::BitRight => Value::Number(float(int_from_float(left) >> int_from_float(right).to_usize().ok_or_else(|| Error::new(
                     vec![self.lhs.span(), self.op.span.clone(), self.rhs.span()],
                     BitshiftOverflow,
-                ))?),
-                BinOpKind::BitLeft => float(int_from_float(left) << int_from_float(right).to_usize().ok_or_else(|| Error::new(
+                ))?)),
+                BinOpKind::BitLeft => Value::Number(float(int_from_float(left) << int_from_float(right).to_usize().ok_or_else(|| Error::new(
                     vec![self.lhs.span(), self.op.span.clone(), self.rhs.span()],
                     BitshiftOverflow,
-                ))?),
-                BinOpKind::BitAnd => float(int_from_float(left) & int_from_float(right)),
-                BinOpKind::BitOr => float(int_from_float(left) | int_from_float(right)),
-                BinOpKind::Greater => float_from_bool(left > right),
-                BinOpKind::GreaterEq => float_from_bool(left >= right),
-                BinOpKind::Less => float_from_bool(left < right),
-                BinOpKind::LessEq => float_from_bool(left <= right),
-                BinOpKind::Eq => float_from_bool(left == right),
-                BinOpKind::NotEq => float_from_bool(left != right),
-                BinOpKind::ApproxEq => float_from_bool((left - right).abs() < 1e-6),
-                BinOpKind::ApproxNotEq => float_from_bool((left - right).abs() >= 1e-6),
-                BinOpKind::And => if !left.is_zero() && !right.is_zero() { float(&*consts::ONE) } else { float(&*consts::ZERO) },
-                BinOpKind::Or => if !left.is_zero() || !right.is_zero() { float(&*consts::ONE) } else { float(&*consts::ZERO) },
-            })),
+                ))?)),
+                BinOpKind::BitAnd => Value::Number(float(int_from_float(left) & int_from_float(right))),
+                BinOpKind::BitOr => Value::Number(float(int_from_float(left) | int_from_float(right))),
+                BinOpKind::Greater => Value::Boolean(left > right),
+                BinOpKind::GreaterEq => Value::Boolean(left >= right),
+                BinOpKind::Less => Value::Boolean(left < right),
+                BinOpKind::LessEq => Value::Boolean(left <= right),
+                BinOpKind::Eq => Value::Boolean(left == right),
+                BinOpKind::NotEq => Value::Boolean(left != right),
+                BinOpKind::ApproxEq => Value::Boolean((left - right).abs() < 1e-6),
+                BinOpKind::ApproxNotEq => Value::Boolean((left - right).abs() >= 1e-6),
+                BinOpKind::And => Value::Boolean(!left.is_zero() && !right.is_zero()),
+                BinOpKind::Or => Value::Boolean(!left.is_zero() || !right.is_zero()),
+            }),
             (left, right) => Err(Error::new(
                 vec![self.lhs.span(), self.op.span.clone(), self.rhs.span()],
                 InvalidBinaryOperation {

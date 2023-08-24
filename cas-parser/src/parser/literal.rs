@@ -11,11 +11,11 @@ use crate::{
 };
 
 /// A number literal. Integers and floating-point numbers are both supported and represented here
-/// as `f64`.
+/// as a [`String`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct LitNum {
-    /// The value of the number literal.
-    pub value: f64,
+    /// The value of the number literal as a string.
+    pub value: String,
 
     /// The region of the source code that this literal was parsed from.
     pub span: Range<usize>,
@@ -28,7 +28,7 @@ impl Parse for LitNum {
             .map(|num| (num.lexeme, num.span))
             .or_else(|_| input.try_parse::<Float>().map(|num| (num.lexeme, num.span)))?;
         Ok(Self {
-            value: lexeme.parse().unwrap(),
+            value: lexeme,
             span,
         })
     }

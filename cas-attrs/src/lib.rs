@@ -72,6 +72,7 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 /// use cas_attrs::args;
 /// use cas_eval::{
 ///     builtins::error::BuiltinError,
+///     consts::float,
 ///     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
 ///     value::Value::{self, *},
 /// };
@@ -84,9 +85,9 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 /// }
 ///
 /// /// Returns the logarithm of a number with a given base.
-/// #[args(n: Number, base: Number = 10.0)]
+/// #[args(n: Number, base: Number = float(10.0))]
 /// fn log(args: &[Value]) -> Result<Value, BuiltinError> {
-///     Ok(Value::Number(n.log(*base)))
+///     Ok(Value::Number(n.ln() / base.ln()))
 /// }
 /// ```
 ///

@@ -44,6 +44,15 @@ pub struct InvalidUnaryOperation {
     pub expr_type: String,
 }
 
+/// Attempted to bitshift an integer by too many bits.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "maximum bitshift amount exceeded",
+    labels = ["this expression", "", "too many bits to shift by"],
+    help = "the maximum number of bits you can shift an integer by is equal to: `2^64 - 1`"
+)]
+pub struct BitshiftOverflow;
+
 /// The variable is undefined.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

@@ -1,6 +1,6 @@
 use cas_parser::parser::{assign::FuncHeader, expr::Expr};
 use levenshtein::levenshtein;
-use std::{collections::HashMap, f64};
+use std::collections::HashMap;
 use super::value::Value;
 
 /// A context to use when evaluating an expression, containing variables and functions that can be
@@ -18,10 +18,10 @@ impl Default for Ctxt {
     fn default() -> Self {
         Self {
             vars: HashMap::from([
-                ("e".to_string(), f64::consts::E.into()),
-                ("phi".to_string(), super::consts::PHI.into()),
-                ("pi".to_string(), f64::consts::PI.into()),
-                ("tau".to_string(), f64::consts::TAU.into()),
+                ("e".to_string(), super::consts::E.clone().into()),
+                ("phi".to_string(), super::consts::PHI.clone().into()),
+                ("pi".to_string(), super::consts::PI.clone().into()),
+                ("tau".to_string(), super::consts::TAU.clone().into()),
             ]),
             funcs: HashMap::new(),
         }

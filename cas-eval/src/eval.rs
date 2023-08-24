@@ -7,11 +7,14 @@ use cas_parser::parser::{
     unary::Unary,
     token::op::{BinOpKind, UnaryOpKind},
 };
+use rug::ops::Pow;
 use super::{
     builtins,
+    consts::{self, int_from_float, float, float_from_bool, float_from_str},
     ctxt::Ctxt,
     error::{
         kind::{
+            BitshiftOverflow,
             InvalidBinaryOperation,
             InvalidUnaryOperation,
             MissingArgument,
@@ -78,8 +81,8 @@ impl Eval for Primary {
 impl Eval for Literal {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         match self {
-            Literal::Number(num) => Ok(Value::Number(num.value)),
-            Literal::Radix(radix) => Ok(Value::Number(from_str_radix(radix.value.as_str(), radix.base))),
+            Literal::Number(num) => Ok(Value::Number(float_from_str(&num.value))),
+            Literal::Radix(radix) => Ok(Value::Number(float(from_str_radix(radix.value.as_str(), radix.base)))),
             Literal::Symbol(sym) => ctxt.get_var(sym.name.as_str())
                 .ok_or_else(|| Error::new(vec![sym.span.clone()], UndefinedVariable { name: sym.name.clone() })),
         }
@@ -161,10 +164,10 @@ impl Eval for Unary {
         let operand = self.operand.eval(ctxt)?;
         match operand {
             Value::Number(num) => Ok(Value::Number(match self.op.kind {
-                UnaryOpKind::Not => if num == 0.0 { 1.0 } else { 0.0 },
-                UnaryOpKind::BitNot => !(num as i64) as f64,
-                UnaryOpKind::Factorial => factorial(num),
-                UnaryOpKind::Neg => -1.0 * num,
+                UnaryOpKind::Not => if num.is_zero() { float(&*consts::ONE) } else { float(&*consts::ZERO) },
+                UnaryOpKind::BitNot => float(!int_from_float(num)),
+                UnaryOpKind::Factorial => float(factorial(int_from_float(num))),
+                UnaryOpKind::Neg => -num,
             })),
             Value::Unit => Err(Error::new(vec![self.operand.span(), self.op.span.clone()], InvalidUnaryOperation {
                 op: self.op.kind,
@@ -180,26 +183,32 @@ impl Eval for Binary {
         let right = self.rhs.eval(ctxt)?;
         match (left, right) {
             (Value::Number(left), Value::Number(right)) => Ok(Value::Number(match self.op.kind {
-                BinOpKind::Exp => left.powf(right),
+                BinOpKind::Exp => left.pow(right),
                 BinOpKind::Mul => left * right,
                 BinOpKind::Div => left / right,
                 BinOpKind::Mod => left % right,
                 BinOpKind::Add => left + right,
                 BinOpKind::Sub => left - right,
-                BinOpKind::BitRight => ((left as i64) >> (right as i64)) as f64,
-                BinOpKind::BitLeft => ((left as i64) << (right as i64)) as f64,
-                BinOpKind::BitAnd => ((left as i64) & (right as i64)) as f64,
-                BinOpKind::BitOr => ((left as i64) | (right as i64)) as f64,
-                BinOpKind::Greater => (left > right) as u8 as f64,
-                BinOpKind::GreaterEq => (left >= right) as u8 as f64,
-                BinOpKind::Less => (left < right) as u8 as f64,
-                BinOpKind::LessEq => (left <= right) as u8 as f64,
-                BinOpKind::Eq => (left == right) as u8 as f64,
-                BinOpKind::NotEq => (left != right) as u8 as f64,
-                BinOpKind::ApproxEq => ((left - right).abs() < 1e-6) as u8 as f64,
-                BinOpKind::ApproxNotEq => ((left - right).abs() >= 1e-6) as u8 as f64,
-                BinOpKind::And => if left != 0.0 && right != 0.0 { 1.0 } else { 0.0 },
-                BinOpKind::Or => if left != 0.0 || right != 0.0 { 1.0 } else { 0.0 },
+                BinOpKind::BitRight => float(int_from_float(left) >> int_from_float(right).to_usize().ok_or_else(|| Error::new(
+                    vec![self.lhs.span(), self.op.span.clone(), self.rhs.span()],
+                    BitshiftOverflow,
+                ))?),
+                BinOpKind::BitLeft => float(int_from_float(left) << int_from_float(right).to_usize().ok_or_else(|| Error::new(
+                    vec![self.lhs.span(), self.op.span.clone(), self.rhs.span()],
+                    BitshiftOverflow,
+                ))?),
+                BinOpKind::BitAnd => float(int_from_float(left) & int_from_float(right)),
+                BinOpKind::BitOr => float(int_from_float(left) | int_from_float(right)),
+                BinOpKind::Greater => float_from_bool(left > right),
+                BinOpKind::GreaterEq => float_from_bool(left >= right),
+                BinOpKind::Less => float_from_bool(left < right),
+                BinOpKind::LessEq => float_from_bool(left <= right),
+                BinOpKind::Eq => float_from_bool(left == right),
+                BinOpKind::NotEq => float_from_bool(left != right),
+                BinOpKind::ApproxEq => float_from_bool((left - right).abs() < 1e-6),
+                BinOpKind::ApproxNotEq => float_from_bool((left - right).abs() >= 1e-6),
+                BinOpKind::And => if !left.is_zero() && !right.is_zero() { float(&*consts::ONE) } else { float(&*consts::ZERO) },
+                BinOpKind::Or => if !left.is_zero() || !right.is_zero() { float(&*consts::ONE) } else { float(&*consts::ZERO) },
             })),
             (left, right) => Err(Error::new(
                 vec![self.lhs.span(), self.op.span.clone(), self.rhs.span()],
@@ -217,62 +226,65 @@ impl Eval for Binary {
 /// Eval tests depend on the parser, so ensure that parser tests pass before running these.
 #[cfg(test)]
 mod tests {
-    use crate::builtins;
+    use crate::{builtins, consts::{self, int}};
     use super::*;
 
     use cas_parser::parser::Parser;
-    use std::f64::consts;
 
     #[test]
     fn binary_expr() {
         let mut parser = Parser::new("1 + 2");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), Value::Number(3.0));
+        assert_eq!(expr.eval_default().unwrap(), 3.0.into());
     }
 
     #[test]
     fn binary_expr_2() {
         let mut parser = Parser::new("1 + 2 * 3");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), Value::Number(7.0));
+        assert_eq!(expr.eval_default().unwrap(), 7.0.into());
     }
 
     #[test]
     fn binary_and_unary() {
         let mut parser = Parser::new("3 * -5 / 5! + 6");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), Value::Number(5.875));
+        assert_eq!(expr.eval_default().unwrap(), 5.875.into());
     }
 
     #[test]
     fn parenthesized() {
         let mut parser = Parser::new("((1 + 9) / 5) * 3");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), Value::Number(6.0));
+        assert_eq!(expr.eval_default().unwrap(), 6.0.into());
     }
 
     #[test]
     fn degree_to_radian() {
         let mut parser = Parser::new("90 * 2 * pi / 360");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), Value::Number(consts::PI / 2.0));
+
+        // assert approximate equality for floating point numbers
+        let val1 = expr.eval_default().unwrap();
+        let val2 = (&*consts::PI / float(2)).into();
+        assert!(val1.approx_eq(&val2));
     }
 
     #[test]
     fn precision() {
         let mut parser = Parser::new("e^2 - tau");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), Value::Number(consts::E.powf(2.0) - consts::TAU));
+        assert_eq!(expr.eval_default().unwrap(), Value::Number(consts::E.clone().pow(2) - &*consts::TAU));
     }
 
     #[test]
     fn precision_2() {
         let mut parser = Parser::new("pi^2 * 17! / -4.9 + e");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(
-            expr.eval_default().unwrap(),
-            Value::Number(consts::PI.powf(2.0) * factorial(17.0) / -4.9 + consts::E)
-        );
+
+        let val1 = expr.eval_default().unwrap();
+        let val2 = Value::Number(consts::PI.clone().pow(2) * factorial(int(17)) / -float(4.9) + &*consts::E);
+        assert!(val1.approx_eq(&val2));
     }
 
     #[test]
@@ -287,7 +299,7 @@ mod tests {
         // call function
         let mut parser = Parser::new("f(7)");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval(&mut ctxt).unwrap(), Value::Number(90.0));
+        assert_eq!(expr.eval(&mut ctxt).unwrap(), 90.0.into());
     }
 
     #[test]
@@ -316,7 +328,7 @@ mod tests {
             let expr = parser.try_parse_full::<Expr>().unwrap();
             assert_eq!(
                 expr.eval(&mut ctxt).unwrap(),
-                Value::Number(expected_result),
+                expected_result.into(),
                 "source: {}",
                 source,
             );
@@ -325,7 +337,7 @@ mod tests {
 
     #[test]
     fn builtin_func_arg_check() {
-        assert_eq!(builtins::abs(&[Value::Number(-4.0)]).unwrap(), Value::Number(4.0));
+        assert_eq!(builtins::abs(&[Value::from(4.0)]).unwrap(), 4.0.into());
         assert!(builtins::abs(&[Value::Unit]).is_err());
     }
 }

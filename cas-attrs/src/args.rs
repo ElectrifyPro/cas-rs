@@ -99,8 +99,7 @@ impl Args {
         // - `Some(_)`: argument is provided, incorrect type
         // - `None`: argument is not provided
         //
-        // notice use of `Cow` to avoid cloning of the default expression; the argument is borrowed
-        // if provided, and owned if not
+        // TODO: arguments are cloned, which may or may not be ideal
         let type_checkers = self.params
             .iter()
             .enumerate()
@@ -110,7 +109,7 @@ impl Args {
                     Some(default) => {
                         quote! {
                             let #ident = match args.get(#i) {
-                                Some(#ty(#ident)) => std::borrow::Cow::Borrowed(#ident),
+                                Some(#ty(#ident)) => #ident.clone(),
                                 Some(_) => {
                                     return Err(BuiltinError::TypeMismatch(TypeMismatch {
                                         name: stringify!(#name).to_owned(),
@@ -119,14 +118,14 @@ impl Args {
                                         given: args[#i].to_string(),
                                     }));
                                 },
-                                None => std::borrow::Cow::Owned(#default),
+                                None => #default,
                             };
                         }
                     },
                     None => {
                         quote! {
                             let #ident = match args.get(#i) {
-                                Some(#ty(#ident)) => std::borrow::Cow::Borrowed(#ident),
+                                Some(#ty(#ident)) => #ident.clone(),
                                 Some(_) => {
                                     return Err(BuiltinError::TypeMismatch(TypeMismatch {
                                         name: stringify!(#name).to_owned(),

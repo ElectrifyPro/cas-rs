@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use rug::{Assign, Complex, Float, Integer};
 
 /// The number of digits of precision to use when computing values.
-pub const PRECISION: u32 = 60;
+pub const PRECISION: u32 = 256;
 
 /// Creates an [`Integer`] with the given value.
 pub fn int<T>(n: T) -> Integer

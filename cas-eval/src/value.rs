@@ -1,6 +1,6 @@
 use rug::{Complex, Float};
 use std::fmt::{Display, Formatter};
-use super::consts::{complex, float};
+use super::{consts::{complex, float}, fmt::{FormatOptions, ValueFormatter}};
 
 /// Represents any value that can be stored in a variable.
 #[derive(Debug, Clone, PartialEq)]
@@ -69,6 +69,14 @@ impl Value {
             _ => false,
         }
     }
+
+    /// Returns a formatter for the value with the given options.
+    pub fn fmt(&self, options: FormatOptions) -> ValueFormatter {
+        ValueFormatter {
+            value: self,
+            options,
+        }
+    }
 }
 
 impl From<f64> for Value {
@@ -97,11 +105,6 @@ impl From<bool> for Value {
 
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::Number(n) => write!(f, "{}", n),
-            Value::Complex(c) => write!(f, "{}", c),
-            Value::Boolean(b) => write!(f, "{}", b),
-            Value::Unit => write!(f, "()"),
-        }
+        self.fmt(Default::default()).fmt(f)
     }
 }

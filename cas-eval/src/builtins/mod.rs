@@ -90,6 +90,28 @@ pub fn pow(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(n.pow(&p)))
 }
 
+// complex numbers
+
+#[args(z: Complex)]
+pub fn re(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(z.into_real_imag().0))
+}
+
+#[args(z: Complex)]
+pub fn im(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(z.into_real_imag().1))
+}
+
+#[args(z: Complex)]
+pub fn arg(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(z.arg().into_real_imag().0))
+}
+
+#[args(z: Complex)]
+pub fn conj(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(z.conj()))
+}
+
 // sequences
 
 /// Returns the `n`th term of the Fibonacci sequence, using Binet's formula.
@@ -144,6 +166,9 @@ pub fn get_builtin(name: &str) -> Option<fn(&[Value]) -> Result<Value, BuiltinEr
 
         // root / power functions
         hypot sqrt cbrt root pow
+
+        // complex numbers
+        re im arg conj
 
         // sequences
         fib

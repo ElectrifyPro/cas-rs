@@ -15,6 +15,9 @@ pub enum Type {
     /// A number value.
     Number,
 
+    /// A complex number value.
+    Complex,
+
     /// The unit type, analogous to `()` in Rust.
     Unit,
 }
@@ -23,8 +26,9 @@ impl Parse for Type {
     fn parse(input: ParseStream) -> Result<Self> {
         match &*input.parse::<Ident>()?.to_string() {
             "Number" => Ok(Type::Number),
+            "Complex" => Ok(Type::Complex),
             "Unit" => Ok(Type::Unit),
-            _ => Err(input.error("expected `Number` or `Unit`")),
+            _ => Err(input.error("expected `Number`, `Complex`, or `Unit`")),
         }
     }
 }
@@ -33,6 +37,7 @@ impl ToTokens for Type {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         match self {
             Type::Number => tokens.extend(quote! { Number }),
+            Type::Complex => tokens.extend(quote! { Complex }),
             Type::Unit => tokens.extend(quote! { Unit }),
         }
     }

@@ -95,7 +95,6 @@ pub fn pow(args: &[Value]) -> Result<Value, BuiltinError> {
 /// Returns the `n`th term of the Fibonacci sequence, using Binet's formula.
 #[args(n: Number)]
 pub fn fib(args: &[Value]) -> Result<Value, BuiltinError> {
-    // NOTE: inaccurate until we use arbitrary-precision numbers
     let result_negative = if n.is_sign_negative() {
         // TODO
         n.to_integer().unwrap().is_even()

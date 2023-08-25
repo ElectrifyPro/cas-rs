@@ -1,6 +1,6 @@
 use cas_parser::parser::{unary::Unary, token::op::UnaryOpKind};
 use crate::{
-    consts::{int_from_float, float},
+    consts::{complex, int_from_float, float},
     ctxt::Ctxt,
     error::{kind::InvalidUnaryOperation, Error},
     eval::Eval,
@@ -17,6 +17,14 @@ impl Eval for Unary {
                 UnaryOpKind::BitNot => Value::Number(float(!int_from_float(num))),
                 UnaryOpKind::Factorial => Value::Number(float(factorial(int_from_float(num)))),
                 UnaryOpKind::Neg => Value::Number(-num),
+            }),
+            Value::Complex(ref comp) => Ok(match self.op.kind {
+                UnaryOpKind::Not => Value::Boolean(comp.eq0()),
+                UnaryOpKind::Neg => Value::Complex(complex(&*comp.as_neg())),
+                _ => return Err(Error::new(vec![self.op.span.clone()], InvalidUnaryOperation {
+                    op: self.op.kind,
+                    expr_type: format!("{:?}", operand),
+                })),
             }),
             Value::Boolean(b) => {
                 if self.op.kind == UnaryOpKind::Not {

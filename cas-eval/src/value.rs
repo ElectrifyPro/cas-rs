@@ -1,12 +1,15 @@
-use rug::Float;
+use rug::{Complex, Float};
 use std::fmt::{Display, Formatter};
-use super::consts::float;
+use super::consts::{complex, float};
 
 /// Represents any value that can be stored in a variable.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// A number value.
     Number(Float),
+
+    /// A complex number value.
+    Complex(Complex),
 
     /// A boolean.
     Boolean(bool),
@@ -26,6 +29,48 @@ impl Value {
     }
 }
 
+impl Value {
+    /// If this value is a complex number, attempt to coerce it to a real number, returning the
+    /// initial value. This is a no-op if the value is not a complex number.
+    ///
+    /// This is useful for when evaluation of an expression results in a `Value::Complex` with a
+    /// zero value for the imaginary part. Using this value for certain operators, such as the
+    /// bitwise operators, will result in an error, so we will need to coerce those values to
+    /// `Value::Number` instead.
+    pub fn coerce_real(self) -> Self {
+        match self {
+            Value::Complex(c) if c.imag().is_zero() => Value::Number(c.into_real_imag().0),
+            _ => self,
+        }
+    }
+
+    /// If this value is a real number, coerce it to a complex number, returning the initial value.
+    /// This is a no-op if the value is not a real number.
+    pub fn coerce_complex(self) -> Self {
+        match self {
+            Value::Number(n) => Value::Complex(complex(n)),
+            _ => self,
+        }
+    }
+
+    /// Returns true if this value is a real number, or can be coerced to one.
+    pub fn is_real(&self) -> bool {
+        match self {
+            Value::Number(_) => true,
+            Value::Complex(c) => c.imag().is_zero(),
+            _ => false,
+        }
+    }
+
+    /// Returns true if this value is a complex number, or can be coerced to one.
+    pub fn is_complex(&self) -> bool {
+        match self {
+            Value::Complex(_) | Value::Number(_) => true,
+            _ => false,
+        }
+    }
+}
+
 impl From<f64> for Value {
     fn from(n: f64) -> Self {
         Value::Number(float(n))
@@ -35,6 +80,12 @@ impl From<f64> for Value {
 impl From<Float> for Value {
     fn from(n: Float) -> Self {
         Value::Number(n)
+    }
+}
+
+impl From<Complex> for Value {
+    fn from(c: Complex) -> Self {
+        Value::Complex(c)
     }
 }
 
@@ -48,6 +99,7 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Number(n) => write!(f, "{}", n),
+            Value::Complex(c) => write!(f, "{}", c),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Unit => write!(f, "()"),
         }

@@ -2,7 +2,7 @@
 //! [`Float`]s with the given value.
 
 use once_cell::sync::Lazy;
-use rug::{Assign, Float, Integer};
+use rug::{Assign, Complex, Float, Integer};
 
 /// The number of digits of precision to use when computing values.
 pub const PRECISION: u32 = 60;
@@ -34,11 +34,22 @@ pub fn float_from_str(s: &str) -> Float {
     Float::with_val(PRECISION, Float::parse(s).unwrap())
 }
 
+/// Creates a [`Complex`] with the given value.
+pub fn complex<T>(n: T) -> Complex
+where
+    Complex: Assign<T>,
+{
+    Complex::with_val(PRECISION, n)
+}
+
 pub static ZERO: Lazy<Float> = Lazy::new(|| float(0));
 
 pub static ONE: Lazy<Float> = Lazy::new(|| float(1));
 
 pub static TEN: Lazy<Float> = Lazy::new(|| float(10));
+
+/// The imaginary unit.
+pub static I: Lazy<Complex> = Lazy::new(|| complex((0, 1)));
 
 /// Euler's number.
 pub static E: Lazy<Float> = Lazy::new(|| {

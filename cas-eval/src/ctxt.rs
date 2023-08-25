@@ -18,6 +18,7 @@ impl Default for Ctxt {
     fn default() -> Self {
         Self {
             vars: HashMap::from([
+                ("i".to_string(), super::consts::I.clone().into()),
                 ("e".to_string(), super::consts::E.clone().into()),
                 ("phi".to_string(), super::consts::PHI.clone().into()),
                 ("pi".to_string(), super::consts::PI.clone().into()),

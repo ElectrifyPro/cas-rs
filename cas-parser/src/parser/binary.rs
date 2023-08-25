@@ -99,6 +99,13 @@ impl Binary {
                } else {
                    // there is no operator; check if there is a primary expression instead
                    // if there is, this is implicit multiplication
+                   //
+                   // first, check if the previous operator has higher precedence; if so, we cannot
+                   // give priority to implicit multiplication
+                   if precedence > BinOpKind::Mul.precedence() {
+                       break;
+                   }
+
                    if let Ok(primary) = input.try_parse::<Primary>() {
                        let expr: Expr = primary.into();
                        let (start_span, end_span) = (rhs.span().start, expr.span().end);

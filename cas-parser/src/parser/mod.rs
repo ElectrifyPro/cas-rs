@@ -939,6 +939,41 @@ mod tests {
     }
 
     #[test]
+    fn implicit_multiplication_extra_2() {
+        let mut parser = Parser::new("3^42.9i");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: "3".to_string(),
+                    span: 0..1,
+                }))),
+                op: BinOp {
+                    kind: BinOpKind::Exp,
+                    implicit: false,
+                    span: 1..2,
+                },
+                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: "42.9".to_string(),
+                    span: 2..6,
+                }))),
+                span: 0..6,
+            })),
+            op: BinOp {
+                kind: BinOpKind::Mul,
+                implicit: true,
+                span: 6..6,
+            },
+            rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                name: "i".to_string(),
+                span: 6..7,
+            }))),
+            span: 0..7,
+        }));
+    }
+
+    #[test]
     fn implicit_multiplication_nonsensical() {
         let mut parser = Parser::new("2!! 3!!");
         let expr = parser.try_parse_full::<Expr>().unwrap();

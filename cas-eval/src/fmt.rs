@@ -148,12 +148,13 @@ fn format_decimal<F: std::fmt::Write>(f: &mut F, n: &Float, separators: Separato
     }
 
     let (sign, mut s, exponent) = n.to_sign_string_exp(10, Some(digits_needed as usize));
+    let exponent = exponent.unwrap(); // exponent is Some() if the number is normal
 
     // add decimal point
-    if exponent.unwrap() == 0 {
-        s.insert_str(0, "0.");
-    } else {
-        s.insert(exponent.unwrap() as usize, '.');
+    match exponent.cmp(&0) {
+        Ordering::Less => s.insert_str(0, &format!("0.{}", "0".repeat(-exponent as usize))),
+        Ordering::Equal => s.insert_str(0, "0."),
+        Ordering::Greater => s.insert(exponent as usize, '.'),
     }
 
     if separators == Separator::Always {

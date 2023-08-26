@@ -23,10 +23,11 @@ pub trait Eval {
 /// Eval tests depend on the parser, so ensure that parser tests pass before running these.
 #[cfg(test)]
 mod tests {
-    use crate::{builtins, consts::{self, int}};
+    use crate::{builtins, consts::{self, float, int}, funcs::factorial};
+    use rug::ops::Pow;
     use super::*;
 
-    use cas_parser::parser::Parser;
+    use cas_parser::parser::{expr::Expr, Parser};
 
     #[test]
     fn binary_expr() {

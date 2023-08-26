@@ -6,48 +6,106 @@ use cas_attrs::args;
 use error::BuiltinError;
 use rug::ops::Pow;
 use super::{
-    consts::{ONE, PHI, PI, TEN, float, int_from_float},
+    consts::{ONE, PHI, PI, TEN, complex, float, int_from_float},
     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
     funcs::factorial as rs_factorial,
     value::Value::{self, *},
 };
 
-/// Generates builtin implementations for simple one-argument functions that take a number.
-macro_rules! generate_number_builtin {
+/// Generates builtin implementations for simple one-argument functions that take a complex number.
+macro_rules! generate_complex_builtin {
     ($($name:ident)+) => {
         $(
-            #[args(n: Number)]
+            #[args(n: Complex)]
             pub fn $name(args: &[Value]) -> Result<Value, BuiltinError> {
-                Ok(Number(n.$name()))
+                Ok(Complex(n.$name()))
             }
         )*
     };
 }
 
-generate_number_builtin!(
+generate_complex_builtin!(
     // trigonometric functions
-    sin cos tan csc sec cot
-    asin acos atan
-    sinh cosh tanh csch sech coth
-    asinh acosh atanh
+    sin cos tan // csc sec cot
+    asin acos atan // acsc asec acot
+    sinh cosh tanh // csch sech coth
+    asinh acosh atanh // acsch asech acoth
 
     // exponential and logarithmic functions
     exp ln
 
     // root / power functions
-    sqrt cbrt
+    sqrt // cbrt
 
     abs
 );
 
 // trigonometric functions
 
+#[args(n: Complex)]
+pub fn csc(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.sin().recip()))
+}
+
+#[args(n: Complex)]
+pub fn sec(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.cos().recip()))
+}
+
+#[args(n: Complex)]
+pub fn cot(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.tan().recip()))
+}
+
+#[args(n: Complex)]
+pub fn acsc(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.recip().asin()))
+}
+
+#[args(n: Complex)]
+pub fn asec(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.recip().acos()))
+}
+
+#[args(n: Complex)]
+pub fn acot(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.recip().atan()))
+}
+
 #[args(y: Number, x: Number)]
 pub fn atan2(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(y.atan2(&x)))
 }
 
-// TODO: acsch, asech, acoth
+#[args(n: Complex)]
+pub fn csch(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.sinh().recip()))
+}
+
+#[args(n: Complex)]
+pub fn sech(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.cosh().recip()))
+}
+
+#[args(n: Complex)]
+pub fn coth(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.tanh().recip()))
+}
+
+#[args(n: Complex)]
+pub fn acsch(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.recip().asinh()))
+}
+
+#[args(n: Complex)]
+pub fn asech(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.recip().acosh()))
+}
+
+#[args(n: Complex)]
+pub fn acoth(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.recip().atanh()))
+}
 
 #[args(n: Number)]
 pub fn dtr(args: &[Value]) -> Result<Value, BuiltinError> {
@@ -63,14 +121,14 @@ pub fn rtd(args: &[Value]) -> Result<Value, BuiltinError> {
 
 // exponential and logarithmic functions
 
-#[args(a: Number, b: Number)]
+#[args(a: Complex, b: Complex)]
 pub fn scientific(args: &[Value]) -> Result<Value, BuiltinError> {
-    Ok(Number(a * float(&*TEN).pow(b)))
+    Ok(Complex(a * complex(&*TEN).pow(b)))
 }
 
-#[args(x: Number, y: Number = float(10.0))]
+#[args(x: Complex, y: Complex = complex(&*TEN))]
 pub fn log(args: &[Value]) -> Result<Value, BuiltinError> {
-    Ok(Number(x.ln() / y.ln()))
+    Ok(Complex(x.ln() / y.ln()))
 }
 
 // root / power functions
@@ -80,14 +138,19 @@ pub fn hypot(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(a.hypot(&b)))
 }
 
-#[args(n: Number, i: Number)]
-pub fn root(args: &[Value]) -> Result<Value, BuiltinError> {
-    Ok(Number(n.pow(1.0 / i)))
+#[args(n: Complex)]
+pub fn cbrt(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.pow(1.0 / 3.0)))
 }
 
-#[args(n: Number, p: Number)]
+#[args(n: Complex, i: Complex)]
+pub fn root(args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(n.pow(&i.recip())))
+}
+
+#[args(n: Complex, p: Complex)]
 pub fn pow(args: &[Value]) -> Result<Value, BuiltinError> {
-    Ok(Number(n.pow(&p)))
+    Ok(Complex(n.pow(&p)))
 }
 
 // complex numbers
@@ -154,9 +217,9 @@ pub fn get_builtin(name: &str) -> Option<fn(&[Value]) -> Result<Value, BuiltinEr
     match_builtin!(
         // trigonometric functions
         sin cos tan csc sec cot
-        asin acos atan atan2
+        asin acos atan atan2 acsc asec acot
         sinh cosh tanh csch sech coth
-        asinh acosh atanh
+        asinh acosh atanh acsch asech acoth
 
         // conversion functions
         dtr rtd

@@ -57,9 +57,18 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 /// and returns a `Result<Value, BuiltinError>`. It will check that the number of arguments given
 /// to the function is correct, and that the types of the arguments are correct.
 ///
-/// The attribute accepts a comma-separated list of [`Value`] patterns, which are used to check the
-/// types of the arguments. The patterns are matched against the arguments in order, and the
-/// function body will only be executed if all the patterns match.
+/// The attribute accepts a comma-separated list of parameters in the form
+///
+/// `<name>: <type> [= <default value>]`.
+///
+/// The name of the parameter must be a valid Rust identifier to bind to, and the type must be one
+/// of the following:
+///
+/// | Type      | Description                                                                                         |
+/// | --------- | --------------------------------------------------------------------------------------------------- |
+/// | `Number`  | A number value. Numbers can freely coerce to [`Value::Complex`].                                    |
+/// | `Complex` | A complex number value. Complex numbers can coerce to [`Value::Number`] if the imaginary part is 0. |
+/// | `Unit`    | The unit type, analogous to `()` in Rust.                                                           |
 ///
 /// Parameters can be given default values by using the `= <value>` syntax after the pattern. The default value will
 /// be used if the argument is not given.

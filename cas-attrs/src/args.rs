@@ -12,10 +12,11 @@ use syn::{
 /// One of the possible types for the `Value` enum.
 #[derive(Debug)]
 pub enum Type {
-    /// A number value.
+    /// A number value. Numbers can freely coerce to [`Value::Complex`].
     Number,
 
-    /// A complex number value.
+    /// A complex number value. Complex numbers can coerce to [`Value::Number`] if the imaginary
+    /// part is 0.
     Complex,
 
     /// The unit type, analogous to `()` in Rust.
@@ -104,17 +105,28 @@ impl Args {
         // - `Some(_)`: argument is provided, incorrect type
         // - `None`: argument is not provided
         //
+        // the `Number` and `Complex` types are somewhat special in that they can coerce into each
+        // other if:
+        // - the argument given is a `Number` and the parameter is a `Complex`
+        // - the argument given is a `Complex` with an imaginary part of 0 and the parameter is a
+        // `Number`
+        //
         // TODO: arguments are cloned, which may or may not be ideal
         let type_checkers = self.params
             .iter()
             .enumerate()
             .map(|(i, param)| {
+                let coerce_getter_expr = match param.ty {
+                    Type::Number => quote! { args.get(#i).cloned().map(|arg| arg.coerce_real()) },
+                    Type::Complex => quote! { args.get(#i).cloned().map(|arg| arg.coerce_complex()) },
+                    _ => quote! { args.get(#i) },
+                };
                 let (ident, ty, default) = (&param.ident, &param.ty, &param.default);
                 match default {
                     Some(default) => {
                         quote! {
-                            let #ident = match args.get(#i) {
-                                Some(#ty(#ident)) => #ident.clone(),
+                            let #ident = match #coerce_getter_expr {
+                                Some(#ty(#ident)) => #ident,
                                 Some(_) => {
                                     return Err(BuiltinError::TypeMismatch(TypeMismatch {
                                         name: stringify!(#name).to_owned(),
@@ -129,8 +141,8 @@ impl Args {
                     },
                     None => {
                         quote! {
-                            let #ident = match args.get(#i) {
-                                Some(#ty(#ident)) => #ident.clone(),
+                            let #ident = match #coerce_getter_expr {
+                                Some(#ty(#ident)) => #ident,
                                 Some(_) => {
                                     return Err(BuiltinError::TypeMismatch(TypeMismatch {
                                         name: stringify!(#name).to_owned(),

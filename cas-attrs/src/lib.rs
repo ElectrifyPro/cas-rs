@@ -43,9 +43,6 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
     let name = &target.name;
     quote! {
         impl ErrorKind for #name {
-            fn as_any(&self) -> &dyn std::any::Any {
-                self
-            }
             #target
         }
     }.into()

@@ -66,9 +66,13 @@ impl Binary {
                }
            }) {
                Ok(result) => result,
-               Err(non_fatal)
-                   if non_fatal.kind.as_any().downcast_ref::<kind::NonFatal>().is_some() => break,
-               Err(err) => return Err(err),
+               Err(err) => {
+                   if err.fatal {
+                       return Err(err);
+                   } else {
+                       break;
+                   }
+               },
            };
            let precedence = op.precedence();
 

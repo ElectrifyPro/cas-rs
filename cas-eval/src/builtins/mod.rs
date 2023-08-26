@@ -6,9 +6,10 @@ use cas_attrs::args;
 use error::BuiltinError;
 use rug::ops::Pow;
 use super::{
-    consts::{ONE, PHI, PI, TEN, complex, float, int_from_float},
+    builtins::error::NcrError,
+    consts::{ONE, PHI, PI, TEN, complex, float, int, int_from_float},
     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
-    funcs::factorial as rs_factorial,
+    funcs::{factorial as rs_factorial, partial_factorial},
     value::Value::{self, *},
 };
 
@@ -175,6 +176,27 @@ pub fn conj(args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Complex(z.conj()))
 }
 
+// statistics
+
+#[args(n: Number, k: Number)]
+pub fn ncr(args: &[Value]) -> Result<Value, BuiltinError> {
+    if &n < &k {
+        return Err(NcrError::NLessThanK.into());
+    } else if k.is_sign_negative() {
+        // if k is positive, then n is also positive
+        return Err(NcrError::NegativeArgs.into());
+    }
+
+    let (n, k) = (n.to_integer().unwrap(), k.to_integer().unwrap());
+    let sub = int(&n - &k);
+
+    if &k > &sub {
+        Ok(Number(float(partial_factorial(n, k) / rs_factorial(sub))))
+    } else {
+        Ok(Number(float(partial_factorial(n, sub) / rs_factorial(k))))
+    }
+}
+
 // sequences
 
 /// Returns the `n`th term of the Fibonacci sequence, using Binet's formula.
@@ -235,6 +257,9 @@ pub fn get_builtin(name: &str) -> Option<fn(&[Value]) -> Result<Value, BuiltinEr
 
         // sequences
         fib
+
+        // statistics
+        ncr
 
         // miscellaneous functions
         factorial

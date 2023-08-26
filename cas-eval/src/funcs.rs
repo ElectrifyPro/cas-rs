@@ -3,10 +3,16 @@ use rug::{ops::Pow, Integer};
 use super::consts::int;
 
 /// Computes the factorial of a number.
-pub fn factorial(mut n: Integer) -> Integer {
+pub fn factorial(n: Integer) -> Integer {
+    partial_factorial(n, int(1))
+}
+
+/// Computes a partial factorial of a number from `n` to `k`, where `k` is exclusive (i.e. `n * (n
+/// - 1) * ... * (k + 1)`).
+pub fn partial_factorial(mut n: Integer, k: Integer) -> Integer {
     let one = int(1);
     let mut result = int(1);
-    while n > one {
+    while n > k {
         result *= &n;
         n -= &one;
     }

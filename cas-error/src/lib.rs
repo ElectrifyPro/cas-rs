@@ -2,15 +2,13 @@
 //! user-facing error messages.
 
 use ariadne::{Color, Report};
-use std::{any::Any, fmt::Debug, ops::Range};
+use std::{fmt::Debug, ops::Range};
 
 /// The color to use to highlight expressions.
 pub const EXPR: Color = Color::RGB(52, 235, 152);
 
 /// Represents any kind of error that can occur during some operation.
 pub trait ErrorKind: Debug {
-    fn as_any(&self) -> &dyn Any;
-
     /// Builds the report for this error.
     fn build_report(
         &self,

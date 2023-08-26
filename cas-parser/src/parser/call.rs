@@ -43,8 +43,8 @@ impl Call {
     }
 }
 
-impl Parse for Call {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for Call {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let name = input.try_parse::<LitSym>()?;
         let open_paren = input.try_parse::<OpenParen>()?;
         let args = input.try_parse_delimited::<Expr>(TokenKind::Comma)?;

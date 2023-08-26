@@ -134,7 +134,7 @@ impl<'source> Parser<'source> {
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
-    pub fn try_parse<T: Parse>(&mut self) -> Result<T, Error> {
+    pub fn try_parse<T: Parse<'source>>(&mut self) -> Result<T, Error> {
         self.try_parse_with_fn(T::parse)
     }
 
@@ -145,7 +145,7 @@ impl<'source> Parser<'source> {
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// values are returned. Otherwise, the stream is left unchanged and an error is returned.
-    pub fn try_parse_delimited<T: Parse>(
+    pub fn try_parse_delimited<T: Parse<'source>>(
         &mut self,
         delimiter: TokenKind,
     ) -> Result<Vec<T>, Error> {
@@ -182,7 +182,7 @@ impl<'source> Parser<'source> {
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
     pub fn try_parse_with_fn<T, F>(&mut self, f: F) -> Result<T, Error>
     where
-        F: FnOnce(&mut Parser) -> Result<T, Error>,
+        F: FnOnce(&mut Parser<'source>) -> Result<T, Error>,
     {
         let start = self.cursor;
         match f(self) {
@@ -200,7 +200,7 @@ impl<'source> Parser<'source> {
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
-    pub fn try_parse_then<T: Parse, F>(&mut self, predicate: F) -> Result<T, Error>
+    pub fn try_parse_then<T: Parse<'source>, F>(&mut self, predicate: F) -> Result<T, Error>
     where
         F: FnOnce(&T, &Parser) -> Result<(), Error>,
     {
@@ -224,7 +224,7 @@ impl<'source> Parser<'source> {
 
     /// Attempts to parse a value from the given stream of tokens. All the tokens must be consumed
     /// by the parser; if not, an error is returned.
-    pub fn try_parse_full<T: Parse>(&mut self) -> Result<T, Error> {
+    pub fn try_parse_full<T: Parse<'source>>(&mut self) -> Result<T, Error> {
         let value = T::parse(self)?;
 
         // consume whitespace
@@ -239,12 +239,12 @@ impl<'source> Parser<'source> {
 }
 
 /// Any type that can be parsed from a source of tokens.
-pub trait Parse: Sized {
+pub trait Parse<'source>: Sized {
     /// Parses a value from the given stream of tokens, advancing the stream past the consumed
     /// tokens if parsing is successful.
     ///
     /// This function should be used by consumers of the library.
-    fn parse(input: &mut Parser) -> Result<Self, Error>;
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error>;
 }
 
 /// The associativity of a binary or unary operation.

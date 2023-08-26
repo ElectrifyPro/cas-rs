@@ -13,18 +13,18 @@ macro_rules! token_kinds {
     ($($name:ident)*) => {
         $(
             #[derive(Clone, Debug, PartialEq)]
-            pub(crate) struct $name {
-                pub(crate) lexeme: String,
+            pub(crate) struct $name<'source> {
+                pub(crate) lexeme: &'source str,
                 pub(crate) span: Range<usize>,
             }
 
-            impl Parse for $name {
-                fn parse(input: &mut Parser) -> Result<Self, Error> {
+            impl<'source> Parse<'source> for $name<'source> {
+                fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
                     let token = input.next_token()?;
 
                     if token.kind == TokenKind::$name {
                         Ok(Self {
-                            lexeme: token.lexeme.to_owned(),
+                            lexeme: token.lexeme,
                             span: token.span,
                         })
                     } else {

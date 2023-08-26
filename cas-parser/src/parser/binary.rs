@@ -140,8 +140,8 @@ impl Binary {
     }
 }
 
-impl Parse for Binary {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for Binary {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         match input.try_parse::<Expr>()? {
             Expr::Binary(binary) => Ok(binary),
             _ => todo!(),

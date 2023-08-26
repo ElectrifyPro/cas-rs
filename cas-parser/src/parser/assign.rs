@@ -32,8 +32,8 @@ impl Param {
     }
 }
 
-impl Parse for Param {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for Param {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let symbol = input.try_parse::<LitSym>()?;
 
         if input.try_parse::<AssignOp>().is_ok() {
@@ -68,8 +68,8 @@ impl FuncHeader {
     }
 }
 
-impl Parse for FuncHeader {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for FuncHeader {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let name = input.try_parse::<LitSym>()?;
         input.try_parse::<OpenParen>()?;
         let params = input.try_parse_delimited::<Param>(TokenKind::Comma)?;
@@ -100,8 +100,8 @@ impl AssignTarget {
     }
 }
 
-impl Parse for AssignTarget {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for AssignTarget {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         input.try_parse::<FuncHeader>().map(AssignTarget::Func)
             .or_else(|_| input.try_parse::<LitSym>().map(AssignTarget::Symbol))
     }
@@ -127,8 +127,8 @@ impl Assign {
     }
 }
 
-impl Parse for Assign {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for Assign {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let target = input.try_parse::<AssignTarget>()?;
         input.try_parse::<AssignOp>()?;
         let value = input.try_parse::<Expr>()?;

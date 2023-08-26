@@ -21,14 +21,14 @@ pub struct LitNum {
     pub span: Range<usize>,
 }
 
-impl Parse for LitNum {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for LitNum {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let (lexeme, span) = input
             .try_parse::<Int>()
             .map(|num| (num.lexeme, num.span))
             .or_else(|_| input.try_parse::<Float>().map(|num| (num.lexeme, num.span)))?;
         Ok(Self {
-            value: lexeme,
+            value: lexeme.to_owned(),
             span,
         })
     }
@@ -52,8 +52,8 @@ struct RadixWord {
     pub span: Range<usize>,
 }
 
-impl Parse for RadixWord {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for RadixWord {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let mut value = String::new();
         let mut span = 0..0;
         while let Ok(token) = input.next_token() {
@@ -94,8 +94,8 @@ pub struct LitRadix {
     pub span: Range<usize>,
 }
 
-impl Parse for LitRadix {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for LitRadix {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let num = input.try_parse::<Int>()?;
         let _ = input.try_parse::<Quote>()?;
 
@@ -137,8 +137,8 @@ pub struct LitSym {
     pub span: Range<usize>,
 }
 
-impl Parse for LitSym {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for LitSym {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let token = input.try_parse::<Name>()?;
 
         // TODO: terrible hard-coded test for `atan2`
@@ -150,7 +150,7 @@ impl Parse for LitSym {
         }
 
         Ok(Self {
-            name: token.lexeme,
+            name: token.lexeme.to_owned(),
             span: token.span,
         })
     }
@@ -185,8 +185,8 @@ impl Literal {
     }
 }
 
-impl Parse for Literal {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for Literal {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let _ = try_parse_catch_fatal!(input.try_parse::<LitRadix>().map(Literal::Radix));
         let _ = try_parse_catch_fatal!(input.try_parse::<LitNum>().map(Literal::Number));
         try_parse_catch_fatal!(input.try_parse::<LitSym>().map(Literal::Symbol))

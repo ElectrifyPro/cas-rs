@@ -57,8 +57,8 @@ impl Expr {
     }
 }
 
-impl Parse for Expr {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for Expr {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         if input.clone().try_parse::<CloseParen>().is_ok() {
             return Err(input.error_fatal(kind::UnclosedParenthesis { opening: false }));
         }
@@ -96,8 +96,8 @@ impl Primary {
     }
 }
 
-impl Parse for Primary {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for Primary {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         // function calls can overlap with literals, so we need to try parsing a function call
         // first
         let _ = try_parse_catch_fatal!(input.try_parse::<Call>().map(|call| Self::Call(call)));

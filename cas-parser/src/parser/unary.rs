@@ -105,8 +105,8 @@ impl Unary {
     }
 }
 
-impl Parse for Unary {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for Unary {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         Self::parse_with_associativity(input, Associativity::Right)
             .or_else(|_| Self::parse_with_associativity(input, Associativity::Left))
     }

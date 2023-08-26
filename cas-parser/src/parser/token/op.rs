@@ -63,8 +63,8 @@ impl UnaryOp {
     }
 }
 
-impl Parse for UnaryOp {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for UnaryOp {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let token = input.next_token()?;
         let kind = match token.kind {
             TokenKind::Not => Ok(UnaryOpKind::Not),
@@ -170,8 +170,8 @@ impl BinOp {
     }
 }
 
-impl Parse for BinOp {
-    fn parse(input: &mut Parser) -> Result<Self, Error> {
+impl<'source> Parse<'source> for BinOp {
+    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         let token = input.next_token()?;
         let kind = match token.kind {
             TokenKind::Exp => Ok(BinOpKind::Exp),

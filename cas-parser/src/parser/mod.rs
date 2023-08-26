@@ -164,6 +164,7 @@ impl<'source> Parser<'source> {
                 },
             }
 
+            self.advance_past_whitespace();
             match self.current_token() {
                 Some(token) if token.kind == delimiter => {
                     self.cursor += 1;
@@ -1347,6 +1348,31 @@ mod tests {
             ],
             span: 0..4,
             paren_span: 1..4,
+        }));
+    }
+
+    #[test]
+    fn function_call_whitespace() {
+        let mut parser = Parser::new("ncr ( 8 , 5 )");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Call(Call {
+            name: LitSym {
+                name: "ncr".to_string(),
+                span: 0..3,
+            },
+            args: vec![
+                Expr::Literal(Literal::Number(LitNum {
+                    value: "8".to_string(),
+                    span: 6..7,
+                })),
+                Expr::Literal(Literal::Number(LitNum {
+                    value: "5".to_string(),
+                    span: 10..11,
+                })),
+            ],
+            span: 0..13,
+            paren_span: 4..13,
         }));
     }
 

@@ -1,12 +1,13 @@
 //! Built-in functions for CalcScript.
 
 pub mod error;
+pub mod func_specific;
 
 use cas_attrs::args;
 use error::BuiltinError;
 use rug::ops::Pow;
 use super::{
-    builtins::error::NcrError,
+    builtins::func_specific::{NcprError, NcprErrorKind},
     consts::{ONE, PHI, PI, TEN, complex, float, int, int_from_float},
     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
     funcs::{factorial as rs_factorial, partial_factorial},
@@ -181,10 +182,10 @@ pub fn conj(args: &[Value]) -> Result<Value, BuiltinError> {
 #[args(n: Number, k: Number)]
 pub fn ncr(args: &[Value]) -> Result<Value, BuiltinError> {
     if &n < &k {
-        return Err(NcrError::NLessThanK.into());
+        return Err(NcprError::new("ncr", NcprErrorKind::NLessThanK).into());
     } else if k.is_sign_negative() {
         // if k is positive, then n is also positive
-        return Err(NcrError::NegativeArgs.into());
+        return Err(NcprError::new("ncr", NcprErrorKind::NegativeArgs).into());
     }
 
     let (n, k) = (n.to_integer().unwrap(), k.to_integer().unwrap());
@@ -195,6 +196,20 @@ pub fn ncr(args: &[Value]) -> Result<Value, BuiltinError> {
     } else {
         Ok(Number(float(partial_factorial(n, sub) / rs_factorial(k))))
     }
+}
+
+#[args(n: Number, k: Number)]
+pub fn npr(args: &[Value]) -> Result<Value, BuiltinError> {
+    if &n < &k {
+        return Err(NcprError::new("npr", NcprErrorKind::NLessThanK).into());
+    } else if k.is_sign_negative() {
+        // if k is positive, then n is also positive
+        return Err(NcprError::new("npr", NcprErrorKind::NegativeArgs).into());
+    }
+
+    let (n, k) = (n.to_integer().unwrap(), k.to_integer().unwrap());
+    let sub = int(&n - &k);
+    Ok(Number(float(partial_factorial(n, sub))))
 }
 
 // sequences
@@ -259,7 +274,7 @@ pub fn get_builtin(name: &str) -> Option<fn(&[Value]) -> Result<Value, BuiltinEr
         fib
 
         // statistics
-        ncr
+        ncr npr
 
         // miscellaneous functions
         factorial

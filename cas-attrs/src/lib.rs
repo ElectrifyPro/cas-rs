@@ -7,9 +7,9 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{ItemFn, parse_macro_input};
 
-/// Derives the [`ErrorKind`] trait for the given struct, provided in the `cas_error` crate.
+/// Derives the [`ErrorKind`] trait, provided in the `cas_error` crate, for the given item.
 ///
-/// This trait can be derived for any kind of struct, except for tuple structs.
+/// This trait can be derived for any kind of `struct` and `enum`.
 ///
 /// The information of the error can be customized using the `error` attribute by adding the
 /// corresponding tags to it:
@@ -31,9 +31,10 @@ use syn::{ItemFn, parse_macro_input};
 /// | `help`      | Optional help text for the error, describing what the user can do to fix it.                                                                                     |
 ///
 /// The `message` and `help` tags accept an expression that can be converted to a [`String`], and
-/// the `labels` tag accepts an expression that can be converted to a [`Vec`] of [`String`]s. For
-/// structs with named fields, the expression is evaluated with the members of the struct in scope,
-/// so they can be used in the expression (tuple structs are not supported).
+/// the `labels` tag accepts an expression that can be converted to a [`Vec`] of [`String`]s. Each
+/// expression is actually evaluated within an associated function with access to `$self`, so the
+/// expression can use the members of the struct or determine which variant of the enum is being
+/// used in the output.
 ///
 /// [`ErrorKind`]: cas_error::ErrorKind
 #[proc_macro_derive(ErrorKind, attributes(error))]

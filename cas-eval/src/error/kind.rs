@@ -6,11 +6,11 @@ use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
 /// The given binary operation cannot be applied to the given operands.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("cannot apply the `{:?}` operator to these operands", op),
+    message = format!("cannot apply the `{:?}` operator to these operands", self.op),
     labels = [
-        format!("this operand has type `{}`", left),
-        format!("this {}operator", if *implicit { "(implicit) " } else { "" }),
-        format!("this operand has type `{}`", right),
+        format!("this operand has type `{}`", self.left),
+        format!("this {}operator", if self.implicit { "(implicit) " } else { "" }),
+        format!("this operand has type `{}`", self.right),
     ],
 )]
 pub struct InvalidBinaryOperation {
@@ -30,9 +30,9 @@ pub struct InvalidBinaryOperation {
 /// The given unary operation cannot be applied to the given operand.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("cannot apply the `{:?}` operator to this operand", op),
+    message = format!("cannot apply the `{:?}` operator to this operand", self.op),
     labels = [
-        format!("this operand has type `{}`", expr_type),
+        format!("this operand has type `{}`", self.expr_type),
         "this operator".to_string(),
     ],
 )]
@@ -56,9 +56,9 @@ pub struct BitshiftOverflow;
 /// The variable is undefined.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("`{}` is not defined", name),
+    message = format!("`{}` is not defined", self.name),
     labels = ["this variable"],
-    help = format!("to define it, type: {} = {}", name.fg(EXPR), "<expression>".fg(EXPR)),
+    help = format!("to define it, type: {} = {}", (&self.name).fg(EXPR), "<expression>".fg(EXPR)),
 )]
 pub struct UndefinedVariable {
     /// The name of the variable that was undefined.
@@ -68,16 +68,16 @@ pub struct UndefinedVariable {
 /// The function is undefined.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("the `{}` function does not exist", name),
+    message = format!("the `{}` function does not exist", self.name),
     labels = ["this function"],
-    help = if suggestions.is_empty() {
+    help = if self.suggestions.is_empty() {
         "see the documentation for a list of available functions".to_string()
-    } else if suggestions.len() == 1 {
-        format!("did you mean the `{}` function?", (&*suggestions[0]).fg(EXPR))
+    } else if self.suggestions.len() == 1 {
+        format!("did you mean the `{}` function?", (&*self.suggestions[0]).fg(EXPR))
     } else {
         format!(
             "did you mean one of these functions? {}",
-            suggestions
+            self.suggestions
                 .iter()
                 .map(|s| format!("`{}`", s.fg(EXPR)))
                 .collect::<Vec<_>>()
@@ -96,13 +96,13 @@ pub struct UndefinedFunction {
 /// Too many arguments were given to a function call.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("too many arguments were given to the `{}` function", name),
+    message = format!("too many arguments were given to the `{}` function", self.name),
     labels = ["this function call", ""],
     help = format!(
         "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
-        name.fg(EXPR),
-        expected,
-        given
+        (&self.name).fg(EXPR),
+        self.expected,
+        self.given
     )
 )]
 pub struct TooManyArguments {
@@ -119,13 +119,13 @@ pub struct TooManyArguments {
 /// An argument to a function call is missing.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("missing argument #{} for the `{}` function", index + 1, name),
+    message = format!("missing argument #{} for the `{}` function", self.index + 1, self.name),
     labels = ["this function call", ""],
     help = format!(
         "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
-        name.fg(EXPR),
-        expected,
-        given
+        (&self.name).fg(EXPR),
+        self.expected,
+        self.given
     )
 )]
 pub struct MissingArgument {
@@ -147,15 +147,15 @@ pub struct MissingArgument {
 #[error(
     message = format!(
         "incorrect type for argument #{} for the `{}` function",
-        index + 1,
-        name
+        self.index + 1,
+        self.name
     ),
     labels = [
         "this function call".to_string(),
         "".to_string(),
-        format!("this argument has type `{}`", given),
+        format!("this argument has type `{}`", self.given),
     ],
-    help = format!("should be of type `{}`", expected),
+    help = format!("should be of type `{}`", self.expected),
 )]
 pub struct TypeMismatch {
     /// The name of the function that was called.

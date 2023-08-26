@@ -33,8 +33,8 @@ pub struct ExpectedEof;
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "unexpected token",
-    labels = [format!("expected one of: {}", expected.iter().map(|t| format!("{:?}", t)).collect::<Vec<_>>().join(", "))],
-    help = format!("found {:?}", found),
+    labels = [format!("expected one of: {}", self.expected.iter().map(|t| format!("{:?}", t)).collect::<Vec<_>>().join(", "))],
+    help = format!("found {:?}", self.found),
 )]
 pub struct UnexpectedToken {
     /// The token(s) that were expected.
@@ -48,7 +48,7 @@ pub struct UnexpectedToken {
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "invalid base in radix notation",
-    labels = [if *too_large {
+    labels = [if self.too_large {
         "this value is too large"
     } else {
         "this value is too small"
@@ -63,9 +63,9 @@ pub struct InvalidRadixBase {
 /// An invalid digit was used in a radix literal.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("invalid digit in radix notation: `{}`", digit),
+    message = format!("invalid digit in radix notation: `{}`", self.digit),
     labels = ["here"],
-    help = format!("base {} uses these digits (from lowest to highest value): {}", radix, allowed.iter().collect::<String>().fg(EXPR)),
+    help = format!("base {} uses these digits (from lowest to highest value): {}", self.radix, self.allowed.iter().collect::<String>().fg(EXPR)),
 )]
 pub struct InvalidRadixDigit {
     /// The radix that was expected.
@@ -83,7 +83,7 @@ pub struct InvalidRadixDigit {
 #[error(
     message = "unclosed parenthesis",
     labels = ["this parenthesis is not closed"],
-    help = if *opening {
+    help = if self.opening {
         "add a closing parenthesis `)` somewhere after this"
     } else {
         "add an opening parenthesis `(` somewhere before this"

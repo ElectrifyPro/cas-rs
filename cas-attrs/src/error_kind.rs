@@ -1,12 +1,11 @@
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     Attribute,
     Expr,
-    Fields,
     Ident,
-    ItemStruct,
+    Item,
     Result,
     Token,
 };
@@ -51,27 +50,10 @@ impl Parse for ErrorArgs {
     }
 }
 
-/// Creates a `let` expression that destructures the given `ident` into its named fields. Returns
-/// a compile error if the fields are not named.
-fn destructure_fields(ident: &Ident, fields: &Fields) -> TokenStream2 {
-    match fields {
-        Fields::Named(fields) => {
-            let fields = fields.named.iter().map(|field| {
-                let field_name = field.ident.as_ref();
-                quote! { #field_name }
-            });
-            quote! { let #ident { #(#fields),* } = self; }
-        },
-        Fields::Unnamed(_) => quote_spanned! { ident.span() => compile_error!("`ErrorKind` cannot be derived for tuple structs") },
-        Fields::Unit => quote! {},
-    }
-}
-
-/// The target struct to derive [`ErrorKind`] for.
+/// The target to derive [`ErrorKind`] for.
 #[derive(Debug)]
 pub struct ErrorKindTarget {
     pub name: Ident,
-    pub fields: Fields,
     pub error_args: ErrorArgs,
 }
 
@@ -79,10 +61,12 @@ impl Parse for ErrorKindTarget {
     fn parse(input: ParseStream) -> Result<Self> {
         // parse outer attributes, including documentation and `info` attributes
         let attributes = input.call(Attribute::parse_outer)?;
-        let remaining = input.parse::<ItemStruct>()?;
+        let name = match input.parse::<Item>() {
+            Ok(Item::Struct(s)) => s.ident,
+            Ok(Item::Enum(e)) => e.ident,
+            _ => panic!("expected struct or enum"),
+        };
 
-        let name = remaining.ident;
-        let fields = remaining.fields;
         let mut error_args = ErrorArgs::default();
 
         for attr in &attributes {
@@ -96,7 +80,6 @@ impl Parse for ErrorKindTarget {
 
         Ok(ErrorKindTarget {
             name,
-            fields,
             error_args,
         })
     }
@@ -104,7 +87,6 @@ impl Parse for ErrorKindTarget {
 
 impl ToTokens for ErrorKindTarget {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let destructure_expr = destructure_fields(&self.name, &self.fields);
         let (message, labels, help) = (
             self.error_args.message.as_ref(),
             self.error_args.labels.as_ref(),
@@ -117,9 +99,6 @@ impl ToTokens for ErrorKindTarget {
                 src_id: &'static str,
                 spans: &[std::ops::Range<usize>],
             ) -> ariadne::Report<(&'static str, std::ops::Range<usize>)> {
-                #[allow(unused_variables)]
-                #destructure_expr
-
                 let mut builder = ariadne::Report::build(ariadne::ReportKind::Error, src_id, spans[0].start)
                     .with_message(#message)
                     .with_labels(

@@ -119,8 +119,8 @@ impl Args {
                                     return Err(BuiltinError::TypeMismatch(TypeMismatch {
                                         name: stringify!(#name).to_owned(),
                                         index: #i,
-                                        expected: stringify!(#ty).to_string(),
-                                        given: args[#i].to_string(),
+                                        expected: stringify!(#ty),
+                                        given: args[#i].typename(),
                                     }));
                                 },
                                 None => #default,
@@ -135,8 +135,8 @@ impl Args {
                                     return Err(BuiltinError::TypeMismatch(TypeMismatch {
                                         name: stringify!(#name).to_owned(),
                                         index: #i,
-                                        expected: stringify!(#ty).to_string(),
-                                        given: args[#i].to_string(),
+                                        expected: stringify!(#ty),
+                                        given: args[#i].typename(),
                                     }));
                                 },
                                 None => {

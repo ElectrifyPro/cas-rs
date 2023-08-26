@@ -23,7 +23,7 @@ impl Eval for Unary {
                 UnaryOpKind::Neg => Value::Complex(complex(&*comp.as_neg())),
                 _ => return Err(Error::new(vec![self.op.span.clone()], InvalidUnaryOperation {
                     op: self.op.kind,
-                    expr_type: format!("{:?}", operand),
+                    expr_type: operand.typename(),
                 })),
             }),
             Value::Boolean(b) => {
@@ -32,13 +32,13 @@ impl Eval for Unary {
                 } else {
                     Err(Error::new(vec![self.op.span.clone()], InvalidUnaryOperation {
                         op: self.op.kind,
-                        expr_type: format!("{:?}", operand),
+                        expr_type: operand.typename(),
                     }))
                 }
             },
             Value::Unit => Err(Error::new(vec![self.operand.span(), self.op.span.clone()], InvalidUnaryOperation {
                 op: self.op.kind,
-                expr_type: format!("{:?}", operand),
+                expr_type: operand.typename(),
             })),
         }
     }

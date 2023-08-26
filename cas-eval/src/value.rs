@@ -30,6 +30,16 @@ impl Value {
 }
 
 impl Value {
+    /// Returns the typename of this value.
+    pub fn typename(&self) -> &'static str {
+        match self {
+            Value::Number(_) => "Number",
+            Value::Complex(_) => "Complex",
+            Value::Boolean(_) => "Boolean",
+            Value::Unit => "Unit",
+        }
+    }
+
     /// If this value is a complex number, attempt to coerce it to a real number, returning the
     /// initial value. This is a no-op if the value is not a complex number.
     ///

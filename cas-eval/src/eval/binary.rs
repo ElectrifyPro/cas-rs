@@ -53,6 +53,7 @@ fn eval_complex_operands(
     left: Value,
     right: Value,
 ) -> Result<Value, Error> {
+    let typename = left.typename();
     let (Value::Complex(left), Value::Complex(right)) = (left, right) else {
         unreachable!()
     };
@@ -87,8 +88,8 @@ fn eval_complex_operands(
                 InvalidBinaryOperation {
                     op: binary.op.kind,
                     implicit: binary.op.implicit,
-                    left: format!("{:?}", left),
-                    right: format!("{:?}", right),
+                    left: typename,
+                    right: typename,
                 },
             )),
     })
@@ -111,8 +112,8 @@ impl Eval for Binary {
             InvalidBinaryOperation {
                 op: self.op.kind,
                 implicit: self.op.implicit,
-                left: format!("{:?}", left),
-                right: format!("{:?}", right),
+                left: left.typename(),
+                right: right.typename(),
             },
         ))
     }

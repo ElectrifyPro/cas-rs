@@ -21,10 +21,10 @@ pub struct InvalidBinaryOperation {
     pub implicit: bool,
 
     /// The type the left side evaluated to.
-    pub left: String,
+    pub left: &'static str,
 
     /// The type the right side evaluated to.
-    pub right: String,
+    pub right: &'static str,
 }
 
 /// The given unary operation cannot be applied to the given operand.
@@ -41,7 +41,7 @@ pub struct InvalidUnaryOperation {
     pub op: UnaryOpKind,
 
     /// The type the operand evaluated to.
-    pub expr_type: String,
+    pub expr_type: &'static str,
 }
 
 /// Attempted to bitshift an integer by too many bits.
@@ -165,8 +165,8 @@ pub struct TypeMismatch {
     pub index: usize,
 
     /// The type of the argument that was expected.
-    pub expected: String,
+    pub expected: &'static str,
 
     /// The type of the argument that was given.
-    pub given: String,
+    pub given: &'static str,
 }

@@ -121,47 +121,31 @@ impl Args {
                     Type::Complex => quote! { args.get(#i).cloned().map(|arg| arg.coerce_complex()) },
                     _ => quote! { args.get(#i) },
                 };
-                let (ident, ty, default) = (&param.ident, &param.ty, &param.default);
-                match default {
-                    Some(default) => {
-                        quote! {
-                            let #ident = match #coerce_getter_expr {
-                                Some(#ty(#ident)) => #ident,
-                                Some(_) => {
-                                    return Err(BuiltinError::TypeMismatch(TypeMismatch {
-                                        name: stringify!(#name).to_owned(),
-                                        index: #i,
-                                        expected: stringify!(#ty),
-                                        given: args[#i].typename(),
-                                    }));
-                                },
-                                None => #default,
-                            };
-                        }
+                let default_expr = match &param.default {
+                    Some(expr) => quote! { #expr },
+                    None => quote! {
+                        return Err(BuiltinError::MissingArgument(MissingArgument {
+                            name: stringify!(#name).to_owned(),
+                            index: #i,
+                            expected: #num_patterns,
+                            given: args.len(),
+                        }));
                     },
-                    None => {
-                        quote! {
-                            let #ident = match #coerce_getter_expr {
-                                Some(#ty(#ident)) => #ident,
-                                Some(_) => {
-                                    return Err(BuiltinError::TypeMismatch(TypeMismatch {
-                                        name: stringify!(#name).to_owned(),
-                                        index: #i,
-                                        expected: stringify!(#ty),
-                                        given: args[#i].typename(),
-                                    }));
-                                },
-                                None => {
-                                    return Err(BuiltinError::MissingArgument(MissingArgument {
-                                        name: stringify!(#name).to_owned(),
-                                        index: #i,
-                                        expected: #num_patterns,
-                                        given: args.len(),
-                                    }));
-                                },
-                            };
-                        }
-                    },
+                };
+                let (ident, ty) = (&param.ident, &param.ty);
+                quote! {
+                    let #ident = match #coerce_getter_expr {
+                        Some(#ty(#ident)) => #ident,
+                        Some(_) => {
+                            return Err(BuiltinError::TypeMismatch(TypeMismatch {
+                                name: stringify!(#name).to_owned(),
+                                index: #i,
+                                expected: stringify!(#ty),
+                                given: args[#i].typename(),
+                            }));
+                        },
+                        None => { #default_expr },
+                    };
                 }
             });
 

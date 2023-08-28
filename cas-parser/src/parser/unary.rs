@@ -60,16 +60,12 @@ impl Unary {
                 };
 
                 // iteratively find any other left-associative operators
-                loop {
-                    if let Ok(next_op) = try_parse_unary_op(input, associativity) {
-                        result = Self {
-                            operand: Box::new(Expr::Unary(result)),
-                            op: next_op,
-                            span: start_span..input.prev_token().unwrap().span.end,
-                        };
-                    } else {
-                        break;
-                    }
+                while let Ok(next_op) = try_parse_unary_op(input, associativity) {
+                    result = Self {
+                        operand: Box::new(Expr::Unary(result)),
+                        op: next_op,
+                        span: start_span..input.prev_token().unwrap().span.end,
+                    };
                 }
 
                 Ok(result)
@@ -98,7 +94,7 @@ impl Unary {
             input.try_parse_with_fn(|input| {
                 Self::parse_with_associativity(input, Associativity::Right)
                     .or_else(|_| Self::parse_with_associativity(input, Associativity::Left))
-                    .map(|unary| Expr::Unary(unary))
+                    .map(Expr::Unary)
             })
         );
         Primary::parse(input).map(Into::into)

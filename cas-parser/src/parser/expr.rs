@@ -63,7 +63,7 @@ impl<'source> Parse<'source> for Expr {
             return Err(input.error_fatal(kind::UnclosedParenthesis { opening: false }));
         }
 
-        let _ = try_parse_catch_fatal!(input.try_parse::<Assign>().map(|assign| Self::Assign(assign)));
+        let _ = try_parse_catch_fatal!(input.try_parse::<Assign>().map(Self::Assign));
         let lhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
         Binary::parse_expr(input, lhs, Precedence::Any)
     }
@@ -100,10 +100,10 @@ impl<'source> Parse<'source> for Primary {
     fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
         // function calls can overlap with literals, so we need to try parsing a function call
         // first
-        let _ = try_parse_catch_fatal!(input.try_parse::<Call>().map(|call| Self::Call(call)));
-        let _ = try_parse_catch_fatal!(input.try_parse::<Literal>().map(|literal| Self::Literal(literal)));
+        let _ = try_parse_catch_fatal!(input.try_parse::<Call>().map(Self::Call));
+        let _ = try_parse_catch_fatal!(input.try_parse::<Literal>().map(Self::Literal));
 
-        input.try_parse::<Paren>().map(|paren| Self::Paren(paren))
+        input.try_parse::<Paren>().map(Self::Paren)
     }
 }
 

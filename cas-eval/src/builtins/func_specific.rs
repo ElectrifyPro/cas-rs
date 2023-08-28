@@ -32,18 +32,18 @@ impl FunctionSpecific {
 #[error(
     message = format!("incorrect arguments for the `{}` function", self.function_name),
     labels = if self.error == NcprErrorKind::NLessThanK {
-        (&[
+        [
             "this function call",
             "",
             "(1) argument `n`...",
             "(2) ...must be less than or equal to argument `k`",
-        ]).into_iter()
+        ].iter()
     } else {
-        (&[
+        [
             "this function call",
             "",
             "argument `k` must be positive",
-        ]).into_iter()
+        ].iter()
     }
 )]
 pub struct NcprError {

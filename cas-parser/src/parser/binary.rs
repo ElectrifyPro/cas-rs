@@ -57,7 +57,7 @@ impl Binary {
                                    implicit: true,
                                    span: lhs.span().end..rhs.span().start,
                                },
-                               rhs.into(),
+                               rhs,
                             ))
                        } else {
                            Err(input.error(kind::NonFatal))

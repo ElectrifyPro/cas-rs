@@ -52,7 +52,7 @@ impl<'source> Parser<'source> {
     /// Create a new parser for the given source.
     pub fn new(source: &'source str) -> Self {
         Self {
-            tokens: tokenize_complete(source).unwrap(),
+            tokens: tokenize_complete(source),
             cursor: 0,
         }
     }

@@ -10,12 +10,11 @@ pub fn tokenize(input: &str) -> Lexer<TokenKind> {
 
 /// Returns an owned array containing all of the tokens produced by the tokenizer. This allows us
 /// to backtrack in case of an error.
-pub fn tokenize_complete(input: &str) -> Result<Box<[Token]>, ()> {
+pub fn tokenize_complete(input: &str) -> Box<[Token]> {
     let mut lexer = tokenize(input);
     let mut tokens = Vec::new();
 
-    while let Some(kind) = lexer.next() {
-        let kind = kind?;
+    while let Some(Ok(kind)) = lexer.next() {
         tokens.push(Token {
             span: lexer.span(),
             kind,
@@ -23,7 +22,7 @@ pub fn tokenize_complete(input: &str) -> Result<Box<[Token]>, ()> {
         });
     }
 
-    Ok(tokens.into_boxed_slice())
+    tokens.into_boxed_slice()
 }
 
 #[cfg(test)]

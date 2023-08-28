@@ -17,12 +17,15 @@ use super::{
     value::Value::{self, *},
 };
 
+type Result = std::result::Result<Value, BuiltinError>;
+type Builtin = fn(&Ctxt, &[Value]) -> Result;
+
 /// Generates builtin implementations for simple one-argument functions that take a complex number.
 macro_rules! generate_complex_builtin {
     ($($name:ident)+) => {
         $(
             #[args(n: Complex)]
-            pub fn $name(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+            pub fn $name(_: &Ctxt, args: &[Value]) -> Result {
                 Ok(Complex(n.$name()))
             }
         )*
@@ -46,131 +49,131 @@ generate_complex_builtin!(
 // trigonometric functions
 
 #[args(n: Complex radians)]
-pub fn sin(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn sin(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.sin()))
 }
 
 #[args(n: Complex radians)]
-pub fn cos(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn cos(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.cos()))
 }
 
 #[args(n: Complex radians)]
-pub fn tan(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn tan(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.tan()))
 }
 
 #[args(n: Complex radians)]
-pub fn csc(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn csc(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.sin().recip()))
 }
 
 #[args(n: Complex radians)]
-pub fn sec(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn sec(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.cos().recip()))
 }
 
 #[args(n: Complex radians)]
-pub fn cot(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn cot(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.tan().recip()))
 }
 
 #[args(n: Complex)]
 #[out(radians)]
-pub fn asin(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn asin(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.asin()))
 }
 
 #[args(n: Complex)]
 #[out(radians)]
-pub fn acos(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn acos(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.acos()))
 }
 
 #[args(n: Complex)]
 #[out(radians)]
-pub fn atan(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn atan(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.atan()))
 }
 
 #[args(n: Complex)]
 #[out(radians)]
-pub fn acsc(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn acsc(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().asin()))
 }
 
 #[args(n: Complex)]
 #[out(radians)]
-pub fn asec(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn asec(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().acos()))
 }
 
 #[args(n: Complex)]
 #[out(radians)]
-pub fn acot(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn acot(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().atan()))
 }
 
 #[args(y: Number, x: Number)]
 #[out(radians)]
-pub fn atan2(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn atan2(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(y.atan2(&x)))
 }
 
 #[args(n: Complex)]
-pub fn csch(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn csch(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.sinh().recip()))
 }
 
 #[args(n: Complex)]
-pub fn sech(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn sech(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.cosh().recip()))
 }
 
 #[args(n: Complex)]
-pub fn coth(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn coth(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.tanh().recip()))
 }
 
 #[args(n: Complex)]
-pub fn acsch(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn acsch(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().asinh()))
 }
 
 #[args(n: Complex)]
-pub fn asech(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn asech(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().acosh()))
 }
 
 #[args(n: Complex)]
-pub fn acoth(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn acoth(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().atanh()))
 }
 
 #[args(n: Number)]
-pub fn dtr(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn dtr(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(n * &*PI / 180.0))
 }
 
 /// Alias for `dtr`.
 #[args(n: Number)]
-pub fn rad(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn rad(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(n * &*PI / 180.0))
 }
 
 #[args(n: Number)]
-pub fn rtd(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn rtd(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(n * 180.0 / &*PI))
 }
 
 /// Alias for `rtd`.
 #[args(n: Number)]
-pub fn deg(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn deg(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(n * 180.0 / &*PI))
 }
 
 #[args(n: Number)]
-pub fn circle(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn circle(ctxt: &Ctxt, args: &[Value]) -> Result {
     match ctxt.trig_mode {
         TrigMode::Radians => Ok(Number(n * &*TAU)),
         TrigMode::Degrees => Ok(Number(n * 360.0)),
@@ -180,64 +183,64 @@ pub fn circle(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 // exponential and logarithmic functions
 
 #[args(a: Complex, b: Complex)]
-pub fn scientific(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn scientific(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(a * complex(&*TEN).pow(b)))
 }
 
 #[args(x: Complex, y: Complex = complex(&*TEN))]
-pub fn log(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn log(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(x.ln() / y.ln()))
 }
 
 // root / power functions
 
 #[args(a: Number, b: Number)]
-pub fn hypot(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn hypot(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(a.hypot(&b)))
 }
 
 #[args(n: Complex)]
-pub fn cbrt(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn cbrt(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.pow(1.0 / 3.0)))
 }
 
 #[args(n: Complex, i: Complex)]
-pub fn root(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn root(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.pow(&i.recip())))
 }
 
 #[args(n: Complex, p: Complex)]
-pub fn pow(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn pow(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.pow(&p)))
 }
 
 // complex numbers
 
 #[args(z: Complex)]
-pub fn re(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn re(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(z.into_real_imag().0))
 }
 
 #[args(z: Complex)]
-pub fn im(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn im(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(z.into_real_imag().1))
 }
 
 #[args(z: Complex)]
-pub fn arg(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn arg(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(z.arg().into_real_imag().0))
 }
 
 #[args(z: Complex)]
-pub fn conj(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn conj(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(z.conj()))
 }
 
 // statistics
 
 #[args(n: Number, k: Number)]
-pub fn ncr(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
-    if &n < &k {
+pub fn ncr(_: &Ctxt, args: &[Value]) -> Result {
+    if n < k {
         return Err(NcprError::new("ncr", NcprErrorKind::NLessThanK).into());
     } else if k.is_sign_negative() {
         // if k is positive, then n is also positive
@@ -247,7 +250,7 @@ pub fn ncr(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
     let (n, k) = (n.to_integer().unwrap(), k.to_integer().unwrap());
     let sub = int(&n - &k);
 
-    if &k > &sub {
+    if k > sub {
         Ok(Number(float(partial_factorial(n, k) / rs_factorial(float(sub)))))
     } else {
         Ok(Number(float(partial_factorial(n, sub) / rs_factorial(float(k)))))
@@ -255,8 +258,8 @@ pub fn ncr(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 }
 
 #[args(n: Number, k: Number)]
-pub fn npr(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
-    if &n < &k {
+pub fn npr(_: &Ctxt, args: &[Value]) -> Result {
+    if n < k {
         return Err(NcprError::new("npr", NcprErrorKind::NLessThanK).into());
     } else if k.is_sign_negative() {
         // if k is positive, then n is also positive
@@ -272,7 +275,7 @@ pub fn npr(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 
 /// Returns the `n`th term of the Fibonacci sequence, using Binet's formula.
 #[args(n: Number)]
-pub fn fib(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn fib(_: &Ctxt, args: &[Value]) -> Result {
     let result_negative = if n.is_sign_negative() {
         // TODO
         n.to_integer().unwrap().is_even()
@@ -290,22 +293,22 @@ pub fn fib(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 // miscellaneous functions
 
 #[args(v: Any)]
-pub fn bool(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn bool(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Boolean(v.is_truthy()))
 }
 
 #[args(n: Number)]
-pub fn erf(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn erf(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(n.erf()))
 }
 
 #[args(n: Number)]
-pub fn erfc(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn erfc(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(n.erfc()))
 }
 
 #[args()]
-pub fn rand(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn rand(_: &Ctxt, args: &[Value]) -> Result {
     let mut seed = Integer::new();
     let mut digits = [0u128; 2];
     rand::thread_rng().fill(&mut digits);
@@ -317,7 +320,7 @@ pub fn rand(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 }
 
 #[args(n: Number)]
-pub fn factorial(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn factorial(_: &Ctxt, args: &[Value]) -> Result {
     if !n.is_integer() || n.is_sign_negative() {
         Ok(Complex(rs_gamma(complex(n) + 1)))
     } else {
@@ -326,22 +329,22 @@ pub fn factorial(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 }
 
 #[args(n: Complex)]
-pub fn gamma(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn gamma(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(rs_gamma(n)))
 }
 
 #[args(v1: Complex, v2: Complex, t: Number)]
-pub fn lerp(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn lerp(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(&v1 + complex(&v2 - &v1) * t))
 }
 
 #[args(v1: Number, v2: Number, v: Number)]
-pub fn invlerp(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn invlerp(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(float(&v - &v1) / float(&v2 - &v1)))
 }
 
 #[args(n: Number, d: Number)]
-pub fn siground(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn siground(_: &Ctxt, args: &[Value]) -> Result {
     if n.is_zero() {
         Ok(n.into())
     } else {
@@ -358,7 +361,7 @@ macro_rules! generate_rounding_builtin {
     ($($name:ident)+) => {
         $(
             #[args(n: Complex, s: Number = float(&*ONE))]
-            pub fn $name(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+            pub fn $name(_: &Ctxt, args: &[Value]) -> Result {
                 let recip = float(s.recip_ref());
                 let (real, imag) = n.into_real_imag();
                 Ok(Complex(complex((
@@ -373,32 +376,32 @@ macro_rules! generate_rounding_builtin {
 generate_rounding_builtin!(round ceil floor trunc);
 
 #[args(a: Number, b: Number)]
-pub fn min(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn min(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(a.min(&b)))
 }
 
 #[args(a: Number, b: Number)]
-pub fn max(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn max(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(a.max(&b)))
 }
 
 #[args(n: Number, l: Number, r: Number)]
-pub fn clamp(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn clamp(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(n.clamp(&l, &r)))
 }
 
 #[args(a: Number, b: Number)]
-pub fn gcf(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn gcf(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(float(int_from_float(a).gcd(&int_from_float(b)))))
 }
 
 #[args(a: Number, b: Number)]
-pub fn lcm(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn lcm(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(float(int_from_float(a).lcm(&int_from_float(b)))))
 }
 
 #[args(n: Number)]
-pub fn sign(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn sign(_: &Ctxt, args: &[Value]) -> Result {
     if n.is_zero() {
         Ok(n.into())
     } else {
@@ -407,7 +410,7 @@ pub fn sign(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 }
 
 #[args(n: Number)]
-pub fn size(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+pub fn size(_: &Ctxt, args: &[Value]) -> Result {
     let s = n.to_string_radix(2, None);
     let mut bits = trim_trailing_zeroes(&s).len();
     if s.contains('.') {
@@ -417,7 +420,7 @@ pub fn size(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 }
 
 /// Returns the builtin function with the given name.
-pub fn get_builtin(name: &str) -> Option<fn(&Ctxt, &[Value]) -> Result<Value, BuiltinError>> {
+pub fn get_builtin(name: &str) -> Option<Builtin> {
     macro_rules! match_builtin {
         ($($name:ident)+) => {
             match name {

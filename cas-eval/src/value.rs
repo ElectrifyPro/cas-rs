@@ -102,10 +102,7 @@ impl Value {
 
     /// Returns true if this value is a complex number, or can be coerced to one.
     pub fn is_complex(&self) -> bool {
-        match self {
-            Value::Complex(_) | Value::Number(_) => true,
-            _ => false,
-        }
+        matches!(self, Value::Complex(_) | Value::Number(_))
     }
 
     /// Returns true if this value is truthy.

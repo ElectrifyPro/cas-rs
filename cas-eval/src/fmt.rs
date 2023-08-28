@@ -447,25 +447,23 @@ fn format_complex(f: &mut Formatter<'_>, c: &Complex, options: FormatOptions) ->
     // write the imaginary part first
     if im.is_zero() {
         return format_float(f, re, options);
+    } else if im.eq(&1.0) {
+        write!(f, "i")?;
+    } else if im.eq(&-1.0) {
+        write!(f, "-i")?;
     } else {
-        if im.eq(&1.0) {
-            write!(f, "i")?;
-        } else if im.eq(&-1.0) {
-            write!(f, "-i")?;
+        // if we need to format this part in scientific notation, we need to add parentheses
+        // around it to avoid ambiguity
+        if options.number == NumberFormat::Scientific
+            || options.number == NumberFormat::Auto && should_use_scientific(im.abs_ref())
+        {
+            write!(f, "(")?;
+            format_scientific(f, im, options.separators)?;
+            write!(f, ")")?;
         } else {
-            // if we need to format this part in scientific notation, we need to add parentheses
-            // around it to avoid ambiguity
-            if options.number == NumberFormat::Scientific
-                || options.number == NumberFormat::Auto && should_use_scientific(im.abs_ref())
-            {
-                write!(f, "(")?;
-                format_scientific(f, im, options.separators)?;
-                write!(f, ")")?;
-            } else {
-                format_float(f, im, options)?;
-            }
-            write!(f, "i")?;
+            format_float(f, im, options)?;
         }
+        write!(f, "i")?;
     }
 
     // write the real part
@@ -480,7 +478,7 @@ fn format_complex(f: &mut Formatter<'_>, c: &Complex, options: FormatOptions) ->
             format_float(f, re, options)?;
         } else {
             write!(f, " - ")?;
-            format_float(f, &*re.as_neg(), options)?;
+            format_float(f, &re.as_neg(), options)?;
         }
     }
 

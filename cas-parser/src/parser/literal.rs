@@ -100,7 +100,7 @@ impl<'source> Parse<'source> for LitRadix {
         let _ = input.try_parse::<Quote>()?;
 
         let base = match num.lexeme.parse::<u8>() {
-            Ok(base) if base >= 2 && base <= 64 => base,
+            Ok(base) if (2..=64).contains(&base) => base,
             Ok(base) if base < 2 => return Err(Error::new_fatal(vec![num.span], kind::InvalidRadixBase { too_large: false })),
             _ => return Err(Error::new_fatal(vec![num.span], kind::InvalidRadixBase { too_large: true })),
         };

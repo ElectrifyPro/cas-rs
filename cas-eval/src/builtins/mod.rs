@@ -248,9 +248,9 @@ pub fn ncr(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
     let sub = int(&n - &k);
 
     if &k > &sub {
-        Ok(Number(float(partial_factorial(n, k) / rs_factorial(sub))))
+        Ok(Number(float(partial_factorial(n, k) / rs_factorial(float(sub)))))
     } else {
-        Ok(Number(float(partial_factorial(n, sub) / rs_factorial(k))))
+        Ok(Number(float(partial_factorial(n, sub) / rs_factorial(float(k)))))
     }
 }
 
@@ -311,12 +311,12 @@ pub fn rand(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(float(Float::random_bits(&mut rand))))
 }
 
-#[args(n: Complex)]
+#[args(n: Number)]
 pub fn factorial(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
-    if !n.imag().is_zero() || n.real().is_sign_negative() {
-        Ok(Complex(rs_gamma(n + 1)))
+    if !n.is_integer() || n.is_sign_negative() {
+        Ok(Complex(rs_gamma(complex(n) + 1)))
     } else {
-        Ok(Number(float(rs_factorial(int_from_float(n.into_real_imag().0)))))
+        Ok(Number(rs_factorial(n)))
     }
 }
 

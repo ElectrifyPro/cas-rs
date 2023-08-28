@@ -23,7 +23,7 @@ pub trait Eval {
 /// Eval tests depend on the parser, so ensure that parser tests pass before running these.
 #[cfg(test)]
 mod tests {
-    use crate::{builtins, consts::{self, float, int}, funcs::factorial};
+    use crate::{builtins, consts::{self, float}, funcs::factorial};
     use rug::ops::Pow;
     use super::*;
 
@@ -81,7 +81,7 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         let val1 = expr.eval_default().unwrap();
-        let val2 = Value::Number(consts::PI.clone().pow(2) * factorial(int(17)) / -float(4.9) + &*consts::E);
+        let val2 = Value::Number(consts::PI.clone().pow(2) * factorial(float(17)) / -float(4.9) + &*consts::E);
         assert!(val1.approx_eq(&val2));
     }
 

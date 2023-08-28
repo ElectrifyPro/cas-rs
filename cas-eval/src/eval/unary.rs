@@ -15,7 +15,7 @@ impl Eval for Unary {
             Value::Number(num) => Ok(match self.op.kind {
                 UnaryOpKind::Not => Value::Boolean(num.is_zero()),
                 UnaryOpKind::BitNot => Value::Number(float(!int_from_float(num))),
-                UnaryOpKind::Factorial => Value::Number(float(factorial(int_from_float(num)))),
+                UnaryOpKind::Factorial => Value::Number(factorial(num)),
                 UnaryOpKind::Neg => Value::Number(-num),
             }),
             Value::Complex(ref comp) => Ok(match self.op.kind {

@@ -1,11 +1,15 @@
 use cas_parser::parser::literal::DIGITS;
 use once_cell::sync::Lazy;
 use rug::{ops::Pow, Complex, Float, Integer};
-use super::consts::{ONE, ONE_HALF, TAU, complex, float, float_from_str, int};
+use super::consts::{ONE, ONE_HALF, TAU, complex, float, float_from_str, int, int_from_float};
 
 /// Computes the factorial of a number.
-pub fn factorial(n: Integer) -> Integer {
-    partial_factorial(n, int(1))
+pub fn factorial(n: Float) -> Float {
+    if !n.is_integer() || n.is_sign_negative() {
+        (n + &*ONE).gamma()
+    } else {
+        float(partial_factorial(int_from_float(n), int(1)))
+    }
 }
 
 /// Computes a partial factorial of a number from `n` to `k`, where `k` is exclusive (i.e. `n * (n

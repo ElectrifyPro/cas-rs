@@ -289,6 +289,11 @@ pub fn fib(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 
 // miscellaneous functions
 
+#[args(v: Any)]
+pub fn bool(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Boolean(v.is_truthy()))
+}
+
 #[args(n: Number)]
 pub fn erf(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
     Ok(Number(n.erf()))
@@ -450,7 +455,7 @@ pub fn get_builtin(name: &str) -> Option<fn(&Ctxt, &[Value]) -> Result<Value, Bu
         ncr npr
 
         // miscellaneous functions
-        erf erfc rand factorial gamma
+        bool erf erfc rand factorial gamma
         abs lerp invlerp
         siground round ceil floor trunc
         min max clamp gcf lcm sign size

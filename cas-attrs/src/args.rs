@@ -10,7 +10,7 @@ use syn::{
 };
 
 /// One of the possible types for the `Value` enum.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Type {
     /// A number value. Numbers can freely coerce to [`Value::Complex`].
     Number,
@@ -21,6 +21,9 @@ pub enum Type {
 
     /// The unit type, analogous to `()` in Rust.
     Unit,
+
+    /// Any type.
+    Any,
 }
 
 impl Parse for Type {
@@ -29,7 +32,8 @@ impl Parse for Type {
             "Number" => Ok(Type::Number),
             "Complex" => Ok(Type::Complex),
             "Unit" => Ok(Type::Unit),
-            _ => Err(input.error("expected `Number`, `Complex`, or `Unit`")),
+            "Any" => Ok(Type::Any),
+            _ => Err(input.error("expected `Number`, `Complex`, `Unit`, or `Any`")),
         }
     }
 }
@@ -40,6 +44,7 @@ impl ToTokens for Type {
             Type::Number => tokens.extend(quote! { Number }),
             Type::Complex => tokens.extend(quote! { Complex }),
             Type::Unit => tokens.extend(quote! { Unit }),
+            _ => tokens.extend(quote! {}),
         }
     }
 }
@@ -156,6 +161,23 @@ impl Args {
             .iter()
             .enumerate()
             .map(|(i, param)| {
+                let (ident, ty) = (&param.ident, &param.ty);
+                if *ty == Type::Any {
+                    return quote! {
+                        let #ident = match args.get(#i).cloned() {
+                            Some(arg) => arg,
+                            None => {
+                                return Err(BuiltinError::MissingArgument(MissingArgument {
+                                    name: stringify!(#name).to_owned(),
+                                    index: #i,
+                                    expected: #num_patterns,
+                                    given: args.len(),
+                                }));
+                            },
+                        };
+                    };
+                }
+
                 let unit_converter = {
                     let coercer = match param.ty {
                         Type::Number => quote! { arg.coerce_real() },
@@ -194,7 +216,6 @@ impl Args {
                     },
                 };
 
-                let (ident, ty) = (&param.ident, &param.ty);
                 quote! {
                     let #ident = match #coerce_getter_expr {
                         Some(#ty(#ident)) => #ident,

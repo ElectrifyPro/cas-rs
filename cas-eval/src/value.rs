@@ -108,6 +108,16 @@ impl Value {
         }
     }
 
+    /// Returns true if this value is truthy.
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::Number(n) => !n.is_zero(),
+            Value::Complex(c) => !c.eq0(),
+            Value::Boolean(b) => *b,
+            Value::Unit => false,
+        }
+    }
+
     /// Returns a formatter for the value with the given options.
     pub fn fmt(&self, options: FormatOptions) -> ValueFormatter {
         ValueFormatter {

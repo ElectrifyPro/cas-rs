@@ -103,7 +103,7 @@ impl Eval for Binary {
             return eval_real_operands(self, left.coerce_real(), right.coerce_real());
         }
 
-        if left.is_complex() || right.is_complex() {
+        if left.is_complex() && right.is_complex() {
             return eval_complex_operands(self, left.coerce_complex(), right.coerce_complex());
         }
 

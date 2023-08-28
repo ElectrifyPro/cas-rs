@@ -10,7 +10,7 @@ use crate::{
 
 impl Eval for Unary {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
-        let operand = self.operand.eval(ctxt)?;
+        let operand = self.operand.eval(ctxt)?.coerce_real();
         match operand {
             Value::Number(num) => Ok(match self.op.kind {
                 UnaryOpKind::Not => Value::Boolean(num.is_zero()),

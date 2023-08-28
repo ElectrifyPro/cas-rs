@@ -119,6 +119,14 @@ fn trim_trailing(s: &str) -> &str {
     }
 }
 
+/// Trims trailing zeroes from a string assumed to represent a single number in binary notation.
+pub(crate) fn trim_trailing_zeroes(s: &str) -> &str {
+    s.rfind(|c| c != '0')
+        .map(|i| &s[..=i])
+        .unwrap_or(s)
+        .trim_end_matches('.')
+}
+
 /// Formats a float as a standard number.
 fn format_decimal<F: std::fmt::Write>(f: &mut F, n: &Float, separators: Separator) -> std::fmt::Result {
     if !n.is_normal() {

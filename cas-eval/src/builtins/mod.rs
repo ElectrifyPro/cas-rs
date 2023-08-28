@@ -5,13 +5,15 @@ pub mod func_specific;
 
 use cas_attrs::{args, out};
 use error::BuiltinError;
-use rug::ops::Pow;
+use rand::Rng;
+use rug::{integer::Order, ops::Pow, rand::RandState, Float, Integer};
 use super::{
     builtins::func_specific::{NcprError, NcprErrorKind},
     consts::{ONE, PHI, PI, TAU, TEN, complex, float, int, int_from_float},
     ctxt::{Ctxt, TrigMode},
     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
-    funcs::{factorial as rs_factorial, partial_factorial},
+    fmt::trim_trailing_zeroes,
+    funcs::{factorial as rs_factorial, gamma as rs_gamma, partial_factorial},
     value::Value::{self, *},
 };
 
@@ -288,8 +290,125 @@ pub fn fib(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 // miscellaneous functions
 
 #[args(n: Number)]
+pub fn erf(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(n.erf()))
+}
+
+#[args(n: Number)]
+pub fn erfc(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(n.erfc()))
+}
+
+#[args()]
+pub fn rand(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    let mut seed = Integer::new();
+    let mut digits = [0u128; 2];
+    rand::thread_rng().fill(&mut digits);
+    seed.assign_digits(&digits, Order::Lsf);
+
+    let mut rand = RandState::new();
+    rand.seed(&seed);
+    Ok(Number(float(Float::random_bits(&mut rand))))
+}
+
+#[args(n: Complex)]
 pub fn factorial(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
-    Ok(Number(float(rs_factorial(int_from_float(n)))))
+    if !n.imag().is_zero() || n.real().is_sign_negative() {
+        Ok(Complex(rs_gamma(n + 1)))
+    } else {
+        Ok(Number(float(rs_factorial(int_from_float(n.into_real_imag().0)))))
+    }
+}
+
+#[args(n: Complex)]
+pub fn gamma(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(rs_gamma(n)))
+}
+
+#[args(v1: Complex, v2: Complex, t: Number)]
+pub fn lerp(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Complex(&v1 + complex(&v2 - &v1) * t))
+}
+
+#[args(v1: Number, v2: Number, v: Number)]
+pub fn invlerp(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(float(&v - &v1) / float(&v2 - &v1)))
+}
+
+#[args(n: Number, d: Number)]
+pub fn siground(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    if n.is_zero() {
+        Ok(n.into())
+    } else {
+        let num_digits = float(n.abs_ref()).log10().ceil().to_integer().unwrap();
+        let power = d.to_integer().unwrap() - num_digits;
+
+        let magnitude = float(10.0).pow(&power);
+        let shifted = (float(&n) * &magnitude).round();
+        Ok(Number(shifted / magnitude))
+    }
+}
+
+macro_rules! generate_rounding_builtin {
+    ($($name:ident)+) => {
+        $(
+            #[args(n: Complex, s: Number = float(&*ONE))]
+            pub fn $name(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+                let recip = float(s.recip_ref());
+                let (real, imag) = n.into_real_imag();
+                Ok(Complex(complex((
+                    float(real * &recip).$name() * &s,
+                    float(imag * &recip).$name() * &s,
+                ))))
+            }
+        )*
+    };
+}
+
+generate_rounding_builtin!(round ceil floor trunc);
+
+#[args(a: Number, b: Number)]
+pub fn min(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(a.min(&b)))
+}
+
+#[args(a: Number, b: Number)]
+pub fn max(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(a.max(&b)))
+}
+
+#[args(n: Number, l: Number, r: Number)]
+pub fn clamp(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(n.clamp(&l, &r)))
+}
+
+#[args(a: Number, b: Number)]
+pub fn gcf(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(float(int_from_float(a).gcd(&int_from_float(b)))))
+}
+
+#[args(a: Number, b: Number)]
+pub fn lcm(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    Ok(Number(float(int_from_float(a).lcm(&int_from_float(b)))))
+}
+
+#[args(n: Number)]
+pub fn sign(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    if n.is_zero() {
+        Ok(n.into())
+    } else {
+        Ok(Number(n.signum()))
+    }
+}
+
+#[args(n: Number)]
+pub fn size(_: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
+    let s = n.to_string_radix(2, None);
+    let mut bits = trim_trailing_zeroes(&s).len();
+    if s.contains('.') {
+        bits -= 1;
+    }
+    Ok(Number(float(bits)))
 }
 
 /// Returns the builtin function with the given name.
@@ -331,8 +450,9 @@ pub fn get_builtin(name: &str) -> Option<fn(&Ctxt, &[Value]) -> Result<Value, Bu
         ncr npr
 
         // miscellaneous functions
-        factorial
-
-        abs
+        erf erfc rand factorial gamma
+        abs lerp invlerp
+        siground round ceil floor trunc
+        min max clamp gcf lcm sign size
     )
 }

@@ -3,6 +3,18 @@ use levenshtein::levenshtein;
 use std::collections::HashMap;
 use super::value::Value;
 
+/// The trigonometric mode of a context. This will affect the evaluation of input to trigonometric
+/// functions, and output from trigonometric functions.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum TrigMode {
+    /// Use radians.
+    #[default]
+    Radians,
+
+    /// Use degrees.
+    Degrees,
+}
+
 /// A context to use when evaluating an expression, containing variables and functions that can be
 /// used within the expression.
 #[derive(Debug, Clone)]
@@ -12,6 +24,9 @@ pub struct Ctxt {
 
     /// The functions in the context.
     funcs: HashMap<String, (FuncHeader, Expr)>,
+
+    /// The trigonometric mode of the context.
+    pub trig_mode: TrigMode,
 }
 
 impl Default for Ctxt {
@@ -27,6 +42,7 @@ impl Default for Ctxt {
                 ("false".to_string(), false.into()),
             ]),
             funcs: HashMap::new(),
+            trig_mode: TrigMode::default(),
         }
     }
 }
@@ -40,6 +56,7 @@ impl Ctxt {
         Ctxt {
             vars: HashMap::new(),
             funcs: HashMap::new(),
+            trig_mode: TrigMode::default(),
         }
     }
 

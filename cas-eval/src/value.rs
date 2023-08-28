@@ -1,6 +1,6 @@
 use rug::{Complex, Float};
 use std::fmt::{Display, Formatter};
-use super::{consts::{complex, float}, fmt::{FormatOptions, ValueFormatter}};
+use super::{consts::{PI, complex, float}, fmt::{FormatOptions, ValueFormatter}};
 
 /// Represents any value that can be stored in a variable.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,6 +59,34 @@ impl Value {
     pub fn coerce_complex(self) -> Self {
         match self {
             Value::Number(n) => Value::Complex(complex(n)),
+            _ => self,
+        }
+    }
+
+    /// Converts this value from radians to degrees. If it is a real number, it is converted as
+    /// usual. If it is a complex number, the real and imaginary parts are converted separately.
+    pub fn to_degrees(self) -> Self {
+        let convert = |n: Float| n * 180.0 / &*PI;
+        match self {
+            Value::Number(n) => Value::Number(convert(n)),
+            Value::Complex(c) => Value::Complex({
+                let (real, imag) = c.into_real_imag();
+                complex((convert(real), convert(imag)))
+            }),
+            _ => self,
+        }
+    }
+
+    /// Converts this value from degrees to radians. If it is a real number, it is converted as
+    /// usual. If it is a complex number, the real and imaginary parts are converted separately.
+    pub fn to_radians(self) -> Self {
+        let convert = |n: Float| n * &*PI / 180.0;
+        match self {
+            Value::Number(n) => Value::Number(convert(n)),
+            Value::Complex(c) => Value::Complex({
+                let (real, imag) = c.into_real_imag();
+                complex((convert(real), convert(imag)))
+            }),
             _ => self,
         }
     }

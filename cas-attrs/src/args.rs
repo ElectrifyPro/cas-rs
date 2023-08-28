@@ -44,6 +44,36 @@ impl ToTokens for Type {
     }
 }
 
+/// The trigonometric unit that a parameter should be in, in order to work with the `rug` crate's
+/// built-in trigonometric functions.
+#[derive(Debug)]
+pub enum Unit {
+    /// The parameter should be in radians.
+    Radians,
+
+    /// The parameter should be in degrees.
+    Degrees,
+}
+
+impl Parse for Unit {
+    fn parse(input: ParseStream) -> Result<Self> {
+        match &*input.parse::<Ident>()?.to_string() {
+            "radians" => Ok(Unit::Radians),
+            "degrees" => Ok(Unit::Degrees),
+            _ => Err(input.error("expected `radians` or `degrees`")),
+        }
+    }
+}
+
+impl ToTokens for Unit {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        match self {
+            Unit::Radians => tokens.extend(quote! { Radians }),
+            Unit::Degrees => tokens.extend(quote! { Degrees }),
+        }
+    }
+}
+
 /// Represents a parameter provided in the `args` attribute.
 #[derive(Debug)]
 pub struct Param {
@@ -52,6 +82,10 @@ pub struct Param {
 
     /// The expected type of the parameter.
     pub ty: Type,
+
+    /// The trigonometric unit this parameter should be in, in order to work with the `rug` crate's
+    /// built-in trigonometric functions.
+    pub unit: Option<Unit>,
 
     /// An optional default value for the parameter, if the user does not provide one.
     pub default: Option<Expr>,
@@ -62,6 +96,11 @@ impl Parse for Param {
         let ident = input.parse::<Ident>()?;
         input.parse::<Token![:]>()?;
         let ty = input.parse::<Type>()?;
+        let unit = if input.peek(Ident) {
+            input.parse::<Unit>().ok()
+        } else {
+            None
+        };
         let default = if input.peek(Token![=]) {
             input.parse::<Token![=]>()?;
             input.parse::<Expr>().ok()
@@ -72,6 +111,7 @@ impl Parse for Param {
         Ok(Param {
             ident,
             ty,
+            unit,
             default,
         })
     }
@@ -116,11 +156,32 @@ impl Args {
             .iter()
             .enumerate()
             .map(|(i, param)| {
-                let coerce_getter_expr = match param.ty {
-                    Type::Number => quote! { args.get(#i).cloned().map(|arg| arg.coerce_real()) },
-                    Type::Complex => quote! { args.get(#i).cloned().map(|arg| arg.coerce_complex()) },
-                    _ => quote! { args.get(#i) },
+                let unit_converter = {
+                    let coercer = match param.ty {
+                        Type::Number => quote! { arg.coerce_real() },
+                        Type::Complex => quote! { arg.coerce_complex() },
+                        _ => quote! { arg },
+                    };
+
+                    match &param.unit {
+                        Some(unit) => {
+                            let x = match unit {
+                                Unit::Radians => quote! { .to_radians() },
+                                Unit::Degrees => quote! { .to_degrees() },
+                            };
+
+                            quote! {
+                                if ctxt.trig_mode != TrigMode::#unit {
+                                    #coercer #x
+                                } else {
+                                    #coercer
+                                }
+                            }
+                        },
+                        None => quote! { #coercer },
+                    }
                 };
+                let coerce_getter_expr = quote! { args.get(#i).cloned().map(|arg| #unit_converter) };
                 let default_expr = match &param.default {
                     Some(expr) => quote! { #expr },
                     None => quote! {
@@ -132,6 +193,7 @@ impl Args {
                         }));
                     },
                 };
+
                 let (ident, ty) = (&param.ident, &param.ty);
                 quote! {
                     let #ident = match #coerce_getter_expr {

@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn builtin_func_arg_check() {
-        assert_eq!(builtins::abs(&[Value::from(4.0)]).unwrap().coerce_real(), 4.0.into());
-        assert!(builtins::abs(&[Value::Unit]).is_err());
+        assert_eq!(builtins::abs(&Ctxt::default(), &[Value::from(4.0)]).unwrap().coerce_real(), 4.0.into());
+        assert!(builtins::abs(&Ctxt::default(), &[Value::Unit]).is_err());
     }
 }

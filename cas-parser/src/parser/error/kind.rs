@@ -2,6 +2,7 @@ use ariadne::Fmt;
 use cas_attrs::ErrorKind;
 use cas_error::{ErrorKind, EXPR};
 use crate::tokenizer::TokenKind;
+use std::collections::HashSet;
 
 /// An intentionally useless error. This should only be used for non-fatal errors, as it contains
 /// no useful information.
@@ -63,8 +64,7 @@ pub struct InvalidRadixBase {
 /// An invalid digit was used in a radix literal.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("invalid digit in radix notation: `{}`", self.digit),
-    labels = ["here"],
+    message = format!("invalid digits in radix notation: `{}`", self.digits.iter().map(|c| c.to_string()).collect::<Vec<_>>().join("`, `")),
     help = format!("base {} uses these digits (from lowest to highest value): {}", self.radix, self.allowed.iter().collect::<String>().fg(EXPR)),
 )]
 pub struct InvalidRadixDigit {
@@ -74,8 +74,8 @@ pub struct InvalidRadixDigit {
     /// The set of allowed digits for this radix.
     pub allowed: &'static [char],
 
-    /// The invalid digit that was used.
-    pub digit: char,
+    /// The invalid digits that were used.
+    pub digits: HashSet<char>,
 }
 
 /// A parenthesis was not closed.

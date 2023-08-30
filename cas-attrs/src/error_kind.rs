@@ -92,6 +92,31 @@ impl ToTokens for ErrorKindTarget {
             self.error_args.labels.as_ref(),
             self.error_args.help.as_ref().map(|e| quote! { builder.set_help(#e); }),
         );
+        let labels = match labels {
+            Some(labels) => quote! {
+                #labels
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, label_str)| {
+                        let mut label = ariadne::Label::new((src_id, spans[i].clone()))
+                            .with_color(cas_error::EXPR);
+
+                        if !label_str.is_empty() {
+                            label = label.with_message(label_str);
+                        }
+
+                        label
+                    })
+                    .collect::<Vec<_>>()
+            },
+            None => quote! {
+                spans
+                    .iter()
+                    .map(|span| ariadne::Label::new((src_id, span.clone()))
+                        .with_color(cas_error::EXPR))
+                    .collect::<Vec<_>>()
+            },
+        };
 
         tokens.extend(quote! {
             fn build_report(
@@ -101,22 +126,7 @@ impl ToTokens for ErrorKindTarget {
             ) -> ariadne::Report<(&'static str, std::ops::Range<usize>)> {
                 let mut builder = ariadne::Report::build(ariadne::ReportKind::Error, src_id, spans[0].start)
                     .with_message(#message)
-                    .with_labels(
-                        #labels
-                            .into_iter()
-                            .enumerate()
-                            .map(|(i, label_str)| {
-                                let mut label = ariadne::Label::new((src_id, spans[i].clone()))
-                                    .with_color(cas_error::EXPR);
-
-                                if !label_str.is_empty() {
-                                    label = label.with_message(label_str);
-                                }
-
-                                label
-                            })
-                            .collect::<Vec<_>>()
-                    );
+                    .with_labels(#labels);
 
                 #help
                 builder.finish()

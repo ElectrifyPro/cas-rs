@@ -1,4 +1,3 @@
-use std::ops::Range;
 use crate::{
     parser::{
         error::{kind, Error},
@@ -9,6 +8,7 @@ use crate::{
     tokenizer::TokenKind,
     try_parse_catch_fatal,
 };
+use std::{collections::HashSet, ops::Range};
 
 /// A number literal. Integers and floating-point numbers are both supported and represented here
 /// as a [`String`].
@@ -108,15 +108,35 @@ impl<'source> Parse<'source> for LitRadix {
 
         // ensure that the number is valid for this radix
         let allowed_digits = &DIGITS[..base as usize];
+        let mut bad_digits = HashSet::new();
+        let mut bad_digit_spans: Vec<Range<usize>> = Vec::new();
         for (i, c) in word.value.chars().enumerate() {
+            // if we find a digit that isn't allowed, that is fatal
+            // but continue to find all the bad digits so we can report them all at once
             if !allowed_digits.contains(&c) {
-                let char_span_start = word.span.start + i;
-                return Err(Error::new_fatal(vec![char_span_start..char_span_start + 1], kind::InvalidRadixDigit {
-                    radix: base,
-                    allowed: allowed_digits,
-                    digit: c,
-                }));
+                let char_start = word.span.start + i;
+                if let Some(last_span) = bad_digit_spans.last_mut() {
+                    // merge adjacent spans
+                    if last_span.end == char_start {
+                        last_span.end += 1;
+                    } else {
+                        bad_digit_spans.push(char_start..char_start + 1);
+                    }
+                } else {
+                    bad_digit_spans.push(char_start..char_start + 1);
+                }
+
+                bad_digits.insert(c);
+                continue;
             }
+        }
+
+        if !bad_digit_spans.is_empty() {
+            return Err(Error::new_fatal(bad_digit_spans, kind::InvalidRadixDigit {
+                radix: base,
+                allowed: allowed_digits,
+                digits: bad_digits,
+            }));
         }
 
         Ok(Self {

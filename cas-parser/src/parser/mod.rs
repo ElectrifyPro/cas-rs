@@ -3,6 +3,7 @@ pub mod binary;
 pub mod call;
 pub mod error;
 pub mod expr;
+pub mod iter;
 pub mod literal;
 pub mod paren;
 pub mod token;

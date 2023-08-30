@@ -19,7 +19,11 @@ impl Eval for Expr {
                     },
                     AssignTarget::Func(header) => {
                         // function assignment
-                        ctxt.add_func(header.clone(), *assign.value.clone());
+                        ctxt.add_func(
+                            header.clone(),
+                            *assign.value.clone(),
+                            assign.is_recursive(),
+                        );
                         Ok(Value::Unit)
                     },
                 }

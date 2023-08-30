@@ -1,9 +1,9 @@
 use cas_parser::parser::{assign::Param, call::Call};
 use crate::{
     builtins,
-    ctxt::Ctxt,
+    ctxt::{MAX_RECURSION_DEPTH, Ctxt},
     error::{
-        kind::{MissingArgument, TooManyArguments, UndefinedFunction},
+        kind::{MissingArgument, StackOverflow, TooManyArguments, UndefinedFunction},
         Error,
     },
     eval::Eval,
@@ -21,19 +21,36 @@ impl Eval for Call {
                 .map_err(|err| err.into_error(self));
         }
 
-        let (header, body) = ctxt.get_func(&self.name.name)
+        let func = ctxt.get_func(&self.name.name)
             .ok_or_else(|| Error::new(vec![self.name.span.clone()], UndefinedFunction {
                 name: self.name.name.clone(),
                 suggestions: ctxt.get_similar_funcs(&self.name.name)
                     .into_iter()
-                    .map(|(header, _)| header.name.name.clone())
+                    .map(|func| func.header.name.name.clone())
                     .collect(),
             }))?;
         let mut ctxt = ctxt.clone();
+        if func.recursive {
+            ctxt.stack_depth += 1;
+        }
+
+        if ctxt.stack_depth > MAX_RECURSION_DEPTH {
+            // TODO
+            ctxt.max_depth_reached = true;
+
+            // we do not include the call span
+            //
+            // this is because this call span is the span of the function call within the *function
+            // definition*, not the user's input
+            //
+            // this error will be propogated up to the top level of the call stack, where `self` is
+            // now representing the function call of the user's input
+            return Err(Error::new(vec![], StackOverflow));
+        }
 
         let mut index = 0;
         let mut args = self.args.iter();
-        let mut params = header.params.iter();
+        let mut params = func.header.params.iter();
         loop {
             match (args.next(), params.next()) {
                 // a positional argument
@@ -46,7 +63,7 @@ impl Eval for Call {
                 // too many arguments were given
                 (Some(_), None) => return Err(Error::new(self.outer_span().to_vec(), TooManyArguments {
                     name: self.name.name.clone(),
-                    expected: header.params.len(),
+                    expected: func.header.params.len(),
                     given: self.args.len(),
                 })),
 
@@ -60,7 +77,7 @@ impl Eval for Call {
                             MissingArgument {
                                 name: self.name.name.clone(),
                                 index,
-                                expected: header.params.len(),
+                                expected: func.header.params.len(),
                                 given: self.args.len(),
                             },
                         )),
@@ -76,6 +93,20 @@ impl Eval for Call {
             index += 1;
         }
 
-        body.eval(&mut ctxt)
+        let result = func.body.eval(&mut ctxt);
+        if func.recursive {
+            ctxt.stack_depth -= 1;
+        }
+
+        if result.is_err() && ctxt.max_depth_reached {
+            // we are now at the top level of a stack overflow error, so we can insert the span of
+            // the user's input
+            result.map_err(|mut err| {
+                err.spans.extend(self.outer_span().to_vec());
+                err
+            })
+        } else {
+            result
+        }
     }
 }

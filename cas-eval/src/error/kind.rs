@@ -170,3 +170,12 @@ pub struct TypeMismatch {
     /// The type of the argument that was given.
     pub given: &'static str,
 }
+
+/// The stack overflowed while evaluating a function call.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "maximum stack depth exceeded",
+    labels = ["this function called itself too many times", ""],
+    help = "the maximum stack depth is equal to: `2^11`"
+)]
+pub struct StackOverflow;

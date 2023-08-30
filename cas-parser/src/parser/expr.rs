@@ -5,6 +5,7 @@ use crate::{
         binary::Binary,
         call::Call,
         error::{kind, Error},
+        iter::ExprIter,
         literal::Literal,
         paren::Paren,
         token::CloseParen,
@@ -54,6 +55,12 @@ impl Expr {
             Expr::Binary(binary) => binary.span(),
             Expr::Assign(assign) => assign.span(),
         }
+    }
+
+    /// Returns an iterator that traverses the tree of expressions in left-to-right post-order
+    /// (i.e. depth-first).
+    pub fn post_order_iter(&self) -> ExprIter {
+        ExprIter::new(self)
     }
 }
 

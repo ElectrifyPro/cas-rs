@@ -139,6 +139,22 @@ impl Assign {
     pub fn span(&self) -> Range<usize> {
         self.span.clone()
     }
+
+    /// Returns true if the assignment is to a function, and the function body references itself.
+    pub fn is_recursive(&self) -> bool {
+        if let AssignTarget::Func(header) = &self.target {
+            let is_correct_call = |expr: &Expr| {
+                match expr {
+                    Expr::Call(call) => call.name.name == header.name.name,
+                    _ => false,
+                }
+            };
+
+            self.value.post_order_iter().any(is_correct_call)
+        } else {
+            false
+        }
+    }
 }
 
 impl<'source> Parse<'source> for Assign {

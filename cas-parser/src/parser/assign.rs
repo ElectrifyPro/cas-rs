@@ -1,9 +1,9 @@
 use std::ops::Range;
 use crate::{
     parser::{
-        error::Error,
+        error::{kind::InvalidAssignmentLhs, Error},
         expr::Expr,
-        literal::LitSym,
+        literal::{Literal, LitSym},
         token::{Assign as AssignOp, CloseParen, OpenParen},
         Parse,
         Parser,
@@ -96,6 +96,20 @@ impl AssignTarget {
         match self {
             AssignTarget::Symbol(symbol) => symbol.span.clone(),
             AssignTarget::Func(func) => func.span(),
+        }
+    }
+
+    /// Tries to convert a general [`Expr`] into an [`AssignTarget`]. This is used when parsing
+    /// assignment expressions, such as `x = 1` or `f(x) = x^2`.
+    pub fn try_from_with_op(expr: Expr, op: &AssignOp) -> Result<Self, Error> {
+        match expr {
+            Expr::Literal(Literal::Symbol(symbol)) => Ok(AssignTarget::Symbol(symbol)),
+            Expr::Call(_) => Err(Error::new_fatal(vec![expr.span(), op.span.clone()], InvalidAssignmentLhs {
+                is_call: true,
+            })),
+            _ => Err(Error::new_fatal(vec![expr.span(), op.span.clone()], InvalidAssignmentLhs {
+                is_call: false,
+            })),
         }
     }
 }

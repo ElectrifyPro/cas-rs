@@ -13,9 +13,9 @@ macro_rules! token_kinds {
     ($($name:ident)*) => {
         $(
             #[derive(Clone, Debug, PartialEq)]
-            pub(crate) struct $name<'source> {
-                pub(crate) lexeme: &'source str,
-                pub(crate) span: Range<usize>,
+            pub struct $name<'source> {
+                pub lexeme: &'source str,
+                pub span: Range<usize>,
             }
 
             impl<'source> Parse<'source> for $name<'source> {

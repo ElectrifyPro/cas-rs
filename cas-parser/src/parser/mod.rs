@@ -57,6 +57,12 @@ impl<'source> Parser<'source> {
         }
     }
 
+    /// Sets the parser to point to the same token as the given parser. It is assumed that both
+    /// parsers point to the same source code.
+    pub fn set_cursor(&mut self, other: &Self) {
+        self.cursor = other.cursor;
+    }
+
     /// Creates an error that points at the current token, or the end of the source code if the
     /// cursor is at the end of the stream.
     pub fn error(&self, kind: impl ErrorKind + 'static) -> Error {
@@ -272,6 +278,9 @@ pub enum Associativity {
 pub enum Precedence {
     /// Any precedence.
     Any,
+
+    /// Precedence of assignment (`=`).
+    Assign,
 
     /// Precedence of logical or (`or`).
     Or,

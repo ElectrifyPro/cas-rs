@@ -102,3 +102,19 @@ pub struct UnclosedParenthesis {
     labels = ["add an expression here"],
 )]
 pub struct EmptyParenthesis;
+
+/// The left-hand-side of an assignment was not a valid symbol or function header.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "invalid left-hand-side of assignment operator",
+    labels = ["(1) this expression should be a symbol or function header...", "(2) ...to work with this assignment operator"],
+    help = if self.is_call {
+        "(1) looks like a function *call*, not a function *header*"
+    } else {
+        "maybe you meant to compare expressions with `==`?"
+    }
+)]
+pub struct InvalidAssignmentLhs {
+    /// Whether the expression span is pointing towards a function call.
+    pub is_call: bool,
+}

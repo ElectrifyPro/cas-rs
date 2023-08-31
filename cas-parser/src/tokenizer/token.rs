@@ -91,7 +91,7 @@ pub enum TokenKind {
     #[token("0x")]
     Hex,
 
-    #[regex(r"[a-zA-Z_]+")]
+    #[regex(r"([a-zA-Z_]+|atan2)")] // TODO: includes horrible hard-coded test for atan2
     Name,
 
     #[token(",")]

@@ -8,11 +8,10 @@ use crate::{
         iter::ExprIter,
         literal::Literal,
         paren::Paren,
-        token::CloseParen,
+        token::{op::Precedence, CloseParen},
         unary::Unary,
         Parse,
         Parser,
-        Precedence,
     },
     try_parse_catch_fatal,
 };

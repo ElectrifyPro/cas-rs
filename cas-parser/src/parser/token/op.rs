@@ -1,16 +1,87 @@
 //! Structs to help parse binary and unary operators.
 
 use crate::{
-    parser::{
-        error::{Error, kind},
-        Associativity,
-        Parse,
-        Parser,
-        Precedence,
-    },
+    parser::{error::{Error, kind}, Parse, Parser},
     tokenizer::TokenKind,
 };
 use std::ops::Range;
+
+/// The associativity of a binary or unary operation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Associativity {
+    /// The binary / unary operation is left-associative.
+    ///
+    /// For binary operations, this means `a op b op c` is evaluated as `(a op b) op c`. For unary
+    /// operations, this means `a op op` is evaluated as `(a op) op` (the operators appear to the
+    /// right of the operand).
+    Left,
+
+    /// The binary / unary operation is right-associative.
+    ///
+    /// For binary operations, this means `a op b op c` is evaluated as `a op (b op c)`. For unary
+    /// operations, this means `op op a` is evaluated as `op (op a)` (the operators appear to the
+    /// left of the operand).
+    Right,
+}
+
+/// The precedence of an operation, in order from lowest precedence (evaluated last) to highest
+/// precedence (evaluated first).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Precedence {
+    /// Any precedence.
+    Any,
+
+    /// Precedence of assignment (`=`).
+    Assign,
+
+    /// Precedence of logical or (`or`).
+    Or,
+
+    /// Precedence of logical and (`and`).
+    And,
+
+    /// Precedence of comparisons (`>`, `>=`, `<`, `<=`, `==`, `!=`, `~==`, and `~!=`).
+    Compare,
+
+    /// Precedence of bitwise or (`|`).
+    BitOr,
+
+    /// Precedence of bitwise and (`&`).
+    BitAnd,
+
+    /// Precedence of bitshifts (`<<` and `>>`).
+    Shift,
+
+    /// Precedence of addition (`+`) and subtraction (`-`), which separate terms.
+    Term,
+
+    /// Precedence of multiplication (`*`), division (`/`), and modulo (`%`), which separate
+    /// factors.
+    Factor,
+
+    /// Precedence of unary subtraction (`-`).
+    Neg,
+
+    /// Precedence of exponentiation (`^`).
+    Exp,
+
+    /// Precedence of factorial (`!`).
+    Factorial,
+
+    /// Precedence of bitwise not (`~`).
+    BitNot,
+
+    /// Precedence of logical not (`not`).
+    Not,
+}
+
+impl PartialOrd for Precedence {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let left = *self as u8;
+        let right = *other as u8;
+        left.partial_cmp(&right)
+    }
+}
 
 /// The unary operation that is being performed.
 #[derive(Debug, Clone, Copy, PartialEq)]

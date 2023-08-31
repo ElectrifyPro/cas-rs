@@ -3,12 +3,10 @@ use super::{
     assign::{Assign as AssignExpr, AssignTarget},
     expr::{Expr, Primary},
     error::{kind, Error},
-    token::{op::{BinOp, BinOpKind}, Assign},
+    token::{op::{Associativity, BinOp, BinOpKind, Precedence}, Assign},
     unary::Unary,
-    Associativity,
     Parse,
     Parser,
-    Precedence,
 };
 
 /// A binary operator, including assignment.

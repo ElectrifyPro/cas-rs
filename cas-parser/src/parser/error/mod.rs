@@ -12,24 +12,12 @@ pub struct Error {
 
     /// The kind of error that occurred.
     pub kind: Box<dyn ErrorKind>,
-
-    /// Whether this error is fatal. Fatal errors will cause the parser to stop parsing and return
-    /// the error. Non-fatal errors will generally be ignored.
-    ///
-    /// If it is unknown whether an error is fatal or not, it is recommended to assume that it is
-    /// not, as non-fatal errors can be upgraded to fatal errors later.
-    pub fatal: bool,
 }
 
 impl Error {
-    /// Creates a new non-fatal error with the given spans and kind.
+    /// Creates a new error with the given spans and kind.
     pub fn new(spans: Vec<Range<usize>>, kind: impl ErrorKind + 'static) -> Self {
-        Self { spans, kind: Box::new(kind), fatal: false }
-    }
-
-    /// Creates a new fatal error with the given spans and kind.
-    pub fn new_fatal(spans: Vec<Range<usize>>, kind: impl ErrorKind + 'static) -> Self {
-        Self { spans, kind: Box::new(kind), fatal: true }
+        Self { spans, kind: Box::new(kind) }
     }
 
     /// Build a report from this error kind.

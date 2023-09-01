@@ -44,11 +44,14 @@ impl Call {
 }
 
 impl<'source> Parse<'source> for Call {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        let name = input.try_parse::<LitSym>()?;
-        let open_paren = input.try_parse::<OpenParen>()?;
-        let args = input.try_parse_delimited::<Expr>(TokenKind::Comma)?;
-        let close_paren = input.try_parse::<CloseParen>()?;
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let name = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
+        let open_paren = input.try_parse::<OpenParen>().forward_errors(recoverable_errors)?;
+        let args = input.try_parse_delimited::<Expr>(TokenKind::Comma).forward_errors(recoverable_errors)?;
+        let close_paren = input.try_parse::<CloseParen>().forward_errors(recoverable_errors)?;
 
         // use `name` here before it is moved into the struct
         let span = name.span.start..close_paren.span.end;

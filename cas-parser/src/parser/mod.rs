@@ -14,30 +14,6 @@ use error::{Error, kind};
 use super::tokenizer::{tokenize_complete, Token, TokenKind};
 use std::ops::Range;
 
-/// Attempts to parse a value from the given stream of tokens, using multiple parsing functions
-/// in order. **This function panics if the given slice is empty.** The first function that
-/// succeeds is used to parse the value.
-///
-/// This function can also catch fatal errors and immediately short-circuit the parsing
-/// process.
-///
-/// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
-/// value is returned. Otherwise, the stream is left unchanged and the error of the last
-/// attempted parsing function is returned.
-#[macro_export]
-macro_rules! try_parse_catch_fatal {
-    ($($expr:expr),+ $(,)?) => {{
-        $(
-            match $expr {
-                Ok(value) => return Ok(value),
-                Err(err) if err.fatal => return Err(err),
-                // ignore this error and try the next parser, or return it
-                err => err,
-            }
-        )+
-    }};
-}
-
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
 /// code into an abstract syntax tree.
 #[derive(Debug, Clone)]
@@ -68,12 +44,6 @@ impl<'source> Parser<'source> {
     /// cursor is at the end of the stream.
     pub fn error(&self, kind: impl ErrorKind + 'static) -> Error {
         Error::new(vec![self.span()], kind)
-    }
-
-    /// Creates a fatal error that points at the current token, or the end of the source code if
-    /// the cursor is at the end of the stream.
-    pub fn error_fatal(&self, kind: impl ErrorKind + 'static) -> Error {
-        Error::new_fatal(vec![self.span()], kind)
     }
 
     /// Returns a span pointing at the end of the source code.
@@ -141,7 +111,7 @@ impl<'source> Parser<'source> {
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
-    pub fn try_parse<T: Parse<'source>>(&mut self) -> Result<T, Error> {
+    pub fn try_parse<T: Parse<'source>>(&mut self) -> ParseResult<T> {
         self.try_parse_with_fn(T::parse)
     }
 
@@ -155,30 +125,33 @@ impl<'source> Parser<'source> {
     pub fn try_parse_delimited<T: Parse<'source>>(
         &mut self,
         delimiter: TokenKind,
-    ) -> Result<Vec<T>, Error> {
+    ) -> ParseResult<Vec<T>> {
         let start = self.cursor;
-        let mut values = Vec::new();
+        let mut errors = Vec::new();
 
-        loop {
-            match self.try_parse::<T>() {
-                Ok(value) => values.push(value),
-                Err(_) => {
-                    if values.is_empty() {
-                        self.cursor = start;
-                    }
+        let mut inner = || {
+            let mut values = Vec::new();
+            loop {
+                let value = self.try_parse::<T>().forward_errors(&mut errors)?;
+                values.push(value);
 
-                    return Ok(values);
-                },
+                self.advance_past_whitespace();
+                match self.current_token() {
+                    Some(token) if token.kind == delimiter => {
+                        self.cursor += 1;
+                    },
+                    _ => return Ok(values),
+                }
             }
+        };
 
-            self.advance_past_whitespace();
-            match self.current_token() {
-                Some(token) if token.kind == delimiter => {
-                    self.cursor += 1;
-                },
-                _ => return Ok(values),
-            }
-        }
+        inner()
+            .map(|value| (value, errors))
+            .map_err(|unrecoverable: Vec<Error>| {
+                self.cursor = start;
+                unrecoverable
+            })
+            .into()
     }
 
     /// Speculatively parses a value from the given stream of tokens, using a custom parsing
@@ -188,18 +161,12 @@ impl<'source> Parser<'source> {
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
-    pub fn try_parse_with_fn<T, F>(&mut self, f: F) -> Result<T, Error>
+    pub fn try_parse_with_fn<T, F>(&mut self, f: F) -> ParseResult<T>
     where
-        F: FnOnce(&mut Parser<'source>) -> Result<T, Error>,
+        F: FnOnce(&mut Parser<'source>) -> ParseResult<T>,
     {
         let start = self.cursor;
-        match f(self) {
-            Ok(value) => Ok(value),
-            err => {
-                self.cursor = start;
-                err
-            },
-        }
+        f(self).inspect_unrecoverable(|_| self.cursor = start)
     }
 
     /// Speculatively parses a value from the given stream of tokens, with a validation predicate.
@@ -208,40 +175,45 @@ impl<'source> Parser<'source> {
     ///
     /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
-    pub fn try_parse_then<T: Parse<'source>, F>(&mut self, predicate: F) -> Result<T, Error>
+    pub fn try_parse_then<T: Parse<'source>, F>(&mut self, predicate: F) -> ParseResult<T>
     where
-        F: FnOnce(&T, &Parser) -> Result<(), Error>,
+        F: FnOnce(&T, &Parser) -> ParseResult<()>,
     {
         let start = self.cursor;
+        let mut errors = Vec::new();
 
-        // closure workaround allows us to use `?` in the closure
-        let compute = || {
-            let value = T::parse(self)?;
-            predicate(&value, self)?;
+        let inner = || {
+            let value = T::parse(self).forward_errors(&mut errors)?;
+            predicate(&value, self).forward_errors(&mut errors)?;
             Ok(value)
         };
 
-        match compute() {
-            Ok(value) => Ok(value),
-            err => {
+        inner()
+            .map(|value| (value, errors))
+            .map_err(|unrecoverable: Vec<Error>| {
                 self.cursor = start;
-                err
-            },
-        }
+                unrecoverable
+            })
+            .into()
     }
 
     /// Attempts to parse a value from the given stream of tokens. All the tokens must be consumed
     /// by the parser; if not, an error is returned.
-    pub fn try_parse_full<T: Parse<'source>>(&mut self) -> Result<T, Error> {
-        let value = T::parse(self)?;
+    pub fn try_parse_full<T: Parse<'source>>(&mut self) -> Result<T, Vec<Error>> {
+        let mut errors = Vec::new();
+        let value = T::parse(self).forward_errors(&mut errors)?;
 
         // consume whitespace
         self.advance_past_whitespace();
 
-        if self.cursor >= self.tokens.len() {
+        if self.cursor < self.tokens.len() {
+            errors.push(self.error(kind::ExpectedEof));
+        }
+
+        if errors.is_empty() {
             Ok(value)
         } else {
-            Err(self.error(kind::ExpectedEof))
+            Err(errors)
         }
     }
 }
@@ -251,8 +223,156 @@ pub trait Parse<'source>: Sized {
     /// Parses a value from the given stream of tokens, advancing the stream past the consumed
     /// tokens if parsing is successful.
     ///
-    /// This function should be used by consumers of the library.
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error>;
+    /// If any recoverable errors are encountered, they should be appended to the given [`Vec`],
+    /// and parsing should continue as normal. If an unrecoverable error is encountered, parsing
+    /// should abort with said error.
+    ///
+    /// This function should be used by private functions in the library.
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>>;
+
+    /// Parses a value from the given stream of tokens, advancing the stream past the consumed
+    /// tokens if parsing is successful.
+    ///
+    /// This function should be used by users of this parser.
+    fn parse(input: &mut Parser<'source>) -> ParseResult<Self> {
+        let mut recoverable_errors = Vec::new();
+        Self::std_parse(input, &mut recoverable_errors)
+            .map(|value| (value, recoverable_errors))
+            .into()
+    }
+}
+
+/// The result of a parsing operation.
+pub enum ParseResult<T> {
+    /// Parsing was successful.
+    Ok(T),
+
+    /// An error occurred while parsing, however the parser attempted to recover and has tried to
+    /// continue parsing in order to find more errors. The recovered value is returned in addition
+    /// to all the errors that were found.
+    ///
+    /// There are **no** guarantees on whether the recovered value is valid or not. Thus, it should
+    /// only be used to allow the parser to continue parsing, and should not be shown to the user.
+    Recoverable(T, Vec<Error>),
+
+    /// An error occurred while parsing, and the parser was unable to recover. Parsing is aborted
+    /// and the error are returned.
+    Unrecoverable(Vec<Error>),
+}
+
+impl<T> From<Result<(T, Vec<Error>), Vec<Error>>> for ParseResult<T> {
+    fn from(result: Result<(T, Vec<Error>), Vec<Error>>) -> Self {
+        match result {
+            Ok((value, errors)) => (value, errors).into(),
+            Err(unrecoverable_errors) => Self::Unrecoverable(unrecoverable_errors),
+        }
+    }
+}
+
+impl<T> From<(T, Vec<Error>)> for ParseResult<T> {
+    fn from((value, errors): (T, Vec<Error>)) -> Self {
+        if errors.is_empty() {
+            Self::Ok(value)
+        } else {
+            Self::Recoverable(value, errors)
+        }
+    }
+}
+
+impl<T> From<Vec<Error>> for ParseResult<T> {
+    fn from(errors: Vec<Error>) -> Self {
+        Self::Unrecoverable(errors)
+    }
+}
+
+impl<T> ParseResult<T> {
+    /// Converts the [`ParseResult<T>`] to a [`Result<T, Vec<Error>>`], using these rules:
+    ///
+    /// - [`ParseResult::Ok`] is converted to [`Ok`].
+    /// - [`ParseResult::Recoverable`] is converted to [`Ok`]. The errors are appended to the given
+    /// mutable [`Vec`].
+    /// - [`ParseResult::Unrecoverable`] is converted to [`Err`].
+    ///
+    /// This can be a convenient way to allow utilizing the [`?`] operator in a parsing function,
+    /// while still holding onto errors that were found for later reporting.
+    pub fn forward_errors(self, errors: &mut Vec<Error>) -> Result<T, Vec<Error>> {
+        match self {
+            Self::Ok(value) => Ok(value),
+            Self::Recoverable(value, mut errs) => {
+                errors.append(&mut errs);
+                Ok(value)
+            },
+            Self::Unrecoverable(errs) => Err(errs),
+        }
+    }
+
+    /// Returns `true` if the result is [`ParseResult::Ok`].
+    pub fn is_ok(&self) -> bool {
+        matches!(self, ParseResult::Ok(_))
+    }
+
+    /// Calls the provided closure with a reference to the contained unrecoverable error.
+    ///
+    /// This is equivalent to [`Result::inspect_err`].
+    pub fn inspect_unrecoverable<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&Vec<Error>),
+    {
+        if let Self::Unrecoverable(errs) = &self {
+            f(errs);
+        }
+
+        self
+    }
+
+    /// Maps a `ParseResult<T>` to `ParseResult<U>` by applying a function to a contained
+    /// [`ParseResult::Ok`] or [`ParseResult::Recoverable`] value, leaving an
+    /// [`ParseResult::Unrecoverable`] value untouched.
+    ///
+    /// This is equivalent to [`Result::map`].
+    pub fn map<U, F>(self, f: F) -> ParseResult<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            ParseResult::Ok(value) => ParseResult::Ok(f(value)),
+            ParseResult::Recoverable(value, errors) => ParseResult::Recoverable(f(value), errors),
+
+            // this line cannot be simplified to `err => err`, because then both the left hand side
+            // and right hand side are type `ParseResult<T>`!
+            ParseResult::Unrecoverable(errors) => ParseResult::Unrecoverable(errors),
+        }
+    }
+
+    /// Calls `op` if the result is an error, otherwise returns the `Ok` value of `self`.
+    ///
+    /// This is similar to [`Result::or_else`], but no error value is given to the closure.
+    pub fn or_else<F>(self, op: F) -> Self
+    where
+        F: FnOnce() -> Self,
+    {
+        match self {
+            ParseResult::Recoverable(..) | ParseResult::Unrecoverable(_) => op(),
+            ok => ok,
+        }
+    }
+}
+
+/// Convenience macro to short-circuit from a parsing function if the given [`Result`] is [`Ok`],
+/// or return the contained error if the result is [`Err`].
+///
+/// This is essentially the opposite of the [`try!`] macro.
+#[macro_export]
+macro_rules! return_if_ok {
+    ($result:expr) => {
+        match $result {
+            Ok(value) => return Ok(value),
+            Err(errors) => errors,
+        }
+    };
 }
 
 #[cfg(test)]

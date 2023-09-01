@@ -135,21 +135,28 @@ impl UnaryOp {
 }
 
 impl<'source> Parse<'source> for UnaryOp {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        let token = input.next_token()?;
+    fn std_parse(
+        input: &mut Parser<'source>,
+        _: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let token = input.next_token().map_err(|e| vec![e])?;
         let kind = match token.kind {
             TokenKind::Not => Ok(UnaryOpKind::Not),
             TokenKind::BitNot => Ok(UnaryOpKind::BitNot),
             TokenKind::Factorial => Ok(UnaryOpKind::Factorial),
             TokenKind::Sub => Ok(UnaryOpKind::Neg),
-            _ => Err(Error::new(vec![token.span.clone()], kind::UnexpectedToken {
-                expected: &[
-                    TokenKind::Not,
-                    TokenKind::Factorial,
-                    TokenKind::Sub,
-                ],
-                found: token.kind,
-            })),
+            _ => Err(vec![Error::new(
+                vec![token.span.clone()],
+                kind::UnexpectedToken {
+                    expected: &[
+                        TokenKind::Not,
+                        TokenKind::BitNot,
+                        TokenKind::Factorial,
+                        TokenKind::Sub,
+                    ],
+                    found: token.kind,
+                },
+            )]),
         }?;
 
         Ok(Self {
@@ -242,8 +249,11 @@ impl BinOp {
 }
 
 impl<'source> Parse<'source> for BinOp {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        let token = input.next_token()?;
+    fn std_parse(
+        input: &mut Parser<'source>,
+        _: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let token = input.next_token().map_err(|e| vec![e])?;
         let kind = match token.kind {
             TokenKind::Exp => Ok(BinOpKind::Exp),
             TokenKind::Mul => Ok(BinOpKind::Mul),
@@ -265,16 +275,19 @@ impl<'source> Parse<'source> for BinOp {
             TokenKind::ApproxNotEq => Ok(BinOpKind::ApproxNotEq),
             TokenKind::And => Ok(BinOpKind::And),
             TokenKind::Or => Ok(BinOpKind::Or),
-            _ => Err(Error::new(vec![token.span.clone()], kind::UnexpectedToken {
-                expected: &[
-                    TokenKind::Exp,
-                    TokenKind::Mul,
-                    TokenKind::Div,
-                    TokenKind::Add,
-                    TokenKind::Sub,
-                ],
-                found: token.kind,
-            })),
+            _ => Err(vec![Error::new(
+                vec![token.span.clone()],
+                kind::UnexpectedToken {
+                    expected: &[
+                        TokenKind::Exp,
+                        TokenKind::Mul,
+                        TokenKind::Div,
+                        TokenKind::Add,
+                        TokenKind::Sub,
+                    ],
+                    found: token.kind,
+                },
+            )]),
         }?;
 
         Ok(Self {

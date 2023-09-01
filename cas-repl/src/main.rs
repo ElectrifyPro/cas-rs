@@ -22,9 +22,11 @@ fn main() {
                     },
                 }
             },
-            Err(e) => {
-                let report = e.build_report();
-                report.eprint(("input", Source::from(input))).unwrap();
+            Err(errs) => {
+                for err in errs {
+                    let report = err.build_report();
+                    report.eprint(("input", Source::from(&input))).unwrap();
+                }
             },
         }
     }

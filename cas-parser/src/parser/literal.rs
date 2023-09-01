@@ -4,9 +4,10 @@ use crate::{
         token::{Float, Name, Int, Quote},
         Parse,
         Parser,
+        ParseResult,
     },
     tokenizer::TokenKind,
-    try_parse_catch_fatal,
+    return_if_ok,
 };
 use std::{collections::HashSet, ops::Range};
 
@@ -22,11 +23,15 @@ pub struct LitNum {
 }
 
 impl<'source> Parse<'source> for LitNum {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
         let (lexeme, span) = input
             .try_parse::<Int>()
             .map(|num| (num.lexeme, num.span))
-            .or_else(|_| input.try_parse::<Float>().map(|num| (num.lexeme, num.span)))?;
+            .or_else(|| input.try_parse::<Float>().map(|num| (num.lexeme, num.span)))
+            .forward_errors(recoverable_errors)?;
         Ok(Self {
             value: lexeme.to_owned(),
             span,
@@ -53,7 +58,10 @@ struct RadixWord {
 }
 
 impl<'source> Parse<'source> for RadixWord {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        _: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
         let mut value = String::new();
         let mut span = 0..0;
         while let Ok(token) = input.next_token() {
@@ -80,6 +88,21 @@ impl<'source> Parse<'source> for RadixWord {
     }
 }
 
+/// Helper function to ensure the given string represents a valid base for radix notation.
+fn validate_radix_base(num: &Int) -> ParseResult<u8> {
+    match num.lexeme.parse::<u8>() {
+        Ok(base) if (2..=64).contains(&base) => ParseResult::Ok(base),
+        Ok(base) if base < 2 => ParseResult::Recoverable(
+            64, // use base 64 to limit invalid radix digit errors
+            vec![Error::new(vec![num.span.clone()], kind::InvalidRadixBase { too_large: false })],
+        ),
+        _ => ParseResult::Recoverable(
+            64,
+            vec![Error::new(vec![num.span.clone()], kind::InvalidRadixBase { too_large: true })],
+        ),
+    }
+}
+
 /// A number written in radix notation. Radix notation allows users to express integers in a base
 /// other than base 10.
 #[derive(Debug, Clone, PartialEq)]
@@ -95,16 +118,15 @@ pub struct LitRadix {
 }
 
 impl<'source> Parse<'source> for LitRadix {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        let num = input.try_parse::<Int>()?;
-        let _ = input.try_parse::<Quote>()?;
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let num = input.try_parse::<Int>().forward_errors(recoverable_errors)?;
+        let _ = input.try_parse::<Quote>().forward_errors(recoverable_errors)?;
 
-        let base = match num.lexeme.parse::<u8>() {
-            Ok(base) if (2..=64).contains(&base) => base,
-            Ok(base) if base < 2 => return Err(Error::new_fatal(vec![num.span], kind::InvalidRadixBase { too_large: false })),
-            _ => return Err(Error::new_fatal(vec![num.span], kind::InvalidRadixBase { too_large: true })),
-        };
-        let word = input.try_parse::<RadixWord>()?;
+        let base = validate_radix_base(&num).forward_errors(recoverable_errors)?;
+        let word = input.try_parse::<RadixWord>().forward_errors(recoverable_errors)?;
 
         // ensure that the number is valid for this radix
         let allowed_digits = &DIGITS[..base as usize];
@@ -132,7 +154,7 @@ impl<'source> Parse<'source> for LitRadix {
         }
 
         if !bad_digit_spans.is_empty() {
-            return Err(Error::new_fatal(bad_digit_spans, kind::InvalidRadixDigit {
+            recoverable_errors.push(Error::new(bad_digit_spans, kind::InvalidRadixDigit {
                 radix: base,
                 allowed: allowed_digits,
                 digits: bad_digits,
@@ -158,11 +180,16 @@ pub struct LitSym {
 }
 
 impl<'source> Parse<'source> for LitSym {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        input.try_parse::<Name>().map(|name| Self {
-            name: name.lexeme.to_owned(),
-            span: name.span,
-        })
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        input.try_parse::<Name>()
+            .map(|name| Self {
+                name: name.lexeme.to_owned(),
+                span: name.span,
+            })
+            .forward_errors(recoverable_errors)
     }
 }
 
@@ -196,9 +223,12 @@ impl Literal {
 }
 
 impl<'source> Parse<'source> for Literal {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        let _ = try_parse_catch_fatal!(input.try_parse::<LitRadix>().map(Literal::Radix));
-        let _ = try_parse_catch_fatal!(input.try_parse::<LitNum>().map(Literal::Number));
-        try_parse_catch_fatal!(input.try_parse::<LitSym>().map(Literal::Symbol))
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let _ = return_if_ok!(input.try_parse::<LitRadix>().map(Literal::Radix).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse::<LitNum>().map(Literal::Number).forward_errors(recoverable_errors));
+        input.try_parse::<LitSym>().map(Literal::Symbol).forward_errors(recoverable_errors)
     }
 }

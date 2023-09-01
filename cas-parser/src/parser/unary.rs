@@ -7,20 +7,21 @@ use crate::{
         token::op::{Associativity, UnaryOp},
         Parse,
         Parser,
+        ParseResult,
     },
-    try_parse_catch_fatal,
+    return_if_ok,
 };
 
 /// Attempt to parse a unary operator with the correct associativity. Returns a non-fatal error if
 /// the operator is not of the correct associativity.
-fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Result<UnaryOp, Error> {
+fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Result<UnaryOp, Vec<Error>> {
     input.try_parse_then::<UnaryOp, _>(|op, input| {
         if op.associativity() == associativity {
-            Ok(())
+            ParseResult::Ok(())
         } else {
-            Err(input.error(kind::NonFatal))
+            ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
         }
-    })
+    }).forward_errors(&mut Vec::new())
 }
 
 /// A unary expression, such as `2!`. Unary expressions can include nested expressions.
@@ -43,11 +44,15 @@ impl Unary {
     }
 
     /// Parses a unary expression with respect to the given associativity.
-    pub fn parse_with_associativity(input: &mut Parser, associativity: Associativity) -> Result<Self, Error> {
+    pub fn parse_with_associativity(
+        input: &mut Parser,
+        associativity: Associativity,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
         match associativity {
             Associativity::Left => {
                 // to avoid infinite recursion, parse a terminal expression first
-                let operand: Expr = input.try_parse::<Primary>()?.into();
+                let operand: Expr = input.try_parse::<Primary>().forward_errors(recoverable_errors)?.into();
                 let start_span = operand.span().start;
 
                 // one operator must be present
@@ -73,10 +78,10 @@ impl Unary {
                 let op = try_parse_unary_op(input, associativity)?;
                 let op_precedence = op.precedence();
                 let start_span = input.prev_token().unwrap().span.start;
-                let operand = input.try_parse_with_fn::<Expr, _>(|input| {
-                    let lhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
-                    Binary::parse_expr(input, lhs, op_precedence)
-                })?;
+                let operand = {
+                    let lhs = Unary::parse_or_lower(input, recoverable_errors)?;
+                    Binary::parse_expr(input, recoverable_errors, lhs, op_precedence)?
+                };
                 let end_span = operand.span().end;
                 Ok(Self {
                     operand: Box::new(operand),
@@ -88,21 +93,29 @@ impl Unary {
     }
 
     /// Parses a unary expression, or lower precedence expressions.
-    pub fn parse_or_lower(input: &mut Parser) -> Result<Expr, Error> {
-        let _ = try_parse_catch_fatal!(
+    pub fn parse_or_lower(
+        input: &mut Parser,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Expr, Vec<Error>> {
+        let _ = return_if_ok!(
             input.try_parse_with_fn(|input| {
-                Self::parse_with_associativity(input, Associativity::Right)
-                    .or_else(|_| Self::parse_with_associativity(input, Associativity::Left))
-                    .map(Expr::Unary)
-            })
+                Self::parse(input).map(Expr::Unary)
+            }).forward_errors(recoverable_errors)
         );
-        Primary::parse(input).map(Into::into)
+        Primary::parse(input)
+            .map(Into::into)
+            .forward_errors(recoverable_errors)
     }
 }
 
 impl<'source> Parse<'source> for Unary {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        Self::parse_with_associativity(input, Associativity::Right)
-            .or_else(|_| Self::parse_with_associativity(input, Associativity::Left))
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let _ = return_if_ok!(
+            Self::parse_with_associativity(input, Associativity::Right, recoverable_errors)
+        );
+        Self::parse_with_associativity(input, Associativity::Left, recoverable_errors)
     }
 }

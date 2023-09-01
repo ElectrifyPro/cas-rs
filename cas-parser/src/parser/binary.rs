@@ -7,6 +7,7 @@ use super::{
     unary::Unary,
     Parse,
     Parser,
+    ParseResult,
 };
 
 /// A binary operator, including assignment.
@@ -71,7 +72,13 @@ impl Binary {
 
     /// After parsing the left-hand-side, the operator, and the right-hand-side of a potential
     /// binary expression, parse ahead to see if the right-hand-side is incomplete.
-    fn complete_rhs(input: &mut Parser, lhs: Expr, op: BinOpExt, mut rhs: Expr) -> Result<Expr, Error> {
+    fn complete_rhs(
+        input: &mut Parser,
+        recoverable_errors: &mut Vec<Error>,
+        lhs: Expr,
+        op: BinOpExt,
+        mut rhs: Expr
+    ) -> Result<Expr, Vec<Error>> {
         let precedence = op.precedence();
 
         loop {
@@ -81,11 +88,11 @@ impl Binary {
 
             // clone the input stream to emulate peeking
             let mut input_ahead = input.clone();
-            if let Ok(next_op) = input_ahead.try_parse::<BinOp>() {
+            if let Ok(next_op) = input_ahead.try_parse::<BinOp>().forward_errors(recoverable_errors) {
                 if next_op.precedence() > precedence || next_op.associativity() == Associativity::Right {
                     // this operator has a higher precedence or it is right associative, so we should
                     // parse its expression starting with `rhs` first
-                    rhs = Self::parse_expr(input, rhs, next_op.precedence())?;
+                    rhs = Self::parse_expr(input, recoverable_errors, rhs, next_op.precedence())?;
                 } else {
                     // this operator has lower precedence, or equal precedence and
                     // left-associativity; this is in scenarios like:
@@ -100,7 +107,7 @@ impl Binary {
                 // assignment is right-associative, so we should parse its expression starting with
                 // `rhs` first
                 if Precedence::Assign >= precedence {
-                    rhs = Self::parse_expr(input, rhs, Precedence::Assign)?;
+                    rhs = Self::parse_expr(input, recoverable_errors, rhs, Precedence::Assign)?;
                 } else {
                     break;
                 }
@@ -114,7 +121,7 @@ impl Binary {
                     break;
                 }
 
-                if let Ok(primary) = input.try_parse::<Primary>() {
+                if let Ok(primary) = input.try_parse::<Primary>().forward_errors(recoverable_errors) {
                     let expr: Expr = primary.into();
                     let (start_span, end_span) = (rhs.span().start, expr.span().end);
                     let op_span = rhs.span().end..expr.span().start;
@@ -157,40 +164,45 @@ impl Binary {
                 }))
             },
             BinOpExt::Assign(op) => Ok(Expr::Assign(AssignExpr {
-                target: AssignTarget::try_from_with_op(lhs, &op)?, // TODO move this to the top
+                target: AssignTarget::try_from_with_op(lhs, &op).forward_errors(recoverable_errors)?,
                 value: Box::new(rhs),
                 span: start_span..end_span,
             })),
         }
     }
 
-    pub fn parse_expr(input: &mut Parser, mut lhs: Expr, precedence: Precedence) -> Result<Expr, Error> {
+    pub fn parse_expr(
+        input: &mut Parser,
+        recoverable_errors: &mut Vec<Error>,
+        mut lhs: Expr,
+        precedence: Precedence
+    ) -> Result<Expr, Vec<Error>> {
         loop {
             let mut input_ahead = input.clone();
             if let Ok(op) = input_ahead.try_parse_then::<BinOp, _>(|bin_op, input| {
                 if bin_op.precedence() >= precedence {
-                    Ok(())
+                    ParseResult::Ok(())
                 } else {
-                    Err(input.error(kind::NonFatal))
+                    ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
                 }
-            }) {
+            }).forward_errors(recoverable_errors) {
                 input.set_cursor(&input_ahead);
-                let rhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
-                lhs = Self::complete_rhs(input, lhs, op.into(), rhs)?;
+                let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
+                lhs = Self::complete_rhs(input, recoverable_errors, lhs, op.into(), rhs)?;
             } else if let Ok(assign) = input_ahead.try_parse_then::<Assign, _>(|_, input| {
                 if Precedence::Assign >= precedence {
-                    Ok(())
+                    ParseResult::Ok(())
                 } else {
-                    Err(input.error(kind::NonFatal))
+                    ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
                 }
-            }) {
+            }).forward_errors(recoverable_errors) {
                 // assignment is also a binary expression, however it requires special handling
                 // because not all expressions are valid as the left-hand side of an assignment
                 // expression, and there is some syntax is only valid in the context of an
                 // assignment expression (i.e. function headers)
                 input.set_cursor(&input_ahead);
-                let rhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
-                lhs = Self::complete_rhs(input, lhs, assign.into(), rhs)?;
+                let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
+                lhs = Self::complete_rhs(input, recoverable_errors, lhs, assign.into(), rhs)?;
             } else if BinOpKind::Mul.precedence() >= precedence {
                 // implicit multiplication test
                 //
@@ -198,9 +210,9 @@ impl Binary {
                 // has lower precedence
                 if input_ahead.try_parse_then::<BinOp, _>(|op, input| {
                     if op.precedence() > BinOpKind::Mul.precedence() {
-                        Err(input.error(kind::NonFatal))
+                        ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
                     } else {
-                        Ok(())
+                        ParseResult::Ok(())
                     }
                 }).is_ok() {
                     break;
@@ -208,10 +220,10 @@ impl Binary {
 
                 // if there is no expression, there is no implicit multiplication and all our
                 // attempts to parse a binary expression fail
-                let Ok(rhs) = input.try_parse_with_fn(Unary::parse_or_lower) else {
+                let Ok(rhs) = Unary::parse_or_lower(input, recoverable_errors) else {
                     break;
                 };
-                lhs = Self::complete_rhs(input, lhs, BinOpExt::ImplicitMultiplication, rhs)?;
+                lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::ImplicitMultiplication, rhs)?;
             } else {
                 break;
             }
@@ -222,8 +234,11 @@ impl Binary {
 }
 
 impl<'source> Parse<'source> for Binary {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        match input.try_parse::<Expr>()? {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        match input.try_parse::<Expr>().forward_errors(recoverable_errors)? {
             Expr::Binary(binary) => Ok(binary),
             _ => todo!(),
         }

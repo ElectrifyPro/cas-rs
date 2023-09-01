@@ -7,8 +7,10 @@ use crate::{
         token::{Assign as AssignOp, CloseParen, OpenParen},
         Parse,
         Parser,
+        ParseResult,
     },
     tokenizer::TokenKind,
+    return_if_ok,
 };
 
 /// A parameter of a function declaration, such as `x` or `y = 1` in the declaration `f(x, y = 1) =
@@ -33,11 +35,14 @@ impl Param {
 }
 
 impl<'source> Parse<'source> for Param {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        let symbol = input.try_parse::<LitSym>()?;
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let symbol = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
 
         if input.try_parse::<AssignOp>().is_ok() {
-            let default = input.try_parse::<Expr>()?;
+            let default = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
             Ok(Param::Default(symbol, default))
         } else {
             Ok(Param::Symbol(symbol))
@@ -69,11 +74,14 @@ impl FuncHeader {
 }
 
 impl<'source> Parse<'source> for FuncHeader {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        let name = input.try_parse::<LitSym>()?;
-        input.try_parse::<OpenParen>()?;
-        let params = input.try_parse_delimited::<Param>(TokenKind::Comma)?;
-        let close_paren = input.try_parse::<CloseParen>()?;
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let name = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
+        input.try_parse::<OpenParen>().forward_errors(recoverable_errors)?;
+        let params = input.try_parse_delimited::<Param>(TokenKind::Comma).forward_errors(recoverable_errors)?;
+        let close_paren = input.try_parse::<CloseParen>().forward_errors(recoverable_errors)?;
 
         let span = name.span.start..close_paren.span.end;
         Ok(Self { name, params, span })
@@ -101,23 +109,40 @@ impl AssignTarget {
 
     /// Tries to convert a general [`Expr`] into an [`AssignTarget`]. This is used when parsing
     /// assignment expressions, such as `x = 1` or `f(x) = x^2`.
-    pub fn try_from_with_op(expr: Expr, op: &AssignOp) -> Result<Self, Error> {
+    pub fn try_from_with_op(expr: Expr, op: &AssignOp) -> ParseResult<Self> {
         match expr {
-            Expr::Literal(Literal::Symbol(symbol)) => Ok(AssignTarget::Symbol(symbol)),
-            Expr::Call(_) => Err(Error::new_fatal(vec![expr.span(), op.span.clone()], InvalidAssignmentLhs {
-                is_call: true,
-            })),
-            _ => Err(Error::new_fatal(vec![expr.span(), op.span.clone()], InvalidAssignmentLhs {
-                is_call: false,
-            })),
+            Expr::Literal(Literal::Symbol(symbol)) => ParseResult::Ok(AssignTarget::Symbol(symbol)),
+            Expr::Call(call) => {
+                let call_span = call.span();
+                ParseResult::Recoverable(
+                    AssignTarget::Symbol(call.name),
+                    vec![Error::new(
+                        vec![call_span, op.span.clone()],
+                        InvalidAssignmentLhs { is_call: true },
+                    )]
+                )
+            },
+            expr => ParseResult::Recoverable(
+                AssignTarget::Symbol(LitSym {
+                    name: String::new(),
+                    span: expr.span(),
+                }),
+                vec![Error::new(
+                    vec![expr.span(), op.span.clone()],
+                    InvalidAssignmentLhs { is_call: false },
+                )]
+            ),
         }
     }
 }
 
 impl<'source> Parse<'source> for AssignTarget {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        input.try_parse::<FuncHeader>().map(AssignTarget::Func)
-            .or_else(|_| input.try_parse::<LitSym>().map(AssignTarget::Symbol))
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let _ = return_if_ok!(input.try_parse::<FuncHeader>().map(AssignTarget::Func).forward_errors(recoverable_errors));
+        input.try_parse::<LitSym>().map(AssignTarget::Symbol).forward_errors(recoverable_errors)
     }
 }
 
@@ -158,10 +183,13 @@ impl Assign {
 }
 
 impl<'source> Parse<'source> for Assign {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-        let target = input.try_parse::<AssignTarget>()?;
-        input.try_parse::<AssignOp>()?;
-        let value = input.try_parse::<Expr>()?;
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let target = input.try_parse::<AssignTarget>().forward_errors(recoverable_errors)?;
+        input.try_parse::<AssignOp>().forward_errors(recoverable_errors)?;
+        let value = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
 
         let span = target.span().start..value.span().end;
         Ok(Self {

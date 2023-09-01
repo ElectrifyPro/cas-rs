@@ -13,7 +13,7 @@ use crate::{
         Parse,
         Parser,
     },
-    try_parse_catch_fatal,
+    return_if_ok,
 };
 
 /// Represents a general expression in CalcScript.
@@ -64,14 +64,17 @@ impl Expr {
 }
 
 impl<'source> Parse<'source> for Expr {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
         if input.clone().try_parse::<CloseParen>().is_ok() {
-            return Err(input.error_fatal(kind::UnclosedParenthesis { opening: false }));
+            return Err(vec![input.error(kind::UnclosedParenthesis { opening: false })]);
         }
 
-        let _ = try_parse_catch_fatal!(input.try_parse::<Assign>().map(Self::Assign));
-        let lhs = input.try_parse_with_fn(Unary::parse_or_lower)?;
-        Binary::parse_expr(input, lhs, Precedence::Any)
+        let _ = return_if_ok!(input.try_parse::<Assign>().map(Self::Assign).forward_errors(recoverable_errors));
+        let lhs = Unary::parse_or_lower(input, recoverable_errors)?;
+        Binary::parse_expr(input, recoverable_errors, lhs, Precedence::Any)
     }
 }
 
@@ -103,13 +106,15 @@ impl Primary {
 }
 
 impl<'source> Parse<'source> for Primary {
-    fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
         // function calls can overlap with literals, so we need to try parsing a function call
         // first
-        let _ = try_parse_catch_fatal!(input.try_parse::<Call>().map(Self::Call));
-        let _ = try_parse_catch_fatal!(input.try_parse::<Literal>().map(Self::Literal));
-
-        input.try_parse::<Paren>().map(Self::Paren)
+        let _ = return_if_ok!(input.try_parse::<Call>().map(Self::Call).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse::<Literal>().map(Self::Literal).forward_errors(recoverable_errors));
+        input.try_parse::<Paren>().map(Self::Paren).forward_errors(recoverable_errors)
     }
 }
 

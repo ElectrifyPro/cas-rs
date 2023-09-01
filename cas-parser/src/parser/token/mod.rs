@@ -19,8 +19,11 @@ macro_rules! token_kinds {
             }
 
             impl<'source> Parse<'source> for $name<'source> {
-                fn parse(input: &mut Parser<'source>) -> Result<Self, Error> {
-                    let token = input.next_token()?;
+                fn std_parse(
+                    input: &mut Parser<'source>,
+                    _: &mut Vec<Error>
+                ) -> Result<Self, Vec<Error>> {
+                    let token = input.next_token().map_err(|e| vec![e])?;
 
                     if token.kind == TokenKind::$name {
                         Ok(Self {
@@ -28,10 +31,10 @@ macro_rules! token_kinds {
                             span: token.span,
                         })
                     } else {
-                        Err(Error::new(vec![token.span], kind::UnexpectedToken {
+                        Err(vec![Error::new(vec![token.span], kind::UnexpectedToken {
                             expected: &[TokenKind::$name],
                             found: token.kind,
-                        }))
+                        })])
                     }
                 }
             }

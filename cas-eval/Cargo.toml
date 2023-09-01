@@ -7,6 +7,7 @@ edition = "2021"
 
 [features]
 mysql = ["mysql_common", "flate2"]
+serde = ["dep:serde", "dep:serde_repr", "rug/serde", "cas-parser/serde"]
 
 [dependencies.cas-attrs]
 path = "../cas-attrs"
@@ -21,6 +22,15 @@ path = "../cas-parser"
 version = "0.30.6"
 default-features = false
 features = ["derive"]
+optional = true
+
+[dependencies.serde]
+version = "1.0.188"
+features = ["derive"]
+optional = true
+
+[dependencies.serde_repr]
+version = "0.1.16"
 optional = true
 
 [dependencies]

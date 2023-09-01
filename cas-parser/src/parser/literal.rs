@@ -11,9 +11,13 @@ use crate::{
 };
 use std::{collections::HashSet, ops::Range};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A number literal. Integers and floating-point numbers are both supported and represented here
 /// as a [`String`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitNum {
     /// The value of the number literal as a string.
     pub value: String,
@@ -104,6 +108,7 @@ fn validate_radix_base(num: &Int) -> ParseResult<u8> {
 /// A number written in radix notation. Radix notation allows users to express integers in a base
 /// other than base 10.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitRadix {
     /// The radix of the literal. This value must be between 2 and 64, inclusive.
     pub base: u8,
@@ -184,6 +189,7 @@ impl<'source> Parse<'source> for LitRadix {
 
 /// A symbol / identifier literal. Symbols are used to represent variables and functions.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitSym {
     /// The name of the symbol.
     pub name: String,
@@ -218,6 +224,7 @@ impl<'source> Parse<'source> for LitSym {
 /// A literal is any value that can is written directly into the source code. For example, the
 /// number `1` is a literal (it is currently the only literal type supported by CalcScript).
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Literal {
     /// A number literal. Integers and floating-point numbers are both supported and represented
     /// here as `f64`.

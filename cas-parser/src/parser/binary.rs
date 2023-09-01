@@ -10,6 +10,9 @@ use super::{
     ParseResult,
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A binary operator, including assignment.
 #[derive(Debug, Clone, PartialEq)]
 enum BinOpExt<'a> {
@@ -50,6 +53,7 @@ impl<'a> From<Assign<'a>> for BinOpExt<'a> {
 
 /// A binary expression, such as `1 + 2`. Binary expressions can include nested expressions.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Binary {
     /// The left-hand side of the binary expression.
     pub lhs: Box<Expr>,

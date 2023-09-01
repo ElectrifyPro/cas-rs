@@ -8,8 +8,12 @@ use super::{
     Parser,
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A function call, such as `func(x, -40)`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Call {
     /// The name of the function to call.
     pub name: LitSym,

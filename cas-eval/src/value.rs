@@ -2,8 +2,12 @@ use rug::{Complex, Float};
 use std::fmt::{Display, Formatter};
 use super::{consts::{PI, complex, float}, fmt::{FormatOptions, ValueFormatter}};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Represents any value that can be stored in a variable.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Value {
     /// A number value.
     Number(Float),

@@ -3,14 +3,24 @@ use levenshtein::levenshtein;
 use std::collections::HashMap;
 use super::value::Value;
 
+#[cfg(feature = "mysql")]
+use mysql_common::prelude::FromValue;
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde_repr::{Deserialize_repr, Serialize_repr};
+
 /// The maximum recursion depth of a context. This is used to detect stack overflows.
 pub const MAX_RECURSION_DEPTH: usize = 1 << 11;
 
 /// The trigonometric mode of a context. This will affect the evaluation of input to trigonometric
 /// functions, and output from trigonometric functions.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "mysql", derive(mysql_common::prelude::FromValue))]
+#[cfg_attr(feature = "mysql", derive(FromValue))]
 #[cfg_attr(feature = "mysql", mysql(is_integer))]
+#[cfg_attr(feature = "serde", derive(Serialize_repr, Deserialize_repr))]
+#[repr(u8)]
 pub enum TrigMode {
     /// Use radians.
     #[default]
@@ -22,6 +32,7 @@ pub enum TrigMode {
 
 /// A function definition in a context.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Func {
     /// The header of the function.
     pub header: FuncHeader,
@@ -37,6 +48,7 @@ pub struct Func {
 /// A context to use when evaluating an expression, containing variables and functions that can be
 /// used within the expression.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Ctxt {
     /// The variables in the context.
     vars: HashMap<String, Value>,
@@ -48,9 +60,11 @@ pub struct Ctxt {
     pub trig_mode: TrigMode,
 
     /// The current depth of the stack. This is used to detect stack overflows.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub stack_depth: usize,
 
     /// TODO: Whether the maximum recursion depth was reached while evaluating an expression.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub max_depth_reached: bool,
 }
 

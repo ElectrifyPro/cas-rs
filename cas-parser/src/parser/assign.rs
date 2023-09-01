@@ -13,9 +13,13 @@ use crate::{
     return_if_ok,
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A parameter of a function declaration, such as `x` or `y = 1` in the declaration `f(x, y = 1) =
 /// x^y`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Param {
     /// A parameter with no default value, such as `x` in `f(x) = x^2`.
     Symbol(LitSym),
@@ -55,6 +59,7 @@ impl<'source> Parse<'source> for Param {
 /// default values are used (i.e. `y = 1`), unless the caller provides their own values (`f(2,
 /// 3)`).
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FuncHeader {
     /// The name of the function.
     pub name: LitSym,
@@ -88,6 +93,7 @@ impl<'source> Parse<'source> for FuncHeader {
 
 /// An assignment target, such as `x` or `f(x)`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum AssignTarget {
     /// A symbol, such as `x`.
     Symbol(LitSym),
@@ -146,6 +152,7 @@ impl<'source> Parse<'source> for AssignTarget {
 
 /// An assignment of a variable or function, such as `x = 1` or `f(x) = x^2`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Assign {
     /// The target to assign to.
     pub target: AssignTarget,

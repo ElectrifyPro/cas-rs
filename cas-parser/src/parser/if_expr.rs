@@ -8,8 +8,12 @@ use super::{
     ParseResult,
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// An `if` expression, such as `if true 1 else 2`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct If {
     /// The condition of the `if` expression.
     pub condition: Box<Expr>,

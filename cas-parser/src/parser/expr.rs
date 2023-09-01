@@ -18,6 +18,9 @@ use crate::{
     return_if_ok,
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Represents a general expression in CalcScript.
 ///
 /// An expression is any valid piece of code that can be evaluated to produce a value. Expressions
@@ -25,6 +28,7 @@ use crate::{
 ///
 /// In CalcBot, the `c-calculate` command accepts an expression as its argument.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Expr {
     /// A literal value.
     Literal(Literal),

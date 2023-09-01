@@ -6,6 +6,9 @@ use crate::{
 };
 use std::ops::Range;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// The associativity of a binary or unary operation.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Associativity {
@@ -85,6 +88,7 @@ impl PartialOrd for Precedence {
 
 /// The unary operation that is being performed.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum UnaryOpKind {
     Not,
     BitNot,
@@ -114,6 +118,7 @@ impl UnaryOpKind {
 
 /// A unary operator that takes one operand.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct UnaryOp {
     /// The kind of unary operator.
     pub kind: UnaryOpKind,
@@ -168,6 +173,7 @@ impl<'source> Parse<'source> for UnaryOp {
 
 /// The binary operation that is being performed.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum BinOpKind {
     Exp,
     Mul,
@@ -225,6 +231,7 @@ impl BinOpKind {
 
 /// A binary operator that takes two operands.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BinOp {
     /// The kind of binary operator.
     pub kind: BinOpKind,

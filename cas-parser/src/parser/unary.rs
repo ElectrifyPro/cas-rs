@@ -12,6 +12,9 @@ use crate::{
     return_if_ok,
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Attempt to parse a unary operator with the correct associativity. Returns a non-fatal error if
 /// the operator is not of the correct associativity.
 fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Result<UnaryOp, Vec<Error>> {
@@ -26,6 +29,7 @@ fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Resul
 
 /// A unary expression, such as `2!`. Unary expressions can include nested expressions.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Unary {
     /// The operand of the unary expression (left or right, depending on the associativity).
     pub operand: Box<Expr>,

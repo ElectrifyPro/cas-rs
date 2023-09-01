@@ -7,8 +7,12 @@ use super::{
     Parser,
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Represents a statement in CalcScript.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Stmt {
     /// The expression of a statement.
     pub expr: Expr,

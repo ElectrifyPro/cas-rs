@@ -8,8 +8,12 @@ use super::{
     Parser,
 };
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A parenthesized expression. A [`Paren`] can only contain a single expression.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Paren {
     /// The inner expression.
     pub expr: Box<Expr>,

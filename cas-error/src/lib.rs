@@ -8,7 +8,7 @@ use std::{fmt::Debug, ops::Range};
 pub const EXPR: Color = Color::RGB(52, 235, 152);
 
 /// Represents any kind of error that can occur during some operation.
-pub trait ErrorKind: Debug {
+pub trait ErrorKind: Debug + Send {
     /// Builds the report for this error.
     fn build_report(
         &self,

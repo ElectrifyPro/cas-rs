@@ -1,3 +1,7 @@
+//! # Features
+//!
+//! - `mysql`: Derives [`mysql_common`] traits for various types provided by this crate.
+
 pub mod builtins;
 pub mod consts;
 pub mod ctxt;

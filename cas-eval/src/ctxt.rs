@@ -9,6 +9,8 @@ pub const MAX_RECURSION_DEPTH: usize = 1 << 11;
 /// The trigonometric mode of a context. This will affect the evaluation of input to trigonometric
 /// functions, and output from trigonometric functions.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "mysql", derive(mysql_common::prelude::FromValue))]
+#[cfg_attr(feature = "mysql", mysql(is_integer))]
 pub enum TrigMode {
     /// Use radians.
     #[default]

@@ -5,6 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+mysql = ["mysql_common", "flate2"]
+
 [dependencies.cas-attrs]
 path = "../cas-attrs"
 
@@ -14,8 +17,15 @@ path = "../cas-error"
 [dependencies.cas-parser]
 path = "../cas-parser"
 
+[dependencies.mysql_common]
+version = "0.30.6"
+default-features = false
+features = ["derive"]
+optional = true
+
 [dependencies]
 ariadne = "0.2.0"
+flate2 = { version = "1.0.27", optional = true }
 levenshtein = "1.0.5"
 once_cell = "1.18.0"
 rand = "0.8.5"

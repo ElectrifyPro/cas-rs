@@ -57,14 +57,11 @@ struct RadixWord {
     pub span: Range<usize>,
 }
 
-impl<'source> Parse<'source> for RadixWord {
-    fn std_parse(
-        input: &mut Parser<'source>,
-        _: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
+impl RadixWord {
+    fn parse(input: &mut Parser) -> Self {
         let mut value = String::new();
         let mut span = 0..0;
-        while let Ok(token) = input.next_token() {
+        while let Ok(token) = input.next_token_raw() {
             match token.kind {
                 TokenKind::Add
                     | TokenKind::Name
@@ -81,10 +78,11 @@ impl<'source> Parse<'source> for RadixWord {
             }
             span.end = token.span.end;
         }
-        Ok(Self {
+
+        Self {
             value,
             span,
-        })
+        }
     }
 }
 
@@ -123,10 +121,16 @@ impl<'source> Parse<'source> for LitRadix {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let num = input.try_parse::<Int>().forward_errors(recoverable_errors)?;
-        let _ = input.try_parse::<Quote>().forward_errors(recoverable_errors)?;
+        let quote = input.try_parse::<Quote>().forward_errors(recoverable_errors)?;
 
         let base = validate_radix_base(&num).forward_errors(recoverable_errors)?;
-        let word = input.try_parse::<RadixWord>().forward_errors(recoverable_errors)?;
+        let word = RadixWord::parse(input);
+        if word.value.is_empty() {
+            recoverable_errors.push(Error::new(vec![quote.span], kind::EmptyRadixLiteral {
+                radix: base,
+                allowed: &DIGITS[..base as usize],
+            }));
+        }
 
         // ensure that the number is valid for this radix
         let allowed_digits = &DIGITS[..base as usize];
@@ -158,6 +162,15 @@ impl<'source> Parse<'source> for LitRadix {
                 radix: base,
                 allowed: allowed_digits,
                 digits: bad_digits,
+                last_op_digit: {
+                    if let Some(ch) = word.value.chars().last() {
+                        ['+', '/'].into_iter()
+                            .find(|&op| op == ch)
+                            .map(|op| (op, word.span.end - 1..word.span.end))
+                    } else {
+                        None
+                    }
+                },
             }));
         }
 

@@ -2,7 +2,7 @@ use ariadne::Fmt;
 use cas_attrs::ErrorKind;
 use cas_error::{ErrorKind, EXPR};
 use crate::tokenizer::TokenKind;
-use std::collections::HashSet;
+use std::{collections::HashSet, ops::Range};
 
 /// An intentionally useless error. This should only be used for non-fatal errors, as it contains
 /// no useful information.
@@ -74,11 +74,7 @@ pub struct InvalidRadixBase {
 }
 
 /// An invalid digit was used in a radix literal.
-#[derive(Debug, Clone, ErrorKind, PartialEq)]
-#[error(
-    message = format!("invalid digits in radix notation: `{}`", self.digits.iter().map(|c| c.to_string()).collect::<Vec<_>>().join("`, `")),
-    help = format!("base {} uses these digits (from lowest to highest value): {}", self.radix, self.allowed.iter().collect::<String>().fg(EXPR)),
-)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InvalidRadixDigit {
     /// The radix that was expected.
     pub radix: u8,
@@ -88,6 +84,90 @@ pub struct InvalidRadixDigit {
 
     /// The invalid digits that were used.
     pub digits: HashSet<char>,
+
+    /// If the last digit in the user's input is a `+` or `/` character, which happens to be a
+    /// valid character in base 64, this field contains the span of that character.
+    ///
+    /// The user may have been trying to add a number in radix notation to another, and mistakenly
+    /// placed the `+` or `/` at the end of the radix number instead of spaced apart.
+    pub last_op_digit: Option<(char, Range<usize>)>,
+}
+
+// manual ErrorKind implementation to support the `last_op_digit` field
+impl ErrorKind for InvalidRadixDigit {
+    fn build_report(
+        &self,
+        src_id: &'static str,
+        spans: &[std::ops::Range<usize>],
+    ) -> ariadne::Report<(&'static str, Range<usize>)> {
+        let labels = spans
+            .iter()
+            .cloned()
+            .map(|span| {
+                if let Some((_, last_op_digit)) = self.last_op_digit.as_ref() {
+                    // if one of the generated spans points to the last digit, remove that digit
+                    // from the generated span
+                    if span.end == last_op_digit.end {
+                        return span.start..span.end - 1;
+                    }
+                }
+
+                span
+            })
+            .filter(|span| span.start < span.end) // ^ that might have made the span empty
+            .map(|span| {
+                ariadne::Label::new((src_id, span))
+                    .with_color(cas_error::EXPR)
+            })
+            .chain(
+                self.last_op_digit.as_ref().map(|(ch, span)| {
+                    let operation = match ch {
+                        '+' => "add",
+                        '/' => "divide",
+                        _ => unreachable!(),
+                    };
+                    ariadne::Label::new((src_id, span.clone()))
+                        .with_message(format!(
+                            "if you're trying to {} two values, add a space between each value and this operator",
+                            operation
+                        ))
+                        .with_color(cas_error::EXPR)
+                }
+            ));
+
+        let mut builder =
+            ariadne::Report::build(ariadne::ReportKind::Error, src_id, spans[0].start)
+                .with_message(format!(
+                    "invalid digits in radix notation: `{}`",
+                    self.digits
+                        .iter()
+                        .map(|c| c.to_string())
+                        .collect::<Vec<_>>()
+                        .join("`, `"),
+                ))
+                .with_labels(labels);
+        builder.set_help(format!(
+            "base {} uses these digits (from lowest to highest value): {}",
+            self.radix,
+            self.allowed.iter().collect::<String>().fg(EXPR)
+        ));
+        builder.finish()
+    }
+}
+
+/// No number was provided in a radix literal.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "missing value in radix notation",
+    labels = [format!("I was expecting to see a number in base {}, directly after this quote", self.radix)],
+    help = format!("base {} uses these digits (from lowest to highest value): {}", self.radix, self.allowed.iter().collect::<String>().fg(EXPR)),
+)]
+pub struct EmptyRadixLiteral {
+    /// The radix that was expected.
+    pub radix: u8,
+
+    /// The set of allowed digits for this radix.
+    pub allowed: &'static [char],
 }
 
 /// A parenthesis was not closed.

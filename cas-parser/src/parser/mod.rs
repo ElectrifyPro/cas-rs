@@ -110,6 +110,13 @@ impl<'source> Parser<'source> {
     /// Returns an EOF error if there are no more tokens.
     pub fn next_token(&mut self) -> Result<Token<'source>, Error> {
         self.advance_past_whitespace();
+        self.next_token_raw()
+    }
+
+    /// Returns the current token, then advances the cursor. Whitespace tokens **are not** skipped.
+    ///
+    /// Returns an EOF error if there are no more tokens.
+    pub fn next_token_raw(&mut self) -> Result<Token<'source>, Error> {
         let result = self.current_token()
             .cloned() // cloning is cheap; only Range<_> is cloned
             .ok_or_else(|| self.error(kind::UnexpectedEof));

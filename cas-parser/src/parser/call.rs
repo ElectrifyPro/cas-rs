@@ -1,14 +1,11 @@
 use std::ops::Range;
-use crate::{
-    parser::{
-        error::Error,
-        expr::Expr,
-        literal::LitSym,
-        token::{CloseParen, OpenParen},
-        Parse,
-        Parser,
-    },
-    tokenizer::TokenKind,
+use super::{
+    error::Error,
+    expr::Expr,
+    literal::LitSym,
+    ParenDelimited,
+    Parse,
+    Parser,
 };
 
 /// A function call, such as `func(x, -40)`.
@@ -49,17 +46,15 @@ impl<'source> Parse<'source> for Call {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let name = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
-        let open_paren = input.try_parse::<OpenParen>().forward_errors(recoverable_errors)?;
-        let args = input.try_parse_delimited::<Expr>(TokenKind::Comma).forward_errors(recoverable_errors)?;
-        let close_paren = input.try_parse::<CloseParen>().forward_errors(recoverable_errors)?;
+        let surrounded = input.try_parse::<ParenDelimited<_>>().forward_errors(recoverable_errors)?;
 
         // use `name` here before it is moved into the struct
-        let span = name.span.start..close_paren.span.end;
+        let span = name.span.start..surrounded.end.span.end;
         Ok(Self {
             name,
-            args,
+            args: surrounded.value.values,
             span,
-            paren_span: open_paren.span.start..close_paren.span.end,
+            paren_span: surrounded.start.span.start..surrounded.end.span.end,
         })
     }
 }

@@ -4,12 +4,12 @@ use crate::{
         error::{kind::InvalidAssignmentLhs, Error},
         expr::Expr,
         literal::{Literal, LitSym},
-        token::{Assign as AssignOp, CloseParen, OpenParen},
+        token::Assign as AssignOp,
+        ParenDelimited,
         Parse,
         Parser,
         ParseResult,
     },
-    tokenizer::TokenKind,
     return_if_ok,
 };
 
@@ -79,12 +79,10 @@ impl<'source> Parse<'source> for FuncHeader {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let name = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
-        input.try_parse::<OpenParen>().forward_errors(recoverable_errors)?;
-        let params = input.try_parse_delimited::<Param>(TokenKind::Comma).forward_errors(recoverable_errors)?;
-        let close_paren = input.try_parse::<CloseParen>().forward_errors(recoverable_errors)?;
+        let surrounded = input.try_parse::<ParenDelimited<_>>().forward_errors(recoverable_errors)?;
 
-        let span = name.span.start..close_paren.span.end;
-        Ok(Self { name, params, span })
+        let span = name.span.start..surrounded.end.span.end;
+        Ok(Self { name, params: surrounded.value.values, span })
     }
 }
 

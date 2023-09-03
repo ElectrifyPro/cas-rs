@@ -1,18 +1,27 @@
 pub mod assign;
 pub mod binary;
 pub mod call;
+pub mod delimited;
 pub mod error;
 pub mod expr;
 pub mod iter;
 pub mod literal;
 pub mod paren;
+pub mod surrounded;
 pub mod token;
 pub mod unary;
 
 use cas_error::ErrorKind;
 use error::{Error, kind};
-use super::tokenizer::{tokenize_complete, Token, TokenKind};
+use super::tokenizer::{tokenize_complete, Token};
 use std::ops::Range;
+
+/// Type alias for a comma-separated list of values, surrounded by parentheses.
+pub type ParenDelimited<'source, T> = surrounded::Surrounded<
+    token::OpenParen<'source>,
+    token::CloseParen<'source>,
+    delimited::Delimited<token::Comma<'source>, T>,
+>;
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
 /// code into an abstract syntax tree.
@@ -113,45 +122,6 @@ impl<'source> Parser<'source> {
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
     pub fn try_parse<T: Parse<'source>>(&mut self) -> ParseResult<T> {
         self.try_parse_with_fn(T::parse)
-    }
-
-    /// Speculatively parses multiple values (zero or more) from the given stream of tokens, each
-    /// delimited by a certain token. This function can be used in the [`Parse::parse`]
-    /// implementation of a type with the given [`Parser`], as it will automatically backtrack the
-    /// cursor position if parsing fails.
-    ///
-    /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
-    /// values are returned. Otherwise, the stream is left unchanged and an error is returned.
-    pub fn try_parse_delimited<T: Parse<'source>>(
-        &mut self,
-        delimiter: TokenKind,
-    ) -> ParseResult<Vec<T>> {
-        let start = self.cursor;
-        let mut errors = Vec::new();
-
-        let mut inner = || {
-            let mut values = Vec::new();
-            loop {
-                let value = self.try_parse::<T>().forward_errors(&mut errors)?;
-                values.push(value);
-
-                self.advance_past_whitespace();
-                match self.current_token() {
-                    Some(token) if token.kind == delimiter => {
-                        self.cursor += 1;
-                    },
-                    _ => return Ok(values),
-                }
-            }
-        };
-
-        inner()
-            .map(|value| (value, errors))
-            .map_err(|unrecoverable: Vec<Error>| {
-                self.cursor = start;
-                unrecoverable
-            })
-            .into()
     }
 
     /// Speculatively parses a value from the given stream of tokens, using a custom parsing

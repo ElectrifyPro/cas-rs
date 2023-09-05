@@ -185,9 +185,16 @@ impl<'source> Parse<'source> for LitSym {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         input.try_parse::<Name>()
-            .map(|name| Self {
-                name: name.lexeme.to_owned(),
-                span: name.span,
+            .map(|name| {
+                if matches!(name.lexeme, "if" | "then" | "else") {
+                    recoverable_errors.push(Error::new(vec![name.span.clone()], kind::ExpectedSymbolName {
+                        keyword: name.lexeme.to_owned(),
+                    }));
+                }
+                Self {
+                    name: name.lexeme.to_owned(),
+                    span: name.span,
+                }
             })
             .forward_errors(recoverable_errors)
     }

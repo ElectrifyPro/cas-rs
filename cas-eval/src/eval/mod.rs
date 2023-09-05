@@ -1,6 +1,7 @@
 mod binary;
 mod call;
 mod expr;
+mod if_expr;
 mod literal;
 mod primary;
 mod unary;

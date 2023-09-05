@@ -45,6 +45,18 @@ pub struct UnexpectedToken {
     pub found: TokenKind,
 }
 
+/// Encountered a keyword when a symbol name was expected.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "expected symbol name",
+    labels = [format!("found keyword `{}`", self.keyword)],
+    help = "you cannot use keywords as symbol names"
+)]
+pub struct ExpectedSymbolName {
+    /// The keyword that was found.
+    pub keyword: String,
+}
+
 /// The base used in radix notation was out of the allowed range.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

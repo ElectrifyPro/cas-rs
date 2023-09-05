@@ -73,6 +73,7 @@ token_kinds!(
     Oct
     Hex
     Name
+    Keyword
     Comma
     OpenParen
     CloseParen

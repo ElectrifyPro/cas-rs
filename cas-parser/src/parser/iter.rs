@@ -48,6 +48,14 @@ impl<'a> Iterator for ExprIter<'a> {
                     }
                     self.stack.push(&paren.expr);
                 },
+                Expr::If(if_expr) => {
+                    if self.is_last_visited(&if_expr.else_expr) {
+                        return self.visit();
+                    }
+                    self.stack.push(&if_expr.else_expr);
+                    self.stack.push(&if_expr.then_expr);
+                    self.stack.push(&if_expr.condition);
+                },
                 Expr::Call(call) => {
                     if call.args.is_empty() || self.is_last_visited(call.args.last().unwrap()) {
                         return self.visit();

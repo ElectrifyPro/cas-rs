@@ -4,6 +4,7 @@ mod expr;
 mod if_expr;
 mod literal;
 mod primary;
+mod stmt;
 mod unary;
 
 use super::{ctxt::Ctxt, error::Error, value::Value};

@@ -109,6 +109,9 @@ pub enum TokenKind {
     #[token("'")]
     Quote,
 
+    #[token(";")]
+    Semicolon,
+
     #[regex(r"[0-9]+\.?")]
     Int,
 

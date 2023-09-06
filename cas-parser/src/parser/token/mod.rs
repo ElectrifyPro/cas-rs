@@ -78,6 +78,7 @@ token_kinds!(
     OpenParen
     CloseParen
     Quote
+    Semicolon
     Int
     Float
     Dot

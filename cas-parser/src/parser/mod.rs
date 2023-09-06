@@ -8,6 +8,7 @@ pub mod if_expr;
 pub mod iter;
 pub mod literal;
 pub mod paren;
+pub mod stmt;
 pub mod surrounded;
 pub mod token;
 pub mod unary;
@@ -183,6 +184,31 @@ impl<'source> Parser<'source> {
 
         if errors.is_empty() {
             Ok(value)
+        } else {
+            Err(errors)
+        }
+    }
+
+    /// Attempts to parse multiple values from the given stream of tokens. All the tokens must be
+    /// consumed by the parser; if not, an error is returned.
+    pub fn try_parse_full_many<T: Parse<'source>>(&mut self) -> Result<Vec<T>, Vec<Error>> {
+        let mut errors = Vec::new();
+        let mut values = Vec::new();
+
+        while self.cursor < self.tokens.len() {
+            let value = T::parse(self).forward_errors(&mut errors)?;
+            values.push(value);
+        }
+
+        // consume whitespace
+        self.advance_past_whitespace();
+
+        if self.cursor < self.tokens.len() {
+            errors.push(self.error(kind::ExpectedEof));
+        }
+
+        if errors.is_empty() {
+            Ok(values)
         } else {
             Err(errors)
         }

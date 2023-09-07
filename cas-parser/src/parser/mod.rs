@@ -379,11 +379,14 @@ mod tests {
     use super::*;
 
     use assign::{Assign, AssignTarget, FuncHeader, Param};
+    use block::Block;
     use binary::Binary;
     use call::Call;
     use expr::Expr;
+    use if_expr::If;
     use literal::{Literal, LitNum, LitRadix, LitSym};
     use paren::Paren;
+    use stmt::Stmt;
     use token::op::{BinOp, BinOpKind, UnaryOp, UnaryOpKind};
     use unary::Unary;
 
@@ -1188,6 +1191,136 @@ mod tests {
                 span: 1..29,
             })),
             span: 0..30,
+        }));
+    }
+
+    #[test]
+    fn block_code() {
+        let mut parser = Parser::new("{ x = 5; y = 6; x + y }");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Block(Block {
+            stmts: vec![
+                Stmt {
+                    expr: Expr::Assign(Assign {
+                        target: AssignTarget::Symbol(LitSym {
+                            name: "x".to_string(),
+                            span: 2..3,
+                        }),
+                        value: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            value: "5".to_string(),
+                            span: 6..7,
+                        }))),
+                        span: 2..7,
+                    }),
+                    semicolon: Some(7..8),
+                    span: 2..8,
+                },
+                Stmt {
+                    expr: Expr::Assign(Assign {
+                        target: AssignTarget::Symbol(LitSym {
+                            name: "y".to_string(),
+                            span: 9..10,
+                        }),
+                        value: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            value: "6".to_string(),
+                            span: 13..14,
+                        }))),
+                        span: 9..14,
+                    }),
+                    semicolon: Some(14..15),
+                    span: 9..15,
+                },
+                Stmt {
+                    expr: Expr::Binary(Binary {
+                        lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                            name: "x".to_string(),
+                            span: 16..17,
+                        }))),
+                        op: BinOp {
+                            kind: BinOpKind::Add,
+                            implicit: false,
+                            span: 18..19,
+                        },
+                        rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                            name: "y".to_string(),
+                            span: 20..21,
+                        }))),
+                        span: 16..21,
+                    }),
+                    semicolon: None,
+                    span: 16..21,
+                },
+            ],
+            span: 0..23,
+        }));
+    }
+
+    #[test]
+    fn if_block() {
+        let mut parser = Parser::new("if d then { abs(d) } else { f = 1; f }");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::If(If {
+            condition: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                name: "d".to_string(),
+                span: 3..4,
+            }))),
+            then_expr: Box::new(Expr::Block(Block {
+                stmts: vec![
+                    Stmt {
+                        expr: Expr::Call(Call {
+                            name: LitSym {
+                                name: "abs".to_string(),
+                                span: 12..15,
+                            },
+                            args: vec![
+                                Expr::Literal(Literal::Symbol(LitSym {
+                                    name: "d".to_string(),
+                                    span: 16..17,
+                                })),
+                            ],
+                            span: 12..18,
+                            paren_span: 15..18,
+                        }),
+                        semicolon: None,
+                        span: 12..18,
+                    },
+                ],
+                span: 10..20,
+            })),
+            else_expr: Box::new(Expr::Block(Block {
+                stmts: vec![
+                    Stmt {
+                        expr: Expr::Assign(Assign {
+                            target: AssignTarget::Symbol(LitSym {
+                                name: "f".to_string(),
+                                span: 28..29,
+                            }),
+                            value: Box::new(Expr::Literal(Literal::Number(LitNum {
+                                value: "1".to_string(),
+                                span: 32..33,
+                            }))),
+                            span: 28..33,
+                        }),
+                        semicolon: Some(33..34),
+                        span: 28..34,
+                    },
+                    Stmt {
+                        expr: Expr::Literal(Literal::Symbol(LitSym {
+                            name: "f".to_string(),
+                            span: 35..36,
+                        })),
+                        semicolon: None,
+                        span: 35..36,
+                    },
+                ],
+                span: 26..38,
+            })),
+            span: 0..38,
+            if_span: 0..2,
+            then_span: 5..9,
+            else_span: 21..25,
         }));
     }
 

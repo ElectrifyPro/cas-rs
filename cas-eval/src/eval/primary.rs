@@ -6,6 +6,7 @@ impl Eval for Primary {
         match self {
             Primary::Literal(literal) => literal.eval(ctxt),
             Primary::Paren(paren) => paren.expr.eval(ctxt),
+            Primary::Block(block) => block.eval(ctxt),
             Primary::If(if_expr) => if_expr.eval(ctxt),
             Primary::Call(call) => call.eval(ctxt),
         }

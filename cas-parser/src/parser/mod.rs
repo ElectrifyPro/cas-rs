@@ -1,5 +1,6 @@
 pub mod assign;
 pub mod binary;
+pub mod block;
 pub mod call;
 pub mod delimited;
 pub mod error;

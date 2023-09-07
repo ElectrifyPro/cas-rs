@@ -6,6 +6,7 @@ impl Eval for Expr {
         match self {
             Expr::Literal(literal) => literal.eval(ctxt),
             Expr::Paren(paren) => paren.expr.eval(ctxt),
+            Expr::Block(block) => block.eval(ctxt),
             Expr::If(if_expr) => if_expr.eval(ctxt),
             Expr::Call(call) => call.eval(ctxt),
             Expr::Unary(unary) => unary.eval(ctxt),

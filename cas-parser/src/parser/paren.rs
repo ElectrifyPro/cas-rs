@@ -8,13 +8,13 @@ use super::{
     Parser,
 };
 
-/// A parenthesized expression.
+/// A parenthesized expression. A [`Paren`] can only contain a single expression.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Paren {
     /// The inner expression.
     pub expr: Box<Expr>,
 
-    /// The region of the source code that this literal was parsed from.
+    /// The region of the source code that this [`Paren`] was parsed from.
     pub span: Range<usize>,
 }
 

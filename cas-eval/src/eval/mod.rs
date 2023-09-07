@@ -1,5 +1,6 @@
 mod assign;
 mod binary;
+mod block;
 mod call;
 mod expr;
 mod if_expr;
@@ -9,6 +10,8 @@ mod stmt;
 mod unary;
 
 use super::{ctxt::Ctxt, error::Error, value::Value};
+
+pub use block::eval_stmts;
 
 /// Any type that can be evaluated to produce a value.
 pub trait Eval {

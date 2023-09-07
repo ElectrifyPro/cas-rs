@@ -77,6 +77,8 @@ token_kinds!(
     Comma
     OpenParen
     CloseParen
+    OpenCurly
+    CloseCurly
     Quote
     Semicolon
     Int

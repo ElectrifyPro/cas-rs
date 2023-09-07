@@ -48,6 +48,7 @@ impl<'a> Iterator for ExprIter<'a> {
                     }
                     self.stack.push(&paren.expr);
                 },
+                Expr::Block(_) => return self.visit(), // NOTE: inner statements are not visited
                 Expr::If(if_expr) => {
                     if self.is_last_visited(&if_expr.else_expr) {
                         return self.visit();

@@ -1,23 +1,7 @@
 use ariadne::Source;
-use cas_eval::{ctxt::Ctxt, error::Error, eval::Eval, value::Value};
+use cas_eval::{ctxt::Ctxt, eval::eval_stmts};
 use cas_parser::parser::{stmt::Stmt, Parser};
 use std::io::{self, IsTerminal, Read, Write};
-
-/// Evaluates multiple statements, returning the value of the last one.
-fn eval_stmts(stmts: &[Stmt], ctxt: &mut Ctxt) -> Result<Value, Error> {
-    for stmt in stmts.iter().take(stmts.len() - 1) {
-        let mut ctxt_old = ctxt.clone();
-        let value = stmt.eval(&mut ctxt_old);
-
-        if let Err(e) = value {
-            return Err(e);
-        } else {
-            *ctxt = ctxt_old;
-        }
-    }
-
-    stmts.last().unwrap().eval(ctxt)
-}
 
 fn main() {
     let mut ctxt = Ctxt::default();

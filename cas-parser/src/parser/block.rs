@@ -1,0 +1,57 @@
+use std::ops::Range;
+use super::{
+    error::{kind, Error},
+    stmt::Stmt,
+    token::{CloseCurly, OpenCurly},
+    Parse,
+    Parser,
+};
+
+/// A blocked expression. A [`Block`] can contain multiple expressions in the form of statements.
+/// The last statement in the block is the return value of the block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Block {
+    /// The inner statements.
+    pub stmts: Vec<Stmt>,
+
+    /// The region of the source code that this [`Block`] was parsed from.
+    pub span: Range<usize>,
+}
+
+impl Block {
+    /// Returns the span of the [`Block`].
+    pub fn span(&self) -> Range<usize> {
+        self.span.clone()
+    }
+}
+
+impl<'source> Parse<'source> for Block {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let open_curly = input.try_parse::<OpenCurly>().forward_errors(recoverable_errors)?;
+        let mut stmts = Vec::new();
+        while let Ok(stmt) = input.try_parse::<Stmt>().forward_errors(recoverable_errors) {
+            stmts.push(stmt);
+        }
+        let close_curly = input.try_parse::<CloseCurly>()
+            .forward_errors(recoverable_errors)
+            .unwrap_or_else(|_| {
+                recoverable_errors.push(Error::new(
+                    vec![open_curly.span.clone()],
+                    kind::UnclosedParenthesis { opening: true },
+                ));
+
+                // fake a close paren for recovery purposes
+                CloseCurly {
+                    lexeme: "",
+                    span: 0..0,
+                }
+            });
+        Ok(Self {
+            stmts,
+            span: open_curly.span.start..close_curly.span.end,
+        })
+    }
+}

@@ -11,6 +11,11 @@ fn main() {
             print!("> ");
             io::stdout().flush().unwrap();
             io::stdin().read_line(&mut input).unwrap();
+
+            if input.trim().is_empty() {
+                continue;
+            }
+
             Parser::new(&input).try_parse_full::<Stmt>()
                 .map(|stmt| vec![stmt])
         } else {

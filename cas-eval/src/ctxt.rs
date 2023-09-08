@@ -30,6 +30,15 @@ pub enum TrigMode {
     Degrees,
 }
 
+impl std::fmt::Display for TrigMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TrigMode::Radians => write!(f, "radians"),
+            TrigMode::Degrees => write!(f, "degrees"),
+        }
+    }
+}
+
 /// A function definition in a context.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

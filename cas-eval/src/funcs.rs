@@ -25,6 +25,17 @@ pub fn partial_factorial(mut n: Integer, k: Integer) -> Integer {
     result
 }
 
+/// Computes the number of ways to choose `k` elements from a set of `n` elements.
+pub fn choose(n: Integer, k: Integer) -> Integer {
+    // TODO: what if k > n?
+    let sub = int(&n - &k);
+    if k > sub {
+        partial_factorial(n, k) / partial_factorial(sub, int(1))
+    } else {
+        partial_factorial(n, sub) / partial_factorial(k, int(1))
+    }
+}
+
 static GAMMA_P: Lazy<[Float; 9]> = Lazy::new(|| [
     float_from_str("0.99999999999980993"),
     float_from_str("676.5203681218851"),

@@ -1,24 +1,140 @@
 use cas_parser::parser::{assign::Param, call::Call};
 use crate::{
-    builtins,
-    ctxt::{MAX_RECURSION_DEPTH, Ctxt},
+    builtins::{self, Builtin},
+    consts::float,
+    ctxt::{MAX_RECURSION_DEPTH, Ctxt, Func},
     error::{
-        kind::{MissingArgument, StackOverflow, TooManyArguments, UndefinedFunction},
+        kind::{
+            InvalidDerivativeArguments,
+            MissingArgument,
+            NonNumericDerivative,
+            StackOverflow,
+            TooManyArguments,
+            UndefinedFunction,
+        },
         Error,
     },
     eval::Eval,
+    funcs::choose,
     value::Value,
 };
+use rug::{ops::Pow, Float};
+use std::ops::Range;
+
+/// A trait to help with computing derivatives of functions.
+trait Derv {
+    /// The call site of the function.
+    fn call_site(&self) -> Vec<Range<usize>>;
+
+    /// The number of derivatives to compute.
+    fn derivatives(&self) -> u8;
+
+    /// Evaluates the function at the given value.
+    fn eval(&self, ctxt: &mut Ctxt, float: Float) -> Result<Value, Error>;
+
+    // /// Evaluates the derivative of the function at the given value.
+    // fn estimate_derivative(&self, ctxt: &Ctxt, float: Float) -> Result<Float, Error> {
+    //     if self.derivatives() == 0 {
+    //         self.eval(ctxt, float)
+    //     } else {
+    //         if self.num_args() != 1 {
+    //             return Err(Error::new(self.call_site(), InvalidDerivativeArguments {
+    //                 name: self.name().into(),
+    //             }));
+    //         }
+    //         compute_derivative(self, ctxt, float)
+    //     }
+    // }
+}
+
+/// For builtin functions.
+impl Derv for (&Call, &dyn Builtin) {
+    fn call_site(&self) -> Vec<Range<usize>> {
+        self.0.outer_span().to_vec()
+    }
+
+    fn derivatives(&self) -> u8 {
+        self.0.derivatives
+    }
+
+    fn eval(&self, ctxt: &mut Ctxt, float: Float) -> Result<Value, Error> {
+        self.1.eval(ctxt, &[Value::Number(float)])
+            .map_err(|err| err.into_error(&self.0))
+    }
+}
+
+/// For user-defined functions.
+impl Derv for (&Call, &Func) {
+    fn call_site(&self) -> Vec<Range<usize>> {
+        self.0.outer_span().to_vec()
+    }
+
+    fn derivatives(&self) -> u8 {
+        self.0.derivatives
+    }
+
+    fn eval(&self, ctxt: &mut Ctxt, float: Float) -> Result<Value, Error> {
+        let symbol = &self.1.header.params[0].symbol().name;
+        ctxt.add_var(symbol, Value::Number(float));
+        self.1.body.eval(ctxt)
+    }
+}
+
+/// Computes the numerical derivative of an expression, using the higher-order differentiation
+/// method found
+/// [here](https://en.wikipedia.org/wiki/Numerical_differentiation#Higher_derivatives).
+fn compute_derivative(derv: &dyn Derv, ctxt: &mut Ctxt, initial: Value) -> Result<Value, Error> {
+    let mut sum_left = float(0);
+    let mut sum_right = float(0);
+    let step = float(1e-32);
+
+    let get_real = |value: Value| -> Result<Float, Error> {
+        match value.coerce_real() {
+            Value::Number(n) => Ok(n),
+            value => Err(Error::new(derv.call_site(), NonNumericDerivative {
+                expr_type: value.typename(),
+            })),
+        }
+    };
+
+    let initial = get_real(initial)?;
+    let derivatives = derv.derivatives();
+
+    for k in 0..=derivatives {
+        let a = float(-1).pow(k + derivatives);
+        let b = choose(derivatives.into(), k.into());
+
+        // TODO: eval will do unnecessary typechecking on builtin functions
+        let c = get_real(derv.eval(ctxt, &initial + float(k * &step))?)?;
+        let d = get_real(derv.eval(ctxt, &initial - float(k * &step))?)?;
+
+        sum_left += float(&a * &b) * c;
+        sum_right += a * b * d;
+    }
+
+    let result_left = sum_left / float(&step).pow(derivatives);
+    let result_right = sum_right / float(-step).pow(derivatives);
+    Ok(Value::Number((result_left + result_right) / float(2)))
+}
 
 impl Eval for Call {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         // try using a builtin function
         if let Some(builtin) = builtins::get_builtin(&self.name.name) {
-            let args = self.args.iter()
+            let mut args = self.args.iter()
                 .map(|arg| arg.eval(ctxt))
                 .collect::<Result<Vec<_>, _>>()?;
-            return builtin.eval(ctxt, &args)
-                .map_err(|err| err.into_error(self));
+            return if self.derivatives == 0 {
+                builtin.eval(ctxt, &args)
+                    .map_err(|err| err.into_error(self))
+            } else {
+                if builtin.num_args() != 1 {
+                    return Err(Error::new(self.outer_span().to_vec(), InvalidDerivativeArguments {
+                        name: self.name.name.clone(),
+                    }));
+                }
+                compute_derivative(&(self, builtin.as_ref()), ctxt, args.swap_remove(0))
+            };
         }
 
         let func = ctxt.get_func(&self.name.name)
@@ -93,7 +209,17 @@ impl Eval for Call {
             index += 1;
         }
 
-        let result = func.body.eval(&mut ctxt);
+        let result = if self.derivatives == 0 {
+            func.body.eval(&mut ctxt)
+        } else {
+            if func.header.params.len() != 1 {
+                return Err(Error::new(self.outer_span().to_vec(), InvalidDerivativeArguments {
+                    name: self.name.name.clone(),
+                }));
+            }
+            let initial = ctxt.get_var(&func.header.params[0].symbol().name).unwrap();
+            compute_derivative(&(self, func), &mut ctxt, initial)
+        };
         if func.recursive {
             ctxt.stack_depth -= 1;
         }

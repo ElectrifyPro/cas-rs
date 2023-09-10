@@ -179,3 +179,33 @@ pub struct TypeMismatch {
     help = "the maximum stack depth is equal to: `2^11`"
 )]
 pub struct StackOverflow;
+
+/// Tried to compute the derivative of a function that does not have a single parameter.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!(
+        "the `{}` function does not have a single parameter",
+        self.name
+    ),
+    labels = ["this function call", ""],
+    help = "only functions with a single parameter can be differentiated using prime notation"
+)]
+pub struct InvalidDerivativeArguments {
+    /// The name of the function that was called.
+    pub name: String,
+}
+
+/// Encountered a non-numeric type while using prime notation to derivate a function call
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "encountered a non-numeric type while differentiating this function",
+    labels = [
+        format!("this function call evaluated to `{}`", self.expr_type),
+        "".to_string(),
+    ],
+    help = "CalcBot evaluates derivatives numerically using the limit definition of a derivative"
+)]
+pub struct NonNumericDerivative {
+    /// The type of the expression that was differentiated.
+    pub expr_type: &'static str,
+}

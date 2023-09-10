@@ -12,7 +12,7 @@ use super::{
     ctxt::{Ctxt, TrigMode},
     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
     fmt::trim_trailing_zeroes,
-    funcs::{factorial as rs_factorial, fill_random, gamma as rs_gamma, partial_factorial},
+    funcs::{choose, factorial as rs_factorial, fill_random, gamma as rs_gamma, partial_factorial},
     value::Value::{self, *},
 };
 
@@ -248,14 +248,8 @@ pub fn ncr(_: &Ctxt, args: &[Value]) -> Result {
         return Err(NcprError::new("ncr", NcprErrorKind::NegativeArgs).into());
     }
 
-    let (n, k) = (n.to_integer().unwrap(), k.to_integer().unwrap());
-    let sub = int(&n - &k);
-
-    if k > sub {
-        Ok(Number(float(partial_factorial(n, k) / rs_factorial(float(sub)))))
-    } else {
-        Ok(Number(float(partial_factorial(n, sub) / rs_factorial(float(k)))))
-    }
+    let result = choose(n.to_integer().unwrap(), k.to_integer().unwrap());
+    Ok(Number(float(result)))
 }
 
 #[args(n: Number, k: Number)]

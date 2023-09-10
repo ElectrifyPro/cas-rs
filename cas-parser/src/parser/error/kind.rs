@@ -210,3 +210,15 @@ pub struct InvalidAssignmentLhs {
     /// Whether the expression span is pointing towards a function call.
     pub is_call: bool,
 }
+
+/// There were too many derivatives in prime notation.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "too many derivatives in prime notation",
+    labels = ["you can only take at most 255 derivatives of a function"],
+    help = format!("I counted {} derivatives here", self.derivatives),
+)]
+pub struct TooManyDerivatives {
+    /// The number of derivatives that were found.
+    pub derivatives: usize,
+}

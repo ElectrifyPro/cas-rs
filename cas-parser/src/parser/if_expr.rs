@@ -1,7 +1,8 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 use super::{
     error::{kind, Error},
     expr::{Expr, Primary},
+    fmt::Latex,
     token::Keyword,
     Parse,
     Parser,
@@ -84,5 +85,17 @@ impl<'source> Parse<'source> for If {
             then_span: then_token.span,
             else_span: else_token.span,
         })
+    }
+}
+
+impl Latex for If {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\\text{{if }}")?;
+        self.condition.fmt_latex(f)?;
+        write!(f, "\\text{{ then }}")?;
+        self.then_expr.fmt_latex(f)?;
+        write!(f, "\\text{{ else }}")?;
+        self.else_expr.fmt_latex(f)?;
+        Ok(())
     }
 }

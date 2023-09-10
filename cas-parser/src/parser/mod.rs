@@ -5,6 +5,7 @@ pub mod call;
 pub mod delimited;
 pub mod error;
 pub mod expr;
+pub mod fmt;
 pub mod if_expr;
 pub mod iter;
 pub mod literal;

@@ -1,8 +1,9 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 use super::{
     assign::{Assign as AssignExpr, AssignTarget},
     expr::{Expr, Primary},
     error::{kind, Error},
+    fmt::{Latex, fmt_pow},
     token::{op::{Associativity, BinOp, BinOpKind, Precedence}, Assign},
     unary::Unary,
     Parse,
@@ -245,6 +246,26 @@ impl<'source> Parse<'source> for Binary {
         match input.try_parse::<Expr>().forward_errors(recoverable_errors)? {
             Expr::Binary(binary) => Ok(binary),
             _ => todo!(),
+        }
+    }
+}
+
+impl Latex for Binary {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.op.kind {
+            BinOpKind::Exp => fmt_pow(f, Some(&*self.lhs), Some(&*self.rhs)),
+            BinOpKind::Div => {
+                write!(f, "\\frac{{")?;
+                self.lhs.fmt_latex(f)?;
+                write!(f, "}}{{")?;
+                self.rhs.innermost().fmt_latex(f)?;
+                write!(f, "}}")
+            },
+            _ => {
+                self.lhs.fmt_latex(f)?;
+                self.op.fmt_latex(f)?;
+                self.rhs.fmt_latex(f)
+            },
         }
     }
 }

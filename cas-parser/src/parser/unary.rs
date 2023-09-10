@@ -1,9 +1,10 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 use crate::{
     parser::{
         binary::Binary,
         expr::{Expr, Primary},
         error::{kind, Error},
+        fmt::Latex,
         token::op::{Associativity, UnaryOp},
         Parse,
         Parser,
@@ -121,5 +122,20 @@ impl<'source> Parse<'source> for Unary {
             Self::parse_with_associativity(input, Associativity::Right, recoverable_errors)
         );
         Self::parse_with_associativity(input, Associativity::Left, recoverable_errors)
+    }
+}
+
+impl Latex for Unary {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.op.associativity() {
+            Associativity::Left => {
+                self.operand.fmt_latex(f)?;
+                self.op.fmt_latex(f)
+            },
+            Associativity::Right => {
+                self.op.fmt_latex(f)?;
+                self.operand.fmt_latex(f)
+            },
+        }
     }
 }

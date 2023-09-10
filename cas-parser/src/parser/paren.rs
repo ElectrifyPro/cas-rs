@@ -1,7 +1,8 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 use super::{
     error::{kind, Error},
     expr::Expr,
+    fmt::Latex,
     literal::{Literal, LitSym},
     token::{CloseParen, OpenParen},
     Parse,
@@ -26,6 +27,15 @@ impl Paren {
     /// Returns the span of the parenthesized expression.
     pub fn span(&self) -> Range<usize> {
         self.span.clone()
+    }
+
+    /// Returns the innermost expression in the parenthesized expression.
+    pub fn innermost(&self) -> &Expr {
+        let mut inner = &self.expr;
+        while let Expr::Paren(paren) = inner.as_ref() {
+            inner = &paren.expr;
+        }
+        inner
     }
 }
 
@@ -79,5 +89,13 @@ impl<'source> Parse<'source> for Paren {
             expr: Box::new(expr),
             span: open_paren.span.start..close_paren.span.end,
         })
+    }
+}
+
+impl Latex for Paren {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\\left(")?;
+        self.expr.fmt_latex(f)?;
+        write!(f, "\\right)")
     }
 }

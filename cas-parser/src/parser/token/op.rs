@@ -1,10 +1,10 @@
 //! Structs to help parse binary and unary operators.
 
 use crate::{
-    parser::{error::{Error, kind}, Parse, Parser},
+    parser::{error::{Error, kind}, fmt::Latex, Parse, Parser},
     tokenizer::TokenKind,
 };
-use std::ops::Range;
+use std::{fmt, ops::Range};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -171,6 +171,17 @@ impl<'source> Parse<'source> for UnaryOp {
     }
 }
 
+impl Latex for UnaryOp {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            UnaryOpKind::Not => write!(f, "\\neg "),
+            UnaryOpKind::BitNot => write!(f, "\\sim "),
+            UnaryOpKind::Factorial => write!(f, "!"),
+            UnaryOpKind::Neg => write!(f, "-"),
+        }
+    }
+}
+
 /// The binary operation that is being performed.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -302,5 +313,36 @@ impl<'source> Parse<'source> for BinOp {
             implicit: false,
             span: token.span,
         })
+    }
+}
+
+impl Latex for BinOp {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.implicit {
+            return Ok(());
+        }
+
+        match self.kind {
+            BinOpKind::Exp => write!(f, "^"),
+            BinOpKind::Mul => write!(f, "\\cdot "),
+            BinOpKind::Div => write!(f, "\\div "),
+            BinOpKind::Mod => write!(f, "\\mod "),
+            BinOpKind::Add => write!(f, "+"),
+            BinOpKind::Sub => write!(f, "-"),
+            BinOpKind::BitRight => write!(f, "\\gg "),
+            BinOpKind::BitLeft => write!(f, "\\ll "),
+            BinOpKind::BitAnd => write!(f, "\\&"),
+            BinOpKind::BitOr => write!(f, "\\vert "),
+            BinOpKind::Greater => write!(f, ">"),
+            BinOpKind::GreaterEq => write!(f, "\\geq "),
+            BinOpKind::Less => write!(f, "<"),
+            BinOpKind::LessEq => write!(f, "\\leq "),
+            BinOpKind::Eq => write!(f, "="),
+            BinOpKind::NotEq => write!(f, "\\neq "),
+            BinOpKind::ApproxEq => write!(f, "\\approx "),
+            BinOpKind::ApproxNotEq => write!(f, "\\not\\approx "),
+            BinOpKind::And => write!(f, "\\wedge "),
+            BinOpKind::Or => write!(f, "\\vee "),
+        }
     }
 }

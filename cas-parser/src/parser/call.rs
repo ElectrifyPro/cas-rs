@@ -1,7 +1,8 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 use super::{
     error::{kind::TooManyDerivatives, Error},
     expr::Expr,
+    fmt::{Latex, fmt_pow},
     literal::LitSym,
     token::Quote,
     ParenDelimited,
@@ -87,5 +88,102 @@ impl<'source> Parse<'source> for Call {
             span,
             paren_span: surrounded.start.span.start..surrounded.end.span.end,
         })
+    }
+}
+
+impl Latex for Call {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        enum SpecialFunc {
+            Pow,
+            Root,
+            Cbrt,
+            Sqrt,
+            Abs,
+            Other,
+        }
+
+        impl SpecialFunc {
+            /// Write the name of the function.
+            fn name(&self, f: &mut fmt::Formatter, call: &Call) -> fmt::Result {
+                match self {
+                    Self::Pow => Ok(()),
+                    Self::Root => write!(f, "\\sqrt"),
+                    Self::Cbrt => write!(f, "\\sqrt[3]"),
+                    Self::Sqrt => write!(f, "\\sqrt"),
+                    Self::Abs => Ok(()),
+                    Self::Other => write!(f, "\\mathrm{{ {} }}", call.name.as_display()),
+                }
+            }
+
+            /// Write the tokens surrounding the arguments, and delegate the arguments to `inner_args`.
+            fn outer_args(&self, f: &mut fmt::Formatter, call: &Call) -> fmt::Result {
+                match self {
+                    Self::Pow => self.inner_args(f, call),
+                    Self::Root => {
+                        self.inner_args(f, call)?;
+                        write!(f, "}}")
+                    },
+                    Self::Cbrt | Self::Sqrt => {
+                        write!(f, "{{")?;
+                        self.inner_args(f, call)?;
+                        write!(f, "}}")
+                    },
+                    Self::Abs => {
+                        write!(f, "\\left|")?;
+                        self.inner_args(f, call)?;
+                        write!(f, "\\right|")
+                    },
+                    Self::Other => {
+                        write!(f, "\\left(")?;
+                        self.inner_args(f, call)?;
+                        write!(f, "\\right)")
+                    },
+                }
+            }
+
+            fn inner_args(&self, f: &mut fmt::Formatter, call: &Call) -> fmt::Result {
+                match self {
+                    Self::Pow => fmt_pow(f, call.args.get(0), call.args.get(1))?,
+                    Self::Root => {
+                        if let Some(arg1) = call.args.get(1) {
+                            write!(f, "[{}]", arg1.as_display())?;
+                        }
+                        write!(f, "{{")?;
+                        if let Some(arg0) = call.args.get(0) {
+                            arg0.fmt_latex(f)?;
+                        }
+                    },
+                    Self::Cbrt | Self::Sqrt | Self::Abs | Self::Other => {
+                        for (i, arg) in call.args.iter().enumerate() {
+                            if i != 0 {
+                                write!(f, ", ")?;
+                            }
+                            arg.fmt_latex(f)?;
+                        }
+                    },
+                }
+
+                Ok(())
+            }
+        }
+
+        let func = match self.name.name.as_str() {
+            "pow" => SpecialFunc::Pow,
+            "root" => SpecialFunc::Root,
+            "cbrt" => SpecialFunc::Cbrt,
+            "sqrt" => SpecialFunc::Sqrt,
+            "abs" => SpecialFunc::Abs,
+            _ => SpecialFunc::Other,
+        };
+
+        func.name(f, self)?;
+        match self.derivatives {
+            0 => {},
+            1 => write!(f, "'")?,
+            2 => write!(f, "''")?,
+            n => write!(f, "^{{ ({}) }}", n)?,
+        }
+
+        func.outer_args(f, self)
     }
 }

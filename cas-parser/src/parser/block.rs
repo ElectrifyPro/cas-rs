@@ -1,6 +1,7 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 use super::{
     error::{kind, Error},
+    fmt::Latex,
     stmt::Stmt,
     token::{CloseCurly, OpenCurly},
     Parse,
@@ -57,5 +58,15 @@ impl<'source> Parse<'source> for Block {
             stmts,
             span: open_curly.span.start..close_curly.span.end,
         })
+    }
+}
+
+impl Latex for Block {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{{")?;
+        for stmt in &self.stmts {
+            stmt.fmt_latex(f)?;
+        }
+        write!(f, "}}")
     }
 }

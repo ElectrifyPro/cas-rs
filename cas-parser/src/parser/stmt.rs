@@ -1,7 +1,8 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 use super::{
     error::Error,
     expr::Expr,
+    fmt::Latex,
     token::Semicolon,
     Parse,
     Parser,
@@ -57,5 +58,15 @@ impl<'source> Parse<'source> for Stmt {
             semicolon,
             span: stmt_span,
         })
+    }
+}
+
+impl Latex for Stmt {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.expr.fmt_latex(f)?;
+        if self.semicolon.is_some() {
+            write!(f, ";")?;
+        }
+        Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 use crate::{
     parser::{
         assign::Assign,
@@ -6,6 +6,7 @@ use crate::{
         block::Block,
         call::Call,
         error::{kind, Error},
+        fmt::Latex,
         if_expr::If,
         iter::ExprIter,
         literal::Literal,
@@ -75,6 +76,16 @@ impl Expr {
     pub fn post_order_iter(&self) -> ExprIter {
         ExprIter::new(self)
     }
+
+    /// If this expression is a [`Expr::Paren`], returns the innermost expression in the
+    /// parenthesized expression. Otherwise, returns `self`.
+    pub fn innermost(&self) -> &Expr {
+        let mut inner = self;
+        while let Expr::Paren(paren) = inner {
+            inner = &paren.expr;
+        }
+        inner
+    }
 }
 
 impl<'source> Parse<'source> for Expr {
@@ -89,6 +100,21 @@ impl<'source> Parse<'source> for Expr {
         let _ = return_if_ok!(input.try_parse::<Assign>().map(Self::Assign).forward_errors(recoverable_errors));
         let lhs = Unary::parse_or_lower(input, recoverable_errors)?;
         Binary::parse_expr(input, recoverable_errors, lhs, Precedence::Any)
+    }
+}
+
+impl Latex for Expr {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expr::Literal(literal) => literal.fmt_latex(f),
+            Expr::Paren(paren) => paren.fmt_latex(f),
+            Expr::Block(block) => block.fmt_latex(f),
+            Expr::If(if_expr) => if_expr.fmt_latex(f),
+            Expr::Call(call) => call.fmt_latex(f),
+            Expr::Unary(unary) => unary.fmt_latex(f),
+            Expr::Binary(binary) => binary.fmt_latex(f),
+            Expr::Assign(assign) => assign.fmt_latex(f),
+        }
     }
 }
 

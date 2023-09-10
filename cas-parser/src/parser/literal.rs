@@ -1,6 +1,7 @@
 use crate::{
     parser::{
         error::{kind, Error},
+        fmt::Latex,
         token::{Float, Name, Int, Quote},
         Parse,
         Parser,
@@ -9,7 +10,7 @@ use crate::{
     tokenizer::TokenKind,
     return_if_ok,
 };
-use std::{collections::HashSet, ops::Range};
+use std::{collections::HashSet, fmt, ops::Range};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -40,6 +41,12 @@ impl<'source> Parse<'source> for LitNum {
             value: lexeme.to_owned(),
             span,
         })
+    }
+}
+
+impl Latex for LitNum {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
@@ -187,6 +194,12 @@ impl<'source> Parse<'source> for LitRadix {
     }
 }
 
+impl Latex for LitRadix {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}'{}", self.base, self.value)
+    }
+}
+
 /// A symbol / identifier literal. Symbols are used to represent variables and functions.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -216,6 +229,15 @@ impl<'source> Parse<'source> for LitSym {
                 }
             })
             .forward_errors(recoverable_errors)
+    }
+}
+
+impl Latex for LitSym {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.name.as_str() {
+            "tau" | "pi" | "phi" | "theta" => write!(f, "\\{} ", self.name),
+            _ => write!(f, "{}", self.name),
+        }
     }
 }
 
@@ -257,5 +279,15 @@ impl<'source> Parse<'source> for Literal {
         let _ = return_if_ok!(input.try_parse::<LitRadix>().map(Literal::Radix).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse::<LitNum>().map(Literal::Number).forward_errors(recoverable_errors));
         input.try_parse::<LitSym>().map(Literal::Symbol).forward_errors(recoverable_errors)
+    }
+}
+
+impl Latex for Literal {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Literal::Number(num) => num.fmt_latex(f),
+            Literal::Radix(radix) => radix.fmt_latex(f),
+            Literal::Symbol(name) => name.fmt_latex(f),
+        }
     }
 }

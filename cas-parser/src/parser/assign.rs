@@ -1,8 +1,8 @@
-use std::ops::Range;
 use crate::{
     parser::{
         error::{kind::InvalidAssignmentLhs, Error},
         expr::Expr,
+        fmt::Latex,
         literal::{Literal, LitSym},
         token::Assign as AssignOp,
         ParenDelimited,
@@ -12,6 +12,7 @@ use crate::{
     },
     return_if_ok,
 };
+use std::{fmt, ops::Range};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -54,6 +55,15 @@ impl<'source> Parse<'source> for Param {
     }
 }
 
+impl Latex for Param {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Param::Symbol(symbol) => symbol.fmt_latex(f),
+            Param::Default(symbol, default) => write!(f, "{} = {}", symbol.as_display(), default.as_display()),
+        }
+    }
+}
+
 /// A function header, **not including the body**. Functions can have multiple parameters with
 /// optional default values, like in `f(x, y = 1)`. When a function with this header is called, the
 /// default values are used (i.e. `y = 1`), unless the caller provides their own values (`f(2,
@@ -88,6 +98,19 @@ impl<'source> Parse<'source> for FuncHeader {
 
         let span = name.span.start..surrounded.end.span.end;
         Ok(Self { name, params: surrounded.value.values, span })
+    }
+}
+
+impl Latex for FuncHeader {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\\mathrm{{ {} }} \\left(", self.name.as_display())?;
+        for (i, param) in self.params.iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            param.fmt_latex(f)?;
+        }
+        write!(f, "\\right)")
     }
 }
 
@@ -150,6 +173,15 @@ impl<'source> Parse<'source> for AssignTarget {
     }
 }
 
+impl Latex for AssignTarget {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AssignTarget::Symbol(symbol) => symbol.fmt_latex(f),
+            AssignTarget::Func(func) => func.fmt_latex(f),
+        }
+    }
+}
+
 /// An assignment of a variable or function, such as `x = 1` or `f(x) = x^2`.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -202,5 +234,11 @@ impl<'source> Parse<'source> for Assign {
             value: Box::new(value),
             span,
         })
+    }
+}
+
+impl Latex for Assign {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} = {}", self.target.as_display(), self.value.as_display())
     }
 }

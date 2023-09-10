@@ -48,6 +48,8 @@ pub static ONE: Lazy<Float> = Lazy::new(|| float(1));
 
 pub static ONE_HALF: Lazy<Float> = Lazy::new(|| float(1) / float(2));
 
+pub static TWO: Lazy<Float> = Lazy::new(|| float(2));
+
 pub static TEN: Lazy<Float> = Lazy::new(|| float(10));
 
 /// The imaginary unit.

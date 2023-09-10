@@ -36,6 +36,15 @@ pub fn choose(n: Integer, k: Integer) -> Integer {
     }
 }
 
+/// Binomial probability function.
+///
+/// Returns the probability of exactly `x` successes occurring in `n` trials, where the probability
+/// of success on a single trial is `p`.
+pub fn binompdf(n: Integer, p: Float, x: Integer) -> Float {
+    let q = float(&*ONE - &p);
+    choose(n.clone(), x.clone()) * p.pow(&x) * q.pow(n - x)
+}
+
 static GAMMA_P: Lazy<[Float; 9]> = Lazy::new(|| [
     float_from_str("0.99999999999980993"),
     float_from_str("676.5203681218851"),

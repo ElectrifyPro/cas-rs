@@ -8,11 +8,18 @@ use error::BuiltinError;
 use rug::{integer::Order, ops::Pow, rand::RandState, Float, Integer};
 use super::{
     builtins::func_specific::{NcprError, NcprErrorKind},
-    consts::{ONE, PHI, PI, TAU, TEN, complex, float, int, int_from_float},
+    consts::{ONE, PHI, PI, TAU, TEN, TWO, ZERO, complex, float, int, int_from_float},
     ctxt::{Ctxt, TrigMode},
     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
     fmt::trim_trailing_zeroes,
-    funcs::{choose, factorial as rs_factorial, fill_random, gamma as rs_gamma, partial_factorial},
+    funcs::{
+        binompdf as rs_binompdf,
+        choose,
+        factorial as rs_factorial,
+        fill_random,
+        gamma as rs_gamma,
+        partial_factorial,
+    },
     value::Value::{self, *},
 };
 
@@ -266,6 +273,93 @@ pub fn npr(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(float(partial_factorial(n, sub))))
 }
 
+// probability
+
+/// Normal probability density function.
+///
+/// This function does not actually represent any probability. To get the probability of a normally
+/// distributed random variable being between a value `a` and `b`, use [`normcdf`].
+#[args(x: Number, m: Number = float(&*ZERO), s: Number = float(&*ONE))]
+pub fn normpdf(_: &Ctxt, args: &[Value]) -> Result {
+    let exp_arg = Float::exp(float(x - m).square() / (-2 * float(s.square_ref())));
+    let bot = s * float(TAU.sqrt_ref());
+    Ok(Number(exp_arg / bot))
+}
+
+/// Normal cumulative distribution function.
+///
+/// Returns the probability that a random variable, chosen from a normal distribution with mean `m`
+/// and standard deviation `s`, will be between `a` and `b`, inclusive.
+#[args(a: Number, b: Number, m: Number = float(&*ZERO), s: Number = float(&*ONE))]
+pub fn normcdf(_: &Ctxt, args: &[Value]) -> Result {
+    let sqrt_two = float(TWO.sqrt_ref());
+    let z_a = (a - &m) / float(&s * &sqrt_two);
+    let z_b = (b - &m) / float(&s * &sqrt_two);
+    Ok(Number((z_b.erf() - z_a.erf()) / &*TWO))
+}
+
+/// Geometric probability function.
+///
+/// Returns the probability of the first success of an event occurring on the `n`th trial, where the
+/// probability of success on a single trial is `p`.
+#[args(p: Number, n: Number)]
+pub fn geompdf(_: &Ctxt, args: &[Value]) -> Result {
+    if &n <= &*ZERO {
+        return Ok(Number(float(&*ZERO)));
+    }
+
+    let q = float(&*ONE - &p);
+    Ok(Number(p * q.pow(n - &*ONE)))
+}
+
+/// Cummulative geometric probability function.
+///
+/// Returns the probability of the first success of an event occurring on or before the `n`th trial,
+/// where the probability of success on a single trial is `p`.
+#[args(p: Number, n: Number)]
+pub fn geomcdf(_: &Ctxt, args: &[Value]) -> Result {
+    if &n <= &*ZERO {
+        return Ok(Number(float(&*ZERO)));
+    }
+
+    let q = float(&*ONE - &p);
+    Ok(Number(&*ONE - q.pow(n)))
+}
+
+/// Binomial probability function.
+///
+/// Returns the probability of exactly `x` successes occurring in `n` trials, where the probability
+/// of success on a single trial is `p`.
+#[args(n: Number, p: Number, x: Number)]
+pub fn binompdf(_: &Ctxt, args: &[Value]) -> Result {
+    if &x < &*ZERO || x > n {
+        return Ok(Number(float(&*ZERO)));
+    }
+
+    Ok(Number(rs_binompdf(n.to_integer().unwrap(), p, x.to_integer().unwrap())))
+}
+
+/// Cummulative binomial probability function.
+///
+/// Returns the probability of `x` or fewer successes occurring in `n` trials, where the probability
+/// of success on a single trial is `p`.
+#[args(n: Number, p: Number, x: Number)]
+pub fn binomcdf(_: &Ctxt, args: &[Value]) -> Result {
+    if &x < &*ZERO {
+        return Ok(Number(float(&*ZERO)));
+    } else if x >= n {
+        return Ok(Number(float(&*ONE)));
+    }
+
+    let (n, mut x) = (n.to_integer().unwrap(), x.to_integer().unwrap());
+    let mut sum = float(&*ZERO);
+    while &x >= &*ZERO {
+        sum += rs_binompdf(n.clone(), p.clone(), x.clone());
+        x -= 1;
+    }
+    Ok(Number(sum))
+}
+
 // sequences
 
 /// Returns the `n`th term of the Fibonacci sequence, using Binet's formula.
@@ -451,6 +545,11 @@ pub fn get_builtin(name: &str) -> Option<Box<dyn Builtin>> {
 
         // statistics
         ncr npr
+
+        // probability
+        normpdf normcdf
+        geompdf geomcdf
+        binompdf binomcdf
 
         // miscellaneous functions
         bool erf erfc rand factorial gamma

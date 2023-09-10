@@ -9,7 +9,7 @@
 - Real and complex numbers
 - Radix notation (e.g. `2'1010` = 10)
 - 60+ built-in functions, covering many expected use cases ([see here](https://github.com/ElectrifyPro/cas-rs/blob/main/cas-eval/src/builtins/mod.rs))
-- Powerful formatting options
+- Powerful formatting options, including LaTeX code output
 - Builtin REPL
 - And more!
 

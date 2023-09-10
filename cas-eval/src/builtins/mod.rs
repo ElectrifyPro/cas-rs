@@ -18,6 +18,7 @@ use super::{
         factorial as rs_factorial,
         fill_random,
         gamma as rs_gamma,
+        inverse_error,
         partial_factorial,
     },
     value::Value::{self, *},
@@ -298,6 +299,16 @@ pub fn normcdf(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number((z_b.erf() - z_a.erf()) / &*TWO))
 }
 
+/// Inverse normal cumulative distribution function.
+///
+/// Returns the value `x` such that `normcdf(x, m, s) = p`.
+#[args(p: Number, m: Number = float(&*ZERO), s: Number = float(&*ONE))]
+pub fn invnorm(_: &Ctxt, args: &[Value]) -> Result {
+    let sqrt_two = float(TWO.sqrt_ref());
+    let z = float(sqrt_two * inverse_error(2 * p - 1));
+    Ok(Number(m + s * z))
+}
+
 /// Geometric probability function.
 ///
 /// Returns the probability of the first success of an event occurring on the `n`th trial, where the
@@ -394,6 +405,11 @@ pub fn erf(_: &Ctxt, args: &[Value]) -> Result {
 #[args(n: Number)]
 pub fn erfc(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(n.erfc()))
+}
+
+#[args(n: Number)]
+pub fn inverf(_: &Ctxt, args: &[Value]) -> Result {
+    Ok(Number(inverse_error(n)))
 }
 
 #[args()]
@@ -547,12 +563,12 @@ pub fn get_builtin(name: &str) -> Option<Box<dyn Builtin>> {
         ncr npr
 
         // probability
-        normpdf normcdf
+        normpdf normcdf invnorm
         geompdf geomcdf
         binompdf binomcdf
 
         // miscellaneous functions
-        bool erf erfc rand factorial gamma
+        bool erf erfc inverf rand factorial gamma
         abs lerp invlerp
         siground round ceil floor trunc
         min max clamp gcf lcm sign size

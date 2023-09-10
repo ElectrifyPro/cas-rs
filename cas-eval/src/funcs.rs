@@ -1,8 +1,8 @@
 use cas_parser::parser::literal::DIGITS;
 use once_cell::sync::Lazy;
 use rand::{Fill, Rng};
-use rug::{ops::Pow, Complex, Float, Integer};
-use super::consts::{ONE, ONE_HALF, TAU, complex, float, float_from_str, int, int_from_float};
+use rug::{float::Special, ops::Pow, Complex, Float, Integer};
+use super::consts::{ONE, ONE_HALF, PI, TAU, TWO, complex, float, float_from_str, int, int_from_float};
 
 /// Computes the factorial of a number.
 pub fn factorial(n: Float) -> Float {
@@ -80,6 +80,80 @@ pub fn gamma(mut z: Complex) -> Complex {
     let exp_t = complex(t.as_neg().exp_ref());
 
     x * t_pow * exp_t * tau_sqrt
+}
+
+/// Precomputed values for the inverse error function.
+static INV_ERF_A: Lazy<[Float; 4]> = Lazy::new(|| [
+    float_from_str("0.886226899"),
+    float_from_str("-1.645349621"),
+    float_from_str("0.914624893"),
+    float_from_str("-0.140543331"),
+]);
+
+static INV_ERF_B: Lazy<[Float; 5]> = Lazy::new(|| [
+    float(&*ONE),
+    float_from_str("-2.118377725"),
+    float_from_str("1.442710462"),
+    float_from_str("-0.329097515"),
+    float_from_str("0.012229801"),
+]);
+
+static INV_ERF_C: Lazy<[Float; 4]> = Lazy::new(|| [
+    float_from_str("-1.970840454"),
+    float_from_str("-1.62490649"),
+    float_from_str("3.429567803"),
+    float_from_str("1.641345311"),
+]);
+
+static INV_ERF_D: Lazy<[Float; 3]> = Lazy::new(|| [
+    float(&*ONE),
+    float_from_str("3.543889200"),
+    float_from_str("1.637067800"),
+]);
+
+/// Computes the inverse error function of a number.
+pub fn inverse_error(x: Float) -> Float {
+    if x <= float(-1) {
+        return float(Special::NegInfinity);
+    } else if x >= float(1) {
+        return float(Special::Infinity);
+    }
+
+    // implementation from http://www.mimirgames.com/articles/programming/approximations-of-the-inverse-error-function/
+    let mut z = float(x.abs_ref());
+
+    let fold_arr = |arr: &[Float], factor: &Float| {
+        (1..arr.len())
+            .rev()
+            .fold(float(&arr[arr.len() - 1]), |acc, i| {
+                acc * factor + float(&arr[i - 1])
+            })
+    };
+
+    let mut r = if z <= 0.7 {
+        let x2 = float(z.square_ref());
+        let num = &z * fold_arr(&*INV_ERF_A, &x2);
+        let den = fold_arr(&*INV_ERF_B, &x2);
+        num / den
+    } else {
+        let y = {
+            let inner_log = (&*ONE - float(&z)) / &*TWO;
+            (-inner_log.ln()).sqrt()
+        };
+        let num = fold_arr(&*INV_ERF_C, &y);
+        let den = fold_arr(&*INV_ERF_D, &y);
+        num / den
+    };
+
+    r = if x.is_sign_negative() { -r } else { r };
+    z = if x.is_sign_negative() { -z } else { z };
+
+    // double newton's method
+    let f = 2 / float(&*PI).sqrt();
+    r -= (float(r.erf_ref()) - &z) / (&f * float((-float(r.square_ref())).exp_ref()));
+    r -= (float(r.erf_ref()) - &z) / (&f * float((-float(r.square_ref())).exp_ref()));
+
+    r
 }
 
 /// Parses a number from a string, with the given radix. The radix must be between 2 and 64,

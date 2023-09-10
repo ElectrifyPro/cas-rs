@@ -59,7 +59,7 @@ impl Derv for (&Call, &dyn Builtin) {
 
     fn eval(&self, ctxt: &mut Ctxt, float: Float) -> Result<Value, Error> {
         self.1.eval(ctxt, &[Value::Number(float)])
-            .map_err(|err| err.into_error(&self.0))
+            .map_err(|err| err.into_error(self.0))
     }
 }
 

@@ -142,8 +142,8 @@ impl Args {
     /// Generates the output struct for the `ErrorKind` derive macro.
     pub fn build_struct(&self, item: &ItemFn) -> TokenStream2 {
         let name = &item.sig.ident;
-        let check_stmts = self.generate_check_stmts(&item);
-        let output = self.generate_output_expr(&item);
+        let check_stmts = self.generate_check_stmts(item);
+        let output = self.generate_output_expr(item);
         let arg_count = self.params.len();
 
         quote! {

@@ -315,7 +315,7 @@ pub fn invnorm(_: &Ctxt, args: &[Value]) -> Result {
 /// probability of success on a single trial is `p`.
 #[args(p: Number, n: Number)]
 pub fn geompdf(_: &Ctxt, args: &[Value]) -> Result {
-    if &n <= &*ZERO {
+    if n <= *ZERO {
         return Ok(Number(float(&*ZERO)));
     }
 
@@ -329,7 +329,7 @@ pub fn geompdf(_: &Ctxt, args: &[Value]) -> Result {
 /// where the probability of success on a single trial is `p`.
 #[args(p: Number, n: Number)]
 pub fn geomcdf(_: &Ctxt, args: &[Value]) -> Result {
-    if &n <= &*ZERO {
+    if n <= *ZERO {
         return Ok(Number(float(&*ZERO)));
     }
 
@@ -343,7 +343,7 @@ pub fn geomcdf(_: &Ctxt, args: &[Value]) -> Result {
 /// of success on a single trial is `p`.
 #[args(n: Number, p: Number, x: Number)]
 pub fn binompdf(_: &Ctxt, args: &[Value]) -> Result {
-    if &x < &*ZERO || x > n {
+    if x < *ZERO || x > n {
         return Ok(Number(float(&*ZERO)));
     }
 
@@ -356,7 +356,7 @@ pub fn binompdf(_: &Ctxt, args: &[Value]) -> Result {
 /// of success on a single trial is `p`.
 #[args(n: Number, p: Number, x: Number)]
 pub fn binomcdf(_: &Ctxt, args: &[Value]) -> Result {
-    if &x < &*ZERO {
+    if x < *ZERO {
         return Ok(Number(float(&*ZERO)));
     } else if x >= n {
         return Ok(Number(float(&*ONE)));
@@ -364,7 +364,7 @@ pub fn binomcdf(_: &Ctxt, args: &[Value]) -> Result {
 
     let (n, mut x) = (n.to_integer().unwrap(), x.to_integer().unwrap());
     let mut sum = float(&*ZERO);
-    while &x >= &*ZERO {
+    while x >= *ZERO {
         sum += rs_binompdf(n.clone(), p.clone(), x.clone());
         x -= 1;
     }

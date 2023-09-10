@@ -51,7 +51,7 @@ impl ToTokens for Type {
 
 /// The trigonometric unit that a parameter should be in, in order to work with the `rug` crate's
 /// built-in trigonometric functions.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Unit {
     /// The parameter should be in radians.
     Radians,
@@ -127,6 +127,9 @@ impl Parse for Param {
 pub struct Args {
     /// The patterns that the arguments must match.
     pub params: Vec<Param>,
+
+    /// The output unit of the function.
+    pub unit: Option<Unit>,
 }
 
 impl Args {
@@ -136,9 +139,32 @@ impl Args {
         Ok(())
     }
 
-    /// Generates the statements that check the arguments.
+    /// Generates the output struct for the `ErrorKind` derive macro.
+    pub fn build_struct(&self, item: &ItemFn) -> TokenStream2 {
+        let name = &item.sig.ident;
+        let check_stmts = self.generate_check_stmts(&item);
+        let output = self.generate_output_expr(&item);
+        let arg_count = self.params.len();
+
+        quote! {
+            #[allow(non_camel_case_types)]
+            #[derive(Debug, Clone, PartialEq, Eq)]
+            pub struct #name;
+
+            impl Builtin for #name {
+                fn num_args(&self) -> usize { #arg_count }
+
+                fn eval(&self, ctxt: &Ctxt, args: &[Value]) -> Result {
+                    #check_stmts
+                    #output
+                }
+            }
+        }
+    }
+
+    /// Generates the statements that typecheck the arguments.
     pub fn generate_check_stmts(&self, func: &ItemFn) -> TokenStream2 {
-        let (name, block) = (&func.sig.ident, &func.block);
+        let name = &func.sig.ident;
         let num_patterns = self.params.len();
 
         // for each parameter, we generate a binding with three patterns to typecheck the arguments, and
@@ -164,25 +190,21 @@ impl Args {
                 let (ident, ty) = (&param.ident, &param.ty);
                 if *ty == Type::Any {
                     return quote! {
-                        let #ident = match args.get(#i).cloned() {
-                            Some(arg) => arg,
-                            None => {
-                                return Err(BuiltinError::MissingArgument(MissingArgument {
-                                    name: stringify!(#name).to_owned(),
-                                    index: #i,
-                                    expected: #num_patterns,
-                                    given: args.len(),
-                                }));
-                            },
-                        };
+                        let #ident = args.get(#i).cloned()
+                            .ok_or_else(|| BuiltinError::MissingArgument(MissingArgument {
+                                name: stringify!(#name).to_owned(),
+                                index: #i,
+                                expected: #num_patterns,
+                                given: args.len(),
+                            }))?;
                     };
                 }
 
                 let unit_converter = {
                     let coercer = match param.ty {
-                        Type::Number => quote! { arg.coerce_real() },
-                        Type::Complex => quote! { arg.coerce_complex() },
-                        _ => quote! { arg },
+                        Type::Number => quote! { inner_arg.coerce_real() },
+                        Type::Complex => quote! { inner_arg.coerce_complex() },
+                        _ => quote! { inner_arg },
                     };
 
                     match &param.unit {
@@ -203,7 +225,7 @@ impl Args {
                         None => quote! { #coercer },
                     }
                 };
-                let coerce_getter_expr = quote! { args.get(#i).cloned().map(|arg| #unit_converter) };
+                let coerce_getter_expr = quote! { args.get(#i).cloned().map(|inner_arg| #unit_converter) };
                 let default_expr = match &param.default {
                     Some(expr) => quote! { #expr },
                     None => quote! {
@@ -241,7 +263,33 @@ impl Args {
                 }));
             }
             #( #type_checkers )*
-            #block
+        }
+    }
+
+    /// Generates the output expression for the function.
+    pub fn generate_output_expr(&self, item: &ItemFn) -> TokenStream2 {
+        let block = &item.block;
+        let Some(unit) = self.unit else {
+            return quote! { #block };
+        };
+
+        // notice that the `converter` functions are opposite of the `mode` given
+        // `mode` gives us the default mode of the function. if the context is in the default mode, we
+        // don't need to worry about the conversion; if not, we need to convert the output to the other
+        // trig mode
+        let converter = match unit {
+            Unit::Radians => quote! { .to_degrees() },
+            Unit::Degrees => quote! { .to_radians() },
+        };
+
+        quote! {
+            { #block }.map(|value| {
+                if ctxt.trig_mode != TrigMode::#unit {
+                    value #converter
+                } else {
+                    value
+                }
+            })
         }
     }
 }
@@ -254,6 +302,10 @@ impl Parse for Args {
             if input.parse::<Token![,]>().is_err() {
                 break;
             }
+        }
+
+        if input.parse::<Token![;]>().is_ok() {
+            args.unit = input.parse::<Unit>().ok();
         }
 
         Ok(args)

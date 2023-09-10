@@ -17,7 +17,7 @@ impl Eval for Call {
             let args = self.args.iter()
                 .map(|arg| arg.eval(ctxt))
                 .collect::<Result<Vec<_>, _>>()?;
-            return builtin(ctxt, &args)
+            return builtin.eval(ctxt, &args)
                 .map_err(|err| err.into_error(self));
         }
 

@@ -1,5 +1,6 @@
 use cas_parser::parser::literal::DIGITS;
 use once_cell::sync::Lazy;
+use rand::{Fill, Rng};
 use rug::{ops::Pow, Complex, Float, Integer};
 use super::consts::{ONE, ONE_HALF, TAU, complex, float, float_from_str, int, int_from_float};
 
@@ -76,6 +77,11 @@ pub fn from_str_radix(s: &str, radix: u8) -> Integer {
     }
 
     result
+}
+
+/// Fill the given slice with random bytes.
+pub fn fill_random<T: Fill>(bytes: &mut T) {
+    rand::thread_rng().fill(bytes);
 }
 
 #[cfg(test)]

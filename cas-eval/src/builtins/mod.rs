@@ -3,9 +3,8 @@
 pub mod error;
 pub mod func_specific;
 
-use cas_attrs::{args, out};
+use cas_attrs::args;
 use error::BuiltinError;
-use rand::Rng;
 use rug::{integer::Order, ops::Pow, rand::RandState, Float, Integer};
 use super::{
     builtins::func_specific::{NcprError, NcprErrorKind},
@@ -13,12 +12,21 @@ use super::{
     ctxt::{Ctxt, TrigMode},
     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
     fmt::trim_trailing_zeroes,
-    funcs::{factorial as rs_factorial, gamma as rs_gamma, partial_factorial},
+    funcs::{factorial as rs_factorial, fill_random, gamma as rs_gamma, partial_factorial},
     value::Value::{self, *},
 };
 
 type Result = std::result::Result<Value, BuiltinError>;
-type Builtin = fn(&Ctxt, &[Value]) -> Result;
+
+/// A trait implemented by all builtin functions.
+pub trait Builtin {
+    /// Number of args the function takes.
+    // NOTE: this is a `&self` method and not an associated constant to make the trait object-safe
+    fn num_args(&self) -> usize;
+
+    /// Evaluates the function.
+    fn eval(&self, ctxt: &Ctxt, args: &[Value]) -> Result;
+}
 
 /// Generates builtin implementations for simple one-argument functions that take a complex number.
 macro_rules! generate_complex_builtin {
@@ -78,44 +86,37 @@ pub fn cot(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.tan().recip()))
 }
 
-#[args(n: Complex)]
-#[out(radians)]
+#[args(n: Complex; radians)]
 pub fn asin(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.asin()))
 }
 
-#[args(n: Complex)]
-#[out(radians)]
+#[args(n: Complex; radians)]
 pub fn acos(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.acos()))
 }
 
-#[args(n: Complex)]
-#[out(radians)]
+#[args(n: Complex; radians)]
 pub fn atan(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.atan()))
 }
 
-#[args(n: Complex)]
-#[out(radians)]
+#[args(n: Complex; radians)]
 pub fn acsc(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().asin()))
 }
 
-#[args(n: Complex)]
-#[out(radians)]
+#[args(n: Complex; radians)]
 pub fn asec(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().acos()))
 }
 
-#[args(n: Complex)]
-#[out(radians)]
+#[args(n: Complex; radians)]
 pub fn acot(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().atan()))
 }
 
-#[args(y: Number, x: Number)]
-#[out(radians)]
+#[args(y: Number, x: Number; radians)]
 pub fn atan2(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(y.atan2(&x)))
 }
@@ -310,13 +311,13 @@ pub fn erfc(_: &Ctxt, args: &[Value]) -> Result {
 #[args()]
 pub fn rand(_: &Ctxt, args: &[Value]) -> Result {
     let mut seed = Integer::new();
-    let mut digits = [0u128; 2];
-    rand::thread_rng().fill(&mut digits);
+    let mut digits = [0u128; 2]; // 256 bits
+    fill_random(&mut digits);
     seed.assign_digits(&digits, Order::Lsf);
 
-    let mut rand = RandState::new();
-    rand.seed(&seed);
-    Ok(Number(float(Float::random_bits(&mut rand))))
+    let mut rand_state = RandState::new();
+    rand_state.seed(&seed);
+    Ok(Number(float(Float::random_bits(&mut rand_state))))
 }
 
 #[args(n: Number)]
@@ -420,12 +421,12 @@ pub fn size(_: &Ctxt, args: &[Value]) -> Result {
 }
 
 /// Returns the builtin function with the given name.
-pub fn get_builtin(name: &str) -> Option<Builtin> {
+pub fn get_builtin(name: &str) -> Option<Box<dyn Builtin>> {
     macro_rules! match_builtin {
         ($($name:ident)+) => {
             match name {
                 $(
-                    stringify!($name) => Some($name),
+                    stringify!($name) => Some(Box::new($name) as Box<dyn Builtin>),
                 )*
                 _ => None,
             }

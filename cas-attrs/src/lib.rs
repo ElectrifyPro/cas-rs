@@ -1,7 +1,7 @@
 mod args;
 mod error_kind;
 
-use args::{Args, Unit};
+use args::Args;
 use error_kind::ErrorKindTarget;
 use proc_macro::TokenStream;
 use quote::quote;
@@ -59,6 +59,10 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 ///
 /// `<name>: <type> ['radians' | 'degrees'] [= <default value>]`.
 ///
+/// Additionally, the list of parameters can optionally be terminated with a semicolon, followed by
+/// either `radians` or `degrees`. This specifies the unit that the function's builtin
+/// implementation returns.
+///
 /// The name of the parameter must be a valid Rust identifier to bind to, and the type must be one
 /// of the following:
 ///
@@ -102,53 +106,11 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 /// fn log(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 ///     Ok(Value::Number(n.ln() / base.ln()))
 /// }
-/// ```
 ///
-/// [`Value`]: cas_eval::Value
-#[proc_macro_attribute]
-pub fn args(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(attr as Args);
-    let item = parse_macro_input!(item as ItemFn);
-    let check_stmts = args.generate_check_stmts(&item);
-    let (attrs, vis, sig) = (&item.attrs, &item.vis, &item.sig);
-    quote! {
-        #(#attrs)*
-        #vis #sig {
-            #check_stmts
-        }
-    }.into()
-}
-
-/// An attribute that transforms the output of a builtin function based on the trigonometric mode
-/// of the given context.
-///
-/// This attribute can be applied to any function that takes a [`Ctxt`] and a slice of [`Value`]s
-/// as its argument, and returns a `Result<Value, BuiltinError>`. It will check the trigonometric
-/// mode of the context, and transform the output of the function if the output of the builtin
-/// function does not match the context's mode.
-///
-/// The attribute accepts a single identifier, either `radians` or `degrees`, which specifies the
-/// default output mode of the function.
-///
-/// # Examples
-///
-/// ```
-/// extern crate cas_attrs;
-///
-/// use cas_attrs::{args, out};
-/// use cas_eval::{
-///     builtins::error::BuiltinError,
-///     consts::float,
-///     ctxt::{Ctxt, TrigMode},
-///     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
-///     value::Value::{self, *},
-/// };
-///
-/// #[args(n: Number)]
-/// #[out(radians)]
+/// #[args(n: Number; radians)]
 /// fn asin(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 ///    // the `asin` function on the `rug` crate always returns radians, so we mark this function
-///    // with `out(radians)`
+///    // with `; radians`
 ///    //
 ///    // if the context is in degrees mode, this will be automatically be converted to degrees
 ///    Ok(Value::Number(n.sin()))
@@ -157,26 +119,8 @@ pub fn args(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// [`Value`]: cas_eval::Value
 #[proc_macro_attribute]
-pub fn out(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let mode = parse_macro_input!(attr as Unit);
-    // notice that the `converter` functions are opposite of the `mode` given
-    // `mode` gives us the default mode of the function. if the context is in the default mode, we
-    // don't need to worry about the conversion; if not, we need to convert the output to the other
-    // trig mode
-    let converter = match mode {
-        Unit::Radians => quote! { .to_degrees() },
-        Unit::Degrees => quote! { .to_radians() },
-    };
+pub fn args(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(attr as Args);
     let item = parse_macro_input!(item as ItemFn);
-    let (attrs, vis, sig, block) = (&item.attrs, &item.vis, &item.sig, &item.block);
-    quote! {
-        #(#attrs)*
-        #vis #sig {
-            { #block }.map(|value| if ctxt.trig_mode == TrigMode::#mode {
-                value
-            } else {
-                value #converter
-            })
-        }
-    }.into()
+    args.build_struct(&item).into()
 }

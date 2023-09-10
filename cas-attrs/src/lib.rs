@@ -87,7 +87,7 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 ///
 /// use cas_attrs::args;
 /// use cas_eval::{
-///     builtins::error::BuiltinError,
+///     builtins::{error::BuiltinError, Builtin},
 ///     consts::float,
 ///     ctxt::Ctxt,
 ///     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},

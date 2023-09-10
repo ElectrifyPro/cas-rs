@@ -1266,7 +1266,7 @@ mod tests {
 
     #[test]
     fn if_block() {
-        let mut parser = Parser::new("if d then { abs(d) } else { f = 1; f }");
+        let mut parser = Parser::new("if d then { abs''(d) } else { f = 1; f }");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::If(If {
@@ -1282,20 +1282,21 @@ mod tests {
                                 name: "abs".to_string(),
                                 span: 12..15,
                             },
+                            derivatives: 2,
                             args: vec![
                                 Expr::Literal(Literal::Symbol(LitSym {
                                     name: "d".to_string(),
-                                    span: 16..17,
+                                    span: 18..19,
                                 })),
                             ],
-                            span: 12..18,
-                            paren_span: 15..18,
+                            span: 12..20,
+                            paren_span: 17..20,
                         }),
                         semicolon: None,
-                        span: 12..18,
+                        span: 12..20,
                     },
                 ],
-                span: 10..20,
+                span: 10..22,
             })),
             else_expr: Box::new(Expr::Block(Block {
                 stmts: vec![
@@ -1303,32 +1304,32 @@ mod tests {
                         expr: Expr::Assign(Assign {
                             target: AssignTarget::Symbol(LitSym {
                                 name: "f".to_string(),
-                                span: 28..29,
+                                span: 30..31,
                             }),
                             value: Box::new(Expr::Literal(Literal::Number(LitNum {
                                 value: "1".to_string(),
-                                span: 32..33,
+                                span: 34..35,
                             }))),
-                            span: 28..33,
+                            span: 30..35,
                         }),
-                        semicolon: Some(33..34),
-                        span: 28..34,
+                        semicolon: Some(35..36),
+                        span: 30..36,
                     },
                     Stmt {
                         expr: Expr::Literal(Literal::Symbol(LitSym {
                             name: "f".to_string(),
-                            span: 35..36,
+                            span: 37..38,
                         })),
                         semicolon: None,
-                        span: 35..36,
+                        span: 37..38,
                     },
                 ],
-                span: 26..38,
+                span: 28..40,
             })),
-            span: 0..38,
+            span: 0..40,
             if_span: 0..2,
             then_span: 5..9,
-            else_span: 21..25,
+            else_span: 23..27,
         }));
     }
 
@@ -1532,6 +1533,7 @@ mod tests {
                 name: "f".to_string(),
                 span: 0..1,
             },
+            derivatives: 0,
             args: vec![
                 Expr::Literal(Literal::Symbol(LitSym {
                     name: "x".to_string(),
@@ -1545,7 +1547,7 @@ mod tests {
 
     #[test]
     fn function_call_whitespace() {
-        let mut parser = Parser::new("ncr ( 8 , 5 )");
+        let mut parser = Parser::new("ncr  ' ' ' '' ' ( 8 , 5 )");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Call(Call {
@@ -1553,18 +1555,19 @@ mod tests {
                 name: "ncr".to_string(),
                 span: 0..3,
             },
+            derivatives: 6,
             args: vec![
                 Expr::Literal(Literal::Number(LitNum {
                     value: "8".to_string(),
-                    span: 6..7,
+                    span: 18..19,
                 })),
                 Expr::Literal(Literal::Number(LitNum {
                     value: "5".to_string(),
-                    span: 10..11,
+                    span: 22..23,
                 })),
             ],
-            span: 0..13,
-            paren_span: 4..13,
+            span: 0..25,
+            paren_span: 16..25,
         }));
     }
 

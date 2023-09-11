@@ -14,6 +14,7 @@ fn eval_real_operands(
     left: Value,
     right: Value,
 ) -> Result<Value, Error> {
+    let typename = left.typename();
     let (Value::Number(left), Value::Number(right)) = (left, right) else {
         unreachable!()
     };
@@ -42,8 +43,15 @@ fn eval_real_operands(
         BinOpKind::NotEq => Value::Boolean(left != right),
         BinOpKind::ApproxEq => Value::Boolean((left - right).abs() < 1e-6),
         BinOpKind::ApproxNotEq => Value::Boolean((left - right).abs() >= 1e-6),
-        BinOpKind::And => Value::Boolean(!left.is_zero() && !right.is_zero()),
-        BinOpKind::Or => Value::Boolean(!left.is_zero() || !right.is_zero()),
+        BinOpKind::And | BinOpKind::Or => return Err(Error::new(
+            vec![binary.lhs.span(), binary.op.span.clone(), binary.rhs.span()],
+            InvalidBinaryOperation {
+                op: binary.op.kind,
+                implicit: binary.op.implicit,
+                left: typename,
+                right: typename,
+            },
+        )),
     })
 }
 
@@ -79,11 +87,41 @@ fn eval_complex_operands(
                 (real - real2).abs() >= 1e-6 || (float - float2).abs() >= 1e-6,
             )
         },
-        BinOpKind::And => Value::Boolean(!left.eq0() && !right.eq0()),
-        BinOpKind::Or => Value::Boolean(!left.eq0() || !right.eq0()),
-        BinOpKind::Mod
+        BinOpKind::And | BinOpKind::Or| BinOpKind::Mod
             | BinOpKind::BitRight | BinOpKind::BitLeft | BinOpKind::BitAnd | BinOpKind::BitOr
             | BinOpKind::Greater | BinOpKind::GreaterEq | BinOpKind::Less | BinOpKind::LessEq => return Err(Error::new(
+                vec![binary.lhs.span(), binary.op.span.clone(), binary.rhs.span()],
+                InvalidBinaryOperation {
+                    op: binary.op.kind,
+                    implicit: binary.op.implicit,
+                    left: typename,
+                    right: typename,
+                },
+            )),
+    })
+}
+
+/// Evaluates a binary expression with two boolean operands.
+fn eval_bool_operands(
+    binary: &Binary,
+    left: Value,
+    right: Value,
+) -> Result<Value, Error> {
+    let typename = left.typename();
+    let (Value::Boolean(left), Value::Boolean(right)) = (left, right) else {
+        unreachable!()
+    };
+    Ok(match binary.op.kind {
+        BinOpKind::And => Value::Boolean(left && right),
+        BinOpKind::Or => Value::Boolean(left || right),
+        BinOpKind::Eq => Value::Boolean(left == right),
+        BinOpKind::NotEq => Value::Boolean(left != right),
+        BinOpKind::ApproxEq => Value::Boolean(left == right),
+        BinOpKind::ApproxNotEq => Value::Boolean(left != right),
+        BinOpKind::Exp | BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod | BinOpKind::Add
+            | BinOpKind::Sub | BinOpKind::BitRight | BinOpKind::BitLeft | BinOpKind::BitAnd
+            | BinOpKind::BitOr | BinOpKind::Greater | BinOpKind::GreaterEq | BinOpKind::Less
+            | BinOpKind::LessEq => return Err(Error::new(
                 vec![binary.lhs.span(), binary.op.span.clone(), binary.rhs.span()],
                 InvalidBinaryOperation {
                     op: binary.op.kind,
@@ -105,6 +143,10 @@ impl Eval for Binary {
 
         if left.is_complex() && right.is_complex() {
             return eval_complex_operands(self, left.coerce_complex(), right.coerce_complex());
+        }
+
+        if left.is_boolean() && right.is_boolean() {
+            return eval_bool_operands(self, left, right);
         }
 
         Err(Error::new(

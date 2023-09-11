@@ -109,6 +109,11 @@ impl Value {
         matches!(self, Value::Complex(_) | Value::Number(_))
     }
 
+    /// Returns true if this value is a boolean.
+    pub fn is_boolean(&self) -> bool {
+        matches!(self, Value::Boolean(_))
+    }
+
     /// Returns true if this value is truthy.
     pub fn is_truthy(&self) -> bool {
         match self {

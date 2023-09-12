@@ -76,6 +76,13 @@ mod tests {
     use unit::Length;
 
     #[test]
+    fn identity_length() {
+        let m = Measurement::new(2.0, Length::Yard);
+        let m2 = m.convert(Length::Yard).unwrap();
+        assert_eq!(m2.value(), &2.0);
+    }
+
+    #[test]
     fn convert_length() {
         let m = Measurement::new(2.0, Length::Mile);
         let m2 = m.convert(Length::Decimeter).unwrap();

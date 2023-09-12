@@ -82,6 +82,12 @@ impl Display for Quantity {
     }
 }
 
+impl From<Quantity> for Unit {
+    fn from(q: Quantity) -> Self {
+        Self::new(q)
+    }
+}
+
 impl Quantity {
     /// Returns the conversion factor from this quantity to the target quantity.
     pub fn conversion_factor(&self, target: Quantity) -> f64 {
@@ -120,6 +126,12 @@ pub enum Length {
     Yard,
     Foot,
     Inch,
+}
+
+impl From<Length> for Unit {
+    fn from(l: Length) -> Self {
+        Self::new(Quantity::Length(l))
+    }
 }
 
 impl Display for Length {

@@ -200,12 +200,14 @@ impl<'source> Parser<'source> {
 
     /// Attempts to parse multiple values from the given stream of tokens. All the tokens must be
     /// consumed by the parser; if not, an error is returned.
-    pub fn try_parse_full_many<T: Parse<'source>>(&mut self) -> Result<Vec<T>, Vec<Error>> {
+    pub fn try_parse_full_many<T: std::fmt::Debug + Parse<'source>>(&mut self) -> Result<Vec<T>, Vec<Error>> {
         let mut errors = Vec::new();
         let mut values = Vec::new();
 
         while self.cursor < self.tokens.len() {
-            let value = T::parse(self).forward_errors(&mut errors)?;
+            let Ok(value) = T::parse(self).forward_errors(&mut errors) else {
+                break;
+            };
             values.push(value);
         }
 
@@ -1591,5 +1593,19 @@ mod tests {
             }))),
             span: 0..7,
         }));
+    }
+
+    #[test]
+    fn source_code() {
+        let mut parser = Parser::new("x = 5;
+iseven(n) = n % 2 == 0;
+if iseven(x) then {
+    x^2 + 5x + 6
+} else if (bool(x) && false) then {
+    exp(x)
+} else {
+    log(x, 2)
+}");
+        assert!(parser.try_parse_full_many::<Stmt>().is_ok());
     }
 }

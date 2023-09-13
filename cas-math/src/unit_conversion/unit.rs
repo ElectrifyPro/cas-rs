@@ -33,30 +33,29 @@ impl Unit {
         Self { quantity: quantity.into(), power }
     }
 
-    /// Returns [`Ok`] if this unit can be converted to the target unit, or [`Err`] otherwise.
-    pub fn can_convert(&self, target: Unit) -> Result<(), ConversionError> {
-        if self.power == target.power {
-            (self.quantity.matches_kind(target.quantity))
-                .then_some(())
-                .ok_or(ConversionError { unit: *self, target })
-        } else {
-            // TODO
-            Err(ConversionError { unit: *self, target })
-        }
-    }
-
     /// If this unit can be converted to the target unit, returns the conversion factor between
     /// them.
     pub fn conversion_factor(&self, target: Unit) -> Result<f64, ConversionError> {
+        if self.power != target.power {
+            return self.quantity.conversion_factor_to(target)
+                .or_else(|| target.quantity.conversion_factor_to(*self).map(|f| 1.0 / f))
+                .ok_or_else(|| ConversionError { unit: *self, target });
+        }
+
+        let power = self.power as i32;
         match (self.quantity, target.quantity) {
             (Quantity::Length(l1), Quantity::Length(l2)) => {
-                Ok(l1.conversion_factor().powi(self.power as i32)
-                    / l2.conversion_factor().powi(target.power as i32))
-            }
+                Ok(l1.conversion_factor().powi(power)
+                    / l2.conversion_factor().powi(power))
+            },
+            (Quantity::Area(a1), Quantity::Area(a2)) => {
+                Ok(a1.conversion_factor().powi(power)
+                    / a2.conversion_factor().powi(power))
+            },
             (Quantity::Time(t1), Quantity::Time(t2)) => {
-                Ok(t1.conversion_factor().powi(self.power as i32)
-                    / t2.conversion_factor().powi(target.power as i32))
-            }
+                Ok(t1.conversion_factor().powi(power)
+                    / t2.conversion_factor().powi(power))
+            },
             _ => Err(ConversionError { unit: *self, target }),
         }
     }
@@ -86,6 +85,7 @@ impl Display for ConversionError {
 #[non_exhaustive]
 pub enum Quantity {
     Length(Length),
+    Area(Area),
     Time(Time),
 }
 
@@ -93,6 +93,7 @@ impl Display for Quantity {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Quantity::Length(l) => write!(f, "{}", l),
+            Quantity::Area(a) => write!(f, "{}", a),
             Quantity::Time(t) => write!(f, "{}", t),
         }
     }
@@ -105,12 +106,12 @@ impl From<Quantity> for Unit {
 }
 
 impl Quantity {
-    /// Returns true if this quantity is the same kind as the target quantity.
-    pub fn matches_kind(&self, target: Quantity) -> bool {
-        match (self, target) {
-            (Quantity::Length(_), Quantity::Length(_)) => true,
-            (Quantity::Time(_), Quantity::Time(_)) => true,
-            _ => false,
+    fn conversion_factor_to(&self, target: impl Into<Unit>) -> Option<f64> {
+        let target = target.into();
+        match self {
+            Quantity::Length(l) => l.conversion_factor_to(target),
+            Quantity::Area(a) => a.conversion_factor_to(target),
+            Quantity::Time(t) => t.conversion_factor_to(target),
         }
     }
 }
@@ -199,6 +200,83 @@ impl Convert for Length {
             Length::Yard => 0.9144,
             Length::Foot => 0.3048,
             Length::Inch => 0.0254,
+        }
+    }
+}
+
+/// A unit of area.
+///
+/// Measurements of area are of the same kind as measurements of length with power 2. Thus, and
+/// measurement created with an area unit can be converted to a a length unit squared, and vice
+/// versa.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Area {
+    Hectare,
+    Decare,
+    Are,
+    Deciare,
+    Centiare,
+    Barn,
+
+    Acre,
+}
+
+impl From<Area> for Unit {
+    fn from(a: Area) -> Self {
+        Self::new(Quantity::Area(a))
+    }
+}
+
+impl From<Area> for Quantity {
+    fn from(a: Area) -> Self {
+        Self::Area(a)
+    }
+}
+
+impl Display for Area {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Area::Hectare => write!(f, "ha"),
+            Area::Decare => write!(f, "daa"),
+            Area::Are => write!(f, "a"),
+            Area::Deciare => write!(f, "da"),
+            Area::Centiare => write!(f, "ca"),
+            Area::Barn => write!(f, "b"),
+
+            Area::Acre => write!(f, "ac"),
+        }
+    }
+}
+
+impl Convert for Area {
+    const BASE: Self = Area::Are;
+
+    fn conversion_factor(&self) -> f64 {
+        match self {
+            Area::Hectare => 100.0,
+            Area::Decare => 10.0,
+            Area::Are => 1.0,
+            Area::Deciare => 0.1,
+            Area::Centiare => 0.01,
+            Area::Barn => 1e-30,
+
+            Area::Acre => 40.468564224,
+        }
+    }
+
+    fn conversion_factor_to(&self, target: impl Into<Unit>) -> Option<f64> {
+        let target = target.into();
+        if matches!(target.quantity, Quantity::Length(_)) && target.power == 2 {
+            Some(
+                // convert from self to base length unit squared
+                self.conversion_factor() * 100.0
+
+                // convert from base length unit squared to target
+                * Unit::with_power(Length::BASE, 2).conversion_factor(target).unwrap()
+            )
+        } else {
+            None
         }
     }
 }

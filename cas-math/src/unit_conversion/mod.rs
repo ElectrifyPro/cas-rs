@@ -79,7 +79,7 @@ mod tests {
         assert_float_relative_eq,
     };
     use super::*;
-    use unit::{Length, Time};
+    use unit::{Area, Length, Time};
 
     #[test]
     fn identity_length() {
@@ -100,6 +100,27 @@ mod tests {
         let m = Measurement::new(2.0, Unit::with_power(Length::Meter, 2));
         let m2 = m.convert(Unit::with_power(Length::Yard, 2)).unwrap();
         assert_float_relative_eq!(*m2.value(), 2.39198);
+    }
+
+    #[test]
+    fn identity_area() {
+        let m = Measurement::new(11.45, Area::Acre);
+        let m2 = m.convert(Area::Acre).unwrap();
+        assert_float_relative_eq!(*m2.value(), 11.45);
+    }
+
+    #[test]
+    fn convert_len_sq_to_area() {
+        let m = Measurement::new(11.45, Unit::with_power(Length::Meter, 2));
+        let m2 = m.convert(Area::Hectare).unwrap();
+        assert_float_relative_eq!(*m2.value(), 1.145e-3);
+    }
+
+    #[test]
+    fn convert_area_to_len_sq() {
+        let m = Measurement::new(11.45, Area::Acre);
+        let m2 = m.convert(Unit::with_power(Length::NauticalMile, 2)).unwrap();
+        assert_float_relative_eq!(*m2.value(), 1.3509563543609384e-2);
     }
 
     #[test]

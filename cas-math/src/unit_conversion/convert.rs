@@ -1,3 +1,5 @@
+use super::unit::Unit;
+
 /// A trait implemented by all units, providing the information needed to convert between them.
 pub trait Convert {
     /// The base unit of this unit.
@@ -15,4 +17,14 @@ pub trait Convert {
     /// For example, if the base unit is the meter, the conversion factor for a centimeter would be
     /// `0.01`.
     fn conversion_factor(&self) -> f64;
+
+    /// Defines the conversion factor from the base unit of this unit, to a specific unit in a
+    /// derived quantity kind.
+    ///
+    /// For example, area is derived from length units squared, and volume is derived from length
+    /// units cubed. This function would define the conversion factor from the base area / volume
+    /// unit, to the given length unit squared / cubed.
+    fn conversion_factor_to(&self, _: impl Into<Unit>) -> Option<f64> {
+        None
+    }
 }

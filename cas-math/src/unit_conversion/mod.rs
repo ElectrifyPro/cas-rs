@@ -72,20 +72,40 @@ impl<T> Measurement<T> {
 
 #[cfg(test)]
 mod tests {
+    use assert_float_eq::{
+        afe_abs,
+        afe_relative_error_msg,
+        afe_is_relative_eq,
+        assert_float_relative_eq,
+    };
     use super::*;
-    use unit::Length;
+    use unit::{Length, Time};
 
     #[test]
     fn identity_length() {
         let m = Measurement::new(2.0, Length::Yard);
         let m2 = m.convert(Length::Yard).unwrap();
-        assert_eq!(m2.value(), &2.0);
+        assert_float_relative_eq!(*m2.value(), 2.0);
     }
 
     #[test]
     fn convert_length() {
         let m = Measurement::new(2.0, Length::Mile);
         let m2 = m.convert(Length::Decimeter).unwrap();
-        assert_eq!(m2.value(), &32186.88);
+        assert_float_relative_eq!(*m2.value(), 32186.88);
+    }
+
+    #[test]
+    fn identity_time() {
+        let m = Measurement::new(38.66, Quantity::Time(Time::Decade));
+        let m2 = m.convert(Quantity::Time(Time::Decade)).unwrap();
+        assert_float_relative_eq!(*m2.value(), 38.66);
+    }
+
+    #[test]
+    fn convert_time() {
+        let m = Measurement::new(38.66, Quantity::Time(Time::Decade));
+        let m2 = m.convert(Quantity::Time(Time::Decisecond)).unwrap();
+        assert_float_relative_eq!(*m2.value(), 121999075916.0);
     }
 }

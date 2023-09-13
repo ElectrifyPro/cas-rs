@@ -43,8 +43,11 @@ impl Unit {
     /// If this unit can be converted to the target unit, returns the conversion factor between
     /// them.
     pub fn conversion_factor(&self, target: Unit) -> Result<f64, ConversionError> {
-        self.can_convert(target)?;
-        Ok(self.quantity.conversion_factor(target.quantity))
+        match (self.quantity, target.quantity) {
+            (Quantity::Length(l1), Quantity::Length(l2)) => Ok(l1.conversion_factor() / l2.conversion_factor()),
+            (Quantity::Time(t1), Quantity::Time(t2)) => Ok(t1.conversion_factor() / t2.conversion_factor()),
+            _ => Err(ConversionError { unit: *self, target }),
+        }
     }
 }
 
@@ -72,12 +75,14 @@ impl Display for ConversionError {
 #[non_exhaustive]
 pub enum Quantity {
     Length(Length),
+    Time(Time),
 }
 
 impl Display for Quantity {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Quantity::Length(l) => write!(f, "{}", l),
+            Quantity::Time(t) => write!(f, "{}", t),
         }
     }
 }
@@ -89,17 +94,12 @@ impl From<Quantity> for Unit {
 }
 
 impl Quantity {
-    /// Returns the conversion factor from this quantity to the target quantity.
-    pub fn conversion_factor(&self, target: Quantity) -> f64 {
-        match (self, target) {
-            (Quantity::Length(l1), Quantity::Length(l2)) => l1.conversion_factor() / l2.conversion_factor(),
-        }
-    }
-
     /// Returns true if this quantity is the same kind as the target quantity.
     pub fn matches_kind(&self, target: Quantity) -> bool {
         match (self, target) {
             (Quantity::Length(_), Quantity::Length(_)) => true,
+            (Quantity::Time(_), Quantity::Time(_)) => true,
+            _ => false,
         }
     }
 }
@@ -182,6 +182,79 @@ impl Convert for Length {
             Length::Yard => 0.9144,
             Length::Foot => 0.3048,
             Length::Inch => 0.0254,
+        }
+    }
+}
+
+/// A unit of time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Time {
+    Century,
+    Decade,
+
+    /// A year of 365.25 days. Decades and centuries are defined in terms of this unit.
+    Year,
+
+    Week,
+    Day,
+    Hour,
+    Minute,
+    Second,
+    Decisecond,
+    Centisecond,
+    Millisecond,
+    Microsecond,
+    Nanosecond,
+    Picosecond,
+}
+
+impl From<Time> for Unit {
+    fn from(t: Time) -> Self {
+        Self::new(Quantity::Time(t))
+    }
+}
+
+impl Display for Time {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Time::Century => write!(f, "cen"),
+            Time::Decade => write!(f, "dec"),
+            Time::Year => write!(f, "yr"),
+            Time::Week => write!(f, "wk"),
+            Time::Day => write!(f, "day"),
+            Time::Hour => write!(f, "hr"),
+            Time::Minute => write!(f, "min"),
+            Time::Second => write!(f, "sec"),
+            Time::Decisecond => write!(f, "ds"),
+            Time::Centisecond => write!(f, "cs"),
+            Time::Millisecond => write!(f, "ms"),
+            Time::Microsecond => write!(f, "µs"),
+            Time::Nanosecond => write!(f, "ns"),
+            Time::Picosecond => write!(f, "ps"),
+        }
+    }
+}
+
+impl Convert for Time {
+    const BASE: Self = Time::Second;
+
+    fn conversion_factor(&self) -> f64 {
+        match self {
+            Time::Century => 3.15576e9,
+            Time::Decade => 3.15576e8,
+            Time::Year => 3.15576e7,
+            Time::Week => 604800.0,
+            Time::Day => 86400.0,
+            Time::Hour => 3600.0,
+            Time::Minute => 60.0,
+            Time::Second => 1.0,
+            Time::Decisecond => 0.1,
+            Time::Centisecond => 0.01,
+            Time::Millisecond => 0.001,
+            Time::Microsecond => 1e-6,
+            Time::Nanosecond => 1e-9,
+            Time::Picosecond => 1e-12,
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::fmt::{self, Display, Formatter};
+use std::{error::Error, fmt::{self, Display, Formatter}};
 use super::convert::Convert;
 
 /// A unit of measurement.
@@ -74,11 +74,28 @@ pub struct ConversionError {
 impl Display for ConversionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f,
-            "cannot convert from {} to {}",
+            "cannot convert from `{}` to `{}`",
             self.unit, self.target
         )
     }
 }
+
+impl Error for ConversionError {}
+
+/// Error returned if the given unit abbreviation is invalid.
+#[derive(Debug)]
+pub struct InvalidUnit {
+    /// The invalid unit abbreviation.
+    unit: String,
+}
+
+impl Display for InvalidUnit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "not a valid unit: `{}`", self.unit)
+    }
+}
+
+impl Error for InvalidUnit {}
 
 /// A type of quantity, such as length, mass, volume, etc.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,6 +113,16 @@ impl Display for Quantity {
             Quantity::Area(a) => write!(f, "{}", a),
             Quantity::Time(t) => write!(f, "{}", t),
         }
+    }
+}
+
+impl TryFrom<&str> for Quantity {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Length::try_from(value).map(Quantity::Length)
+            .or_else(|_| Area::try_from(value).map(Quantity::Area))
+            .or_else(|_| Time::try_from(value).map(Quantity::Time))
     }
 }
 
@@ -149,6 +176,34 @@ impl From<Length> for Unit {
 impl From<Length> for Quantity {
     fn from(l: Length) -> Self {
         Self::Length(l)
+    }
+}
+
+impl TryFrom<&str> for Length {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "pc" => Ok(Length::Parsec),
+            "ly" => Ok(Length::LightYear),
+            "au" => Ok(Length::AstronomicalUnit),
+            "nmi" => Ok(Length::NauticalMile),
+            "km" => Ok(Length::Kilometer),
+            "m" => Ok(Length::Meter),
+            "dm" => Ok(Length::Decimeter),
+            "cm" => Ok(Length::Centimeter),
+            "mm" => Ok(Length::Millimeter),
+            "µm" | "um" => Ok(Length::Micrometer),
+            "nm" => Ok(Length::Nanometer),
+            "Å" | "A" => Ok(Length::Angstrom),
+            "pm" => Ok(Length::Picometer),
+
+            "mi" => Ok(Length::Mile),
+            "yd" => Ok(Length::Yard),
+            "ft" => Ok(Length::Foot),
+            "in" => Ok(Length::Inch),
+            _ => Err(InvalidUnit { unit: value.to_owned() }),
+        }
     }
 }
 
@@ -234,6 +289,24 @@ impl From<Area> for Quantity {
     }
 }
 
+impl TryFrom<&str> for Area {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "ha" => Ok(Area::Hectare),
+            "daa" => Ok(Area::Decare),
+            "a" => Ok(Area::Are),
+            "da" => Ok(Area::Deciare),
+            "ca" => Ok(Area::Centiare),
+            "b" => Ok(Area::Barn),
+
+            "ac" => Ok(Area::Acre),
+            _ => Err(InvalidUnit { unit: value.to_owned() }),
+        }
+    }
+}
+
 impl Display for Area {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -313,6 +386,30 @@ impl From<Time> for Unit {
 impl From<Time> for Quantity {
     fn from(t: Time) -> Self {
         Self::Time(t)
+    }
+}
+
+impl TryFrom<&str> for Time {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "cen" => Ok(Time::Century),
+            "dec" => Ok(Time::Decade),
+            "yr" => Ok(Time::Year),
+            "wk" => Ok(Time::Week),
+            "day" => Ok(Time::Day),
+            "hr" => Ok(Time::Hour),
+            "min" => Ok(Time::Minute),
+            "sec" => Ok(Time::Second),
+            "ds" => Ok(Time::Decisecond),
+            "cs" => Ok(Time::Centisecond),
+            "ms" => Ok(Time::Millisecond),
+            "µs" | "us" => Ok(Time::Microsecond),
+            "ns" => Ok(Time::Nanosecond),
+            "ps" => Ok(Time::Picosecond),
+            _ => Err(InvalidUnit { unit: value.to_owned() }),
+        }
     }
 }
 

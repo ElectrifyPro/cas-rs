@@ -24,8 +24,13 @@ impl Display for Unit {
 
 impl Unit {
     /// Creates a new unit with the given quantity, with power 1.
-    pub fn new(quantity: Quantity) -> Self {
-        Self { quantity, power: 1 }
+    pub fn new(quantity: impl Into<Quantity>) -> Self {
+        Self { quantity: quantity.into(), power: 1 }
+    }
+
+    /// Creates a new unit with the given quantity and power.
+    pub fn with_power(quantity: impl Into<Quantity>, power: u8) -> Self {
+        Self { quantity: quantity.into(), power }
     }
 
     /// Returns [`Ok`] if this unit can be converted to the target unit, or [`Err`] otherwise.
@@ -44,8 +49,14 @@ impl Unit {
     /// them.
     pub fn conversion_factor(&self, target: Unit) -> Result<f64, ConversionError> {
         match (self.quantity, target.quantity) {
-            (Quantity::Length(l1), Quantity::Length(l2)) => Ok(l1.conversion_factor() / l2.conversion_factor()),
-            (Quantity::Time(t1), Quantity::Time(t2)) => Ok(t1.conversion_factor() / t2.conversion_factor()),
+            (Quantity::Length(l1), Quantity::Length(l2)) => {
+                Ok(l1.conversion_factor().powi(self.power as i32)
+                    / l2.conversion_factor().powi(target.power as i32))
+            }
+            (Quantity::Time(t1), Quantity::Time(t2)) => {
+                Ok(t1.conversion_factor().powi(self.power as i32)
+                    / t2.conversion_factor().powi(target.power as i32))
+            }
             _ => Err(ConversionError { unit: *self, target }),
         }
     }
@@ -134,6 +145,12 @@ impl From<Length> for Unit {
     }
 }
 
+impl From<Length> for Quantity {
+    fn from(l: Length) -> Self {
+        Self::Length(l)
+    }
+}
+
 impl Display for Length {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -212,6 +229,12 @@ pub enum Time {
 impl From<Time> for Unit {
     fn from(t: Time) -> Self {
         Self::new(Quantity::Time(t))
+    }
+}
+
+impl From<Time> for Quantity {
+    fn from(t: Time) -> Self {
+        Self::Time(t)
     }
 }
 

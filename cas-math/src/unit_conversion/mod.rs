@@ -96,16 +96,23 @@ mod tests {
     }
 
     #[test]
+    fn convert_area_as_length() {
+        let m = Measurement::new(2.0, Unit::with_power(Length::Meter, 2));
+        let m2 = m.convert(Unit::with_power(Length::Yard, 2)).unwrap();
+        assert_float_relative_eq!(*m2.value(), 2.39198);
+    }
+
+    #[test]
     fn identity_time() {
-        let m = Measurement::new(38.66, Quantity::Time(Time::Decade));
-        let m2 = m.convert(Quantity::Time(Time::Decade)).unwrap();
+        let m = Measurement::new(38.66, Time::Decade);
+        let m2 = m.convert(Time::Decade).unwrap();
         assert_float_relative_eq!(*m2.value(), 38.66);
     }
 
     #[test]
     fn convert_time() {
-        let m = Measurement::new(38.66, Quantity::Time(Time::Decade));
-        let m2 = m.convert(Quantity::Time(Time::Decisecond)).unwrap();
-        assert_float_relative_eq!(*m2.value(), 121999075916.0);
+        let m = Measurement::new(38.66, Time::Decade);
+        let m2 = m.convert(Time::Decisecond).unwrap();
+        assert_float_relative_eq!(*m2.value(), 1.220016816e11);
     }
 }

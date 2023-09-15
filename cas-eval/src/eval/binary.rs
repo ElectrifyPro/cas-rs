@@ -6,6 +6,7 @@ use crate::{
     error::{kind::{BitshiftOverflow, InvalidBinaryOperation}, Error},
     eval::Eval,
     value::Value,
+    eval_break,
 };
 
 /// Evaluates a binary expression with two real operands.
@@ -135,8 +136,8 @@ fn eval_bool_operands(
 
 impl Eval for Binary {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
-        let left = self.lhs.eval(ctxt)?;
-        let right = self.rhs.eval(ctxt)?;
+        let left = eval_break!(self.lhs, ctxt);
+        let right = eval_break!(self.rhs, ctxt);
         if left.is_real() && right.is_real() {
             return eval_real_operands(self, left.coerce_real(), right.coerce_real());
         }

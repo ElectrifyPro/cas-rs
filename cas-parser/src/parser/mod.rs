@@ -11,6 +11,7 @@ pub mod if_expr;
 pub mod iter;
 pub mod keyword;
 pub mod literal;
+pub mod loop_expr;
 pub mod paren;
 pub mod stmt;
 pub mod surrounded;

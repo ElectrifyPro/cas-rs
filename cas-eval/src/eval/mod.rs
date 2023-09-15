@@ -1,10 +1,13 @@
 mod assign;
 mod binary;
 mod block;
+mod break_expr;
 mod call;
+mod continue_expr;
 mod expr;
 mod if_expr;
 mod literal;
+mod loop_expr;
 mod primary;
 mod stmt;
 mod unary;

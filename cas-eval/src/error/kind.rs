@@ -209,3 +209,12 @@ pub struct NonNumericDerivative {
     /// The type of the expression that was differentiated.
     pub expr_type: &'static str,
 }
+
+/// Cannot use `break` or `continue` outside of a loop.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "cannot use `break` or `continue` here",
+    labels = ["this keyword"],
+    help = "`break` or `continue` can only be used within a loop block",
+)]
+pub struct LoopControlOutsideLoop;

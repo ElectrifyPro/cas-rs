@@ -57,6 +57,23 @@ impl<'a> Iterator for ExprIter<'a> {
                     self.stack.push(&if_expr.then_expr);
                     self.stack.push(&if_expr.condition);
                 },
+                Expr::Loop(loop_expr) => {
+                    if self.is_last_visited(&loop_expr.body) {
+                        return self.visit();
+                    }
+                    self.stack.push(&loop_expr.body);
+                },
+                Expr::Break(break_expr) => {
+                    if let Some(value) = &break_expr.value {
+                        if self.is_last_visited(value) {
+                            return self.visit();
+                        }
+                        self.stack.push(value);
+                    } else {
+                        return self.visit();
+                    }
+                },
+                Expr::Continue(_) => return self.visit(),
                 Expr::Call(call) => {
                     if call.args.is_empty() || self.is_last_visited(call.args.last().unwrap()) {
                         return self.visit();

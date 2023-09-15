@@ -94,7 +94,7 @@ pub enum TokenKind {
     #[regex(r"([a-zA-Z_]+|atan2)")] // TODO: includes horrible hard-coded test for atan2
     Name,
 
-    #[regex(r"(if|then|else)")]
+    #[regex(r"(if|then|else|loop|break|continue)")]
     Keyword,
 
     #[token(",")]

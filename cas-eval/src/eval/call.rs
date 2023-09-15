@@ -17,6 +17,7 @@ use crate::{
     eval::Eval,
     funcs::choose,
     value::Value,
+    eval_break,
 };
 use rug::{ops::Pow, Float};
 use std::ops::Range;
@@ -31,20 +32,6 @@ trait Derv {
 
     /// Evaluates the function at the given value.
     fn eval(&self, ctxt: &mut Ctxt, float: Float) -> Result<Value, Error>;
-
-    // /// Evaluates the derivative of the function at the given value.
-    // fn estimate_derivative(&self, ctxt: &Ctxt, float: Float) -> Result<Float, Error> {
-    //     if self.derivatives() == 0 {
-    //         self.eval(ctxt, float)
-    //     } else {
-    //         if self.num_args() != 1 {
-    //             return Err(Error::new(self.call_site(), InvalidDerivativeArguments {
-    //                 name: self.name().into(),
-    //             }));
-    //         }
-    //         compute_derivative(self, ctxt, float)
-    //     }
-    // }
 }
 
 /// For builtin functions.
@@ -121,10 +108,13 @@ impl Eval for Call {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         // try using a builtin function
         if let Some(builtin) = builtins::get_builtin(&self.name.name) {
-            let mut args = self.args.iter()
-                .map(|arg| arg.eval(ctxt))
-                .collect::<Result<Vec<_>, _>>()?;
+            let mut args = Vec::with_capacity(self.args.len());
+            for arg in self.args.iter() {
+                args.push(eval_break!(arg, ctxt));
+            }
+
             return if self.derivatives == 0 {
+                // no eval_break!; cannot break out of loops from within a function
                 builtin.eval(ctxt, &args)
                     .map_err(|err| err.into_error(self))
             } else {
@@ -172,7 +162,7 @@ impl Eval for Call {
                 // a positional argument
                 // evaluate it and add it to the context for use in the function body
                 (Some(arg), Some(param)) => {
-                    let value = arg.eval(&mut ctxt)?;
+                    let value = eval_break!(arg, &mut ctxt);
                     ctxt.add_var(&param.symbol().name, value);
                 },
 
@@ -210,6 +200,7 @@ impl Eval for Call {
         }
 
         let result = if self.derivatives == 0 {
+            // no eval_break!; cannot break out of loops from within a function
             func.body.eval(&mut ctxt)
         } else {
             if func.header.params.len() != 1 {

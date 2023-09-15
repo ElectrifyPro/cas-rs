@@ -222,3 +222,25 @@ pub struct TooManyDerivatives {
     /// The number of derivatives that were found.
     pub derivatives: usize,
 }
+
+/// Missing `then` or `else` keyword in an `if` expression.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!("missing `{}` in `if` expression", self.keyword),
+    labels = ["this `if` expression".to_string(), format!("I expected to see `{}` here", self.keyword)],
+)]
+pub struct MissingIfKeyword {
+    /// The keyword that was expected.
+    pub keyword: &'static str,
+}
+
+/// Missing `then` or `else` branch in an `if` expression.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!("missing `{}` branch in `if` expression", self.keyword),
+    labels = ["this `if` expression".to_string(), format!("I expected to see an `{}` branch here", self.keyword)],
+)]
+pub struct MissingIfBranch {
+    /// The keyword that was expected.
+    pub keyword: &'static str,
+}

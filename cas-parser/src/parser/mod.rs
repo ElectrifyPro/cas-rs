@@ -8,6 +8,7 @@ pub mod expr;
 pub mod fmt;
 pub mod if_expr;
 pub mod iter;
+pub mod keyword;
 pub mod literal;
 pub mod paren;
 pub mod stmt;
@@ -254,6 +255,7 @@ pub trait Parse<'source>: Sized {
 }
 
 /// The result of a parsing operation.
+#[derive(Debug)]
 pub enum ParseResult<T> {
     /// Parsing was successful.
     Ok(T),

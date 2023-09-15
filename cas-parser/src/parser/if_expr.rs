@@ -3,10 +3,10 @@ use super::{
     error::{kind, Error},
     expr::Expr,
     fmt::Latex,
-    token::Keyword,
+    literal::{Literal, LitNum},
+    keyword::{Else, If as IfToken, Then},
     Parse,
     Parser,
-    ParseResult,
 };
 
 #[cfg(feature = "serde")]
@@ -50,30 +50,80 @@ impl<'source> Parse<'source> for If {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let if_token = input.try_parse_then::<Keyword, _>(|name, input| {
-            if name.lexeme == "if" {
-                ParseResult::Ok(())
-            } else {
-                ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
-            }
-        }).forward_errors(recoverable_errors)?;
+        let if_token = input.try_parse::<IfToken>().forward_errors(recoverable_errors)?;
         let condition = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
-        let then_token = input.try_parse_then::<Keyword, _>(|name, input| {
-            if name.lexeme == "then" {
-                ParseResult::Ok(())
-            } else {
-                ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
-            }
-        }).forward_errors(recoverable_errors)?;
-        let then_expr = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
-        let else_token = input.try_parse_then::<Keyword, _>(|name, input| {
-            if name.lexeme == "else" {
-                ParseResult::Ok(())
-            } else {
-                ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
-            }
-        }).forward_errors(recoverable_errors)?;
-        let else_expr = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
+        let (then_token, then_expr) = 'then: {
+            let then_token = match input.try_parse::<Then>().forward_errors(recoverable_errors) {
+                Ok(token) => token,
+                Err(_) => {
+                    recoverable_errors.push(Error::new(
+                        vec![if_token.span.clone(), input.current_token().unwrap().span.clone()],
+                        kind::MissingIfKeyword {
+                            keyword: "then",
+                        },
+                    ));
+                    break 'then (Then {
+                        lexeme: "",
+                        span: 0..0,
+                    }, Expr::Literal(Literal::Number(LitNum {
+                        value: String::new(),
+                        span: 0..0,
+                    })));
+                },
+            };
+            let then_expr = match input.try_parse::<Expr>().forward_errors(recoverable_errors) {
+                Ok(expr) => expr,
+                Err(_) => {
+                    recoverable_errors.push(Error::new(
+                        vec![if_token.span.clone(), input.current_token().unwrap().span.clone()],
+                        kind::MissingIfBranch {
+                            keyword: "then",
+                        },
+                    ));
+                    Expr::Literal(Literal::Number(LitNum {
+                        value: String::new(),
+                        span: 0..0,
+                    }))
+                },
+            };
+            (then_token, then_expr)
+        };
+        let (else_token, else_expr) = 'else_branch: {
+            let else_token = match input.try_parse::<Else>().forward_errors(recoverable_errors) {
+                Ok(token) => token,
+                Err(_) => {
+                    recoverable_errors.push(Error::new(
+                        vec![if_token.span.clone(), input.current_token().unwrap().span.clone()],
+                        kind::MissingIfKeyword {
+                            keyword: "else",
+                        },
+                    ));
+                    break 'else_branch (Else {
+                        lexeme: "",
+                        span: 0..0,
+                    }, Expr::Literal(Literal::Number(LitNum {
+                        value: String::new(),
+                        span: 0..0,
+                    })));
+                },
+            };
+            let else_expr = match input.try_parse::<Expr>().forward_errors(recoverable_errors) {
+                Ok(expr) => expr,
+                Err(_) => {
+                    recoverable_errors.push(Error::new(
+                        vec![if_token.span.clone(), input.current_token().unwrap().span.clone()],
+                        kind::MissingIfBranch {
+                            keyword: "else",
+                        },
+                    ));
+                    Expr::Literal(Literal::Number(LitNum {
+                        value: String::new(),
+                        span: 0..0,
+                    }))
+                },
+            };
+            (else_token, else_expr)
+        };
         let span = if_token.span.start..else_expr.span().end;
 
         Ok(Self {

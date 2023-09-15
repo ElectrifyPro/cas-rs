@@ -1,7 +1,7 @@
 pub mod op;
 
 use crate::{
-    parser::{error::{kind, Error}, Parser, Parse},
+    parser::{error::{kind, Error}, garbage::Garbage, Parser, Parse},
     tokenizer::TokenKind,
 };
 use std::ops::Range;
@@ -36,6 +36,12 @@ macro_rules! token_kinds {
                             found: token.kind,
                         })])
                     }
+                }
+            }
+
+            impl<'source> Garbage for $name<'source> {
+                fn garbage() -> Self {
+                    Self { lexeme: "", span: 0..0 }
                 }
             }
         )*

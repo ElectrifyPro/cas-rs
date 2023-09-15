@@ -6,6 +6,7 @@ pub mod delimited;
 pub mod error;
 pub mod expr;
 pub mod fmt;
+pub mod garbage;
 pub mod if_expr;
 pub mod iter;
 pub mod keyword;

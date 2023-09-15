@@ -3,7 +3,7 @@ use super::{
     error::{kind, Error},
     expr::Expr,
     fmt::Latex,
-    literal::{Literal, LitSym},
+    garbage::Garbage,
     token::{CloseParen, OpenParen},
     Parse,
     Parser,
@@ -54,18 +54,10 @@ impl<'source> Parse<'source> for Paren {
                         kind::EmptyParenthesis,
                     ));
 
-                    let fake_expr = Expr::Literal(Literal::Symbol(LitSym {
-                        name: String::new(),
-                        span: 0..0,
-                    }));
-
                     // return a fake expression for recovery purposes, and also so that we don't
                     // try to parse the close paren again below (which would add an extraneous
                     // error to the error list)
-                    return Ok(Self {
-                        expr: Box::new(fake_expr),
-                        span: open_paren.span.start..close_paren.span.end,
-                    });
+                    return Garbage::garbage();
                 } else {
                     Err(errs)
                 }
@@ -80,10 +72,7 @@ impl<'source> Parse<'source> for Paren {
                 ));
 
                 // fake a close paren for recovery purposes
-                CloseParen {
-                    lexeme: "",
-                    span: 0..0,
-                }
+                Garbage::garbage()
             });
         Ok(Self {
             expr: Box::new(expr),

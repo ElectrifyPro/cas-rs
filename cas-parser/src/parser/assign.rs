@@ -3,6 +3,7 @@ use crate::{
         error::{kind::InvalidAssignmentLhs, Error},
         expr::Expr,
         fmt::Latex,
+        garbage::Garbage,
         literal::{Literal, LitSym},
         token::Assign as AssignOp,
         ParenDelimited,
@@ -142,7 +143,7 @@ impl AssignTarget {
             Expr::Call(call) => {
                 let call_span = call.span();
                 ParseResult::Recoverable(
-                    AssignTarget::Symbol(call.name),
+                    Garbage::garbage(),
                     vec![Error::new(
                         vec![call_span, op.span.clone()],
                         InvalidAssignmentLhs { is_call: true },
@@ -150,10 +151,7 @@ impl AssignTarget {
                 )
             },
             expr => ParseResult::Recoverable(
-                AssignTarget::Symbol(LitSym {
-                    name: String::new(),
-                    span: expr.span(),
-                }),
+                Garbage::garbage(),
                 vec![Error::new(
                     vec![expr.span(), op.span.clone()],
                     InvalidAssignmentLhs { is_call: false },

@@ -2,6 +2,7 @@ use std::{fmt, ops::Range};
 use super::{
     error::{kind, Error},
     fmt::Latex,
+    garbage::Garbage,
     stmt::Stmt,
     token::{CloseCurly, OpenCurly},
     Parse,
@@ -49,10 +50,7 @@ impl<'source> Parse<'source> for Block {
                 ));
 
                 // fake a close paren for recovery purposes
-                CloseCurly {
-                    lexeme: "",
-                    span: 0..0,
-                }
+                Garbage::garbage()
             });
         Ok(Self {
             stmts,

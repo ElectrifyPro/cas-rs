@@ -1,7 +1,7 @@
 use std::{fmt, ops::Range};
 use super::{
     error::{kind, Error},
-    expr::{Expr, Primary},
+    expr::Expr,
     fmt::Latex,
     token::Keyword,
     Parse,
@@ -57,7 +57,7 @@ impl<'source> Parse<'source> for If {
                 ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
             }
         }).forward_errors(recoverable_errors)?;
-        let condition = input.try_parse::<Primary>().forward_errors(recoverable_errors)?;
+        let condition = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
         let then_token = input.try_parse_then::<Keyword, _>(|name, input| {
             if name.lexeme == "then" {
                 ParseResult::Ok(())
@@ -65,7 +65,7 @@ impl<'source> Parse<'source> for If {
                 ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
             }
         }).forward_errors(recoverable_errors)?;
-        let then_expr = input.try_parse::<Primary>().forward_errors(recoverable_errors)?;
+        let then_expr = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
         let else_token = input.try_parse_then::<Keyword, _>(|name, input| {
             if name.lexeme == "else" {
                 ParseResult::Ok(())
@@ -73,13 +73,13 @@ impl<'source> Parse<'source> for If {
                 ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
             }
         }).forward_errors(recoverable_errors)?;
-        let else_expr = input.try_parse::<Primary>().forward_errors(recoverable_errors)?;
+        let else_expr = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
         let span = if_token.span.start..else_expr.span().end;
 
         Ok(Self {
-            condition: Box::new(condition.into()),
-            then_expr: Box::new(then_expr.into()),
-            else_expr: Box::new(else_expr.into()),
+            condition: Box::new(condition),
+            then_expr: Box::new(then_expr),
+            else_expr: Box::new(else_expr),
             span,
             if_span: if_token.span,
             then_span: then_token.span,

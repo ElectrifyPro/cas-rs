@@ -2,6 +2,8 @@
 
 `cas-rs` is an opinionated computer algebra system written in Rust, made for use with [CalcBot](https://discord.com/application-directory/674457690646249472/). It is currently in a very early stage of development.
 
+See below for a guide on the REPL and some code examples.
+
 # Features
 
 - Robust expression parser and evaluator with very human-friendly output
@@ -13,9 +15,9 @@
 - Builtin REPL
 - And more!
 
-# Examples
+# REPL
 
-`cas-rs` comes with a REPL to help you try out the library. Clone this repository and run `cargo run` within the `cas-rs` directory to start it. Here's a quick guide:
+`cas-rs` comes with a builtin REPL to help you try out the library. Clone this repository and run `cargo run` within the `cas-rs` directory to start it. Here's a quick guide:
 
 (user-input is prefixed with `> `)
 
@@ -164,6 +166,91 @@ Error: expected end of file
 ```
 
 Admittedly, these are rather handpicked examples. However, it is a design goal to make the parser as helpful as possible, and this is a good start.
+
+# Code examples
+
+`cas-rs` utilizes a custom scripting language called "CalcScript" to enable interaction with all of its features. CalcScript is a mostly imperative, expression-oriented language, and attempts to keep syntax and visual noise minimal, while still readable. See the [`examples/`](examples) directory for examples of basic programs written in CalcScript.
+
+Below are some code examples of CalcScript in action:
+
+## Expression-oriented
+
+CalcScript is an expression-oriented language, meaning that every statement is an expression that evaluates to a value. Certain statements, such as blocks, are expressions that evaluate to the last statement within them.
+
+In the complete CalcScript program below, the value of `t` is the value of the last statement, `x + y` (5). Each of the other assignment statements (and statements that are terminated by semicolons) returns the unit type `()`.
+
+```
+t = {
+    x = 2;
+    y = if x % 2 == 0 then 3 else 4;
+    x + y
+}
+```
+
+## Radix notation
+
+Radix notation is a standard method of writing numbers in bases other than base-10. To type a number in radix notation, type the base, followed by a single quote, followed by the digits of the number. For example, this is the number 1072, expressed in various different bases:
+
+```
+a = 2'10000110000;
+b = 8'2060;
+c = 25'1hm;
+d = 32'11g;
+f = 47'mC;
+
+a == b && b == c && c == d && d == f
+```
+
+## Programming constructs
+
+`cas-rs` supports usual programming constructs, such as `if` / `else` statements, and `loop`s.
+
+In the case of `if` / `else` statements, you often will not need to enclose conditions or branches with any special syntax (you can do so with curly braces or parentheses if needed):
+
+```
+my_abs(x) = if x < 0 then -x else x;
+quadratic_formula(a, b, c, plus = true) = {
+    discriminant = b^2 - 4 a c;
+    if discriminant < 0 then {
+        f() = 0
+    } else {
+        left = -b / (2a);
+        right = sqrt(discriminant) / (2a);
+        if plus then left + right else left - right
+    }
+};
+```
+
+`loop`s are also supported; within the scope of a `loop` expression, the `break` and `continue` keywords can be used to break out of the loop or skip to the next iteration, respectively:
+
+```
+my_factorial(n) = {
+    i = 1;
+    result = 1;
+    loop {
+        i = i + 1;
+        if i > n then break else continue;
+        result = result * i
+    };
+    result
+}
+```
+
+The `break` keyword can also be used to give a value to the loop expression. For example, the following function returns the least common multiple of two numbers:
+
+```
+lcm(a, b) = {
+    i = 0;
+    loop {
+        i = i + 1;
+        if i % a == 0 && i % b == 0 then {
+            break i
+        } else {
+            continue
+        }
+    }
+}
+```
 
 # Acknowledgements
 

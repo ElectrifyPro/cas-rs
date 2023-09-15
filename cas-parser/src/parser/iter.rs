@@ -50,12 +50,20 @@ impl<'a> Iterator for ExprIter<'a> {
                 },
                 Expr::Block(_) => return self.visit(), // NOTE: inner statements are not visited
                 Expr::If(if_expr) => {
-                    if self.is_last_visited(&if_expr.else_expr) {
-                        return self.visit();
+                    if let Some(else_expr) = &if_expr.else_expr {
+                        if self.is_last_visited(&else_expr) {
+                            return self.visit();
+                        }
+                        self.stack.push(&else_expr);
+                        self.stack.push(&if_expr.then_expr);
+                        self.stack.push(&if_expr.condition);
+                    } else {
+                        if self.is_last_visited(&if_expr.then_expr) {
+                            return self.visit();
+                        }
+                        self.stack.push(&if_expr.then_expr);
+                        self.stack.push(&if_expr.condition);
                     }
-                    self.stack.push(&if_expr.else_expr);
-                    self.stack.push(&if_expr.then_expr);
-                    self.stack.push(&if_expr.condition);
                 },
                 Expr::Loop(loop_expr) => {
                     if self.is_last_visited(&loop_expr.body) {

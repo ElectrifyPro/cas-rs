@@ -1304,7 +1304,7 @@ mod tests {
                 ],
                 span: 10..22,
             })),
-            else_expr: Box::new(Expr::Block(Block {
+            else_expr: Some(Box::new(Expr::Block(Block {
                 stmts: vec![
                     Stmt {
                         expr: Expr::Assign(Assign {
@@ -1331,11 +1331,11 @@ mod tests {
                     },
                 ],
                 span: 28..40,
-            })),
+            }))),
             span: 0..40,
             if_span: 0..2,
             then_span: 5..9,
-            else_span: 23..27,
+            else_span: Some(23..27),
         }));
     }
 

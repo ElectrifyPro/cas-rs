@@ -229,7 +229,7 @@ my_factorial(n) = {
     result = 1;
     loop {
         i = i + 1;
-        if i > n then break else continue;
+        if i > n then break;
         result = result * i
     };
     result
@@ -245,8 +245,6 @@ lcm(a, b) = {
         i = i + 1;
         if i % a == 0 && i % b == 0 then {
             break i
-        } else {
-            continue
         }
     }
 }

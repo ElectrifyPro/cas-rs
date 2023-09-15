@@ -33,6 +33,12 @@ impl<T: Garbage, E> Garbage for Result<T, E> {
     }
 }
 
+impl<T: Garbage> Garbage for Option<T> {
+    fn garbage() -> Self {
+        Some(T::garbage())
+    }
+}
+
 impl Garbage for AssignTarget {
     fn garbage() -> Self {
         AssignTarget::Symbol(LitSym::garbage())

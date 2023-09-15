@@ -7,7 +7,11 @@ impl Eval for If {
         if condition.is_truthy() {
             self.then_expr.eval(ctxt)
         } else {
-            self.else_expr.eval(ctxt)
+            if let Some(else_expr) = &self.else_expr {
+                else_expr.eval(ctxt)
+            } else {
+                Ok(Value::Unit)
+            }
         }
     }
 }

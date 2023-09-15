@@ -23,7 +23,7 @@ pub struct If {
     pub then_expr: Box<Expr>,
 
     /// The expression to evaluate if the condition is false.
-    pub else_expr: Box<Expr>,
+    pub else_expr: Option<Box<Expr>>,
 
     /// The region of the source code that this literal was parsed from.
     pub span: Range<usize>,
@@ -35,7 +35,7 @@ pub struct If {
     pub then_span: Range<usize>,
 
     /// The span of the `else` keyword.
-    pub else_span: Range<usize>,
+    pub else_span: Option<Range<usize>>,
 }
 
 impl If {
@@ -79,21 +79,12 @@ impl<'source> Parse<'source> for If {
                 })
         };
         let (else_token, else_expr) = 'else_branch: {
-            let else_token = match input.try_parse::<Else>().forward_errors(recoverable_errors) {
-                Ok(token) => token,
-                Err(_) => {
-                    recoverable_errors.push(Error::new(
-                        vec![if_token.span.clone(), input.current_token().unwrap().span.clone()],
-                        kind::MissingIfKeyword {
-                            keyword: "else",
-                        },
-                    ));
-                    break 'else_branch Garbage::garbage();
-                },
+            let Ok(else_token) = input.try_parse::<Else>().forward_errors(recoverable_errors) else {
+                break 'else_branch (None, None);
             };
             input.try_parse::<Expr>()
                 .forward_errors(recoverable_errors)
-                .map(|expr| (else_token, expr))
+                .map(|expr| (Some(else_token), Some(expr)))
                 .unwrap_or_else(|_| {
                     recoverable_errors.push(Error::new(
                         vec![if_token.span.clone(), input.current_token().unwrap().span.clone()],
@@ -104,16 +95,20 @@ impl<'source> Parse<'source> for If {
                     Garbage::garbage()
                 })
         };
-        let span = if_token.span.start..else_expr.span().end;
+        let span = if let Some(else_expr) = &else_expr {
+            if_token.span.start..else_expr.span().end
+        } else {
+            if_token.span.start..then_expr.span().end
+        };
 
         Ok(Self {
             condition: Box::new(condition),
             then_expr: Box::new(then_expr),
-            else_expr: Box::new(else_expr),
+            else_expr: else_expr.map(Box::new),
             span,
             if_span: if_token.span,
             then_span: then_token.span,
-            else_span: else_token.span,
+            else_span: else_token.map(|token| token.span),
         })
     }
 }
@@ -124,8 +119,10 @@ impl Latex for If {
         self.condition.fmt_latex(f)?;
         write!(f, "\\text{{ then }}")?;
         self.then_expr.fmt_latex(f)?;
-        write!(f, "\\text{{ else }}")?;
-        self.else_expr.fmt_latex(f)?;
+        if let Some(else_expr) = &self.else_expr {
+            write!(f, "\\text{{ else }}")?;
+            else_expr.fmt_latex(f)?;
+        }
         Ok(())
     }
 }

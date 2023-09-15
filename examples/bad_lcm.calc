@@ -4,8 +4,6 @@ lcm(a, b) = {
         i = i + 1;
         if i % a == 0 && i % b == 0 then {
             break i
-        } else {
-            continue
         }
     }
 };

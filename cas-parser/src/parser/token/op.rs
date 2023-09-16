@@ -34,7 +34,8 @@ pub enum Precedence {
     /// Any precedence.
     Any,
 
-    /// Precedence of assignment (`=`).
+    /// Precedence of assignment (`=`, `+=`, `-=`, `*=`, `/=`, `%=`, `^=`, `&&=`, `||=`, `&=`,
+    /// `|=`, `>>=`, and `<<=`).
     Assign,
 
     /// Precedence of logical or (`or`).
@@ -343,6 +344,139 @@ impl Latex for BinOp {
             BinOpKind::ApproxNotEq => write!(f, "\\not\\approx "),
             BinOpKind::And => write!(f, "\\wedge "),
             BinOpKind::Or => write!(f, "\\vee "),
+        }
+    }
+}
+
+/// The kind of assignment operator.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum AssignOpKind {
+    Assign,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Exp,
+    And,
+    Or,
+    BitAnd,
+    BitOr,
+    BitRight,
+    BitLeft,
+}
+
+impl From<AssignOpKind> for BinOpKind {
+    fn from(value: AssignOpKind) -> Self {
+        match value {
+            AssignOpKind::Assign => Self::Eq,
+            AssignOpKind::Add => Self::Add,
+            AssignOpKind::Sub => Self::Sub,
+            AssignOpKind::Mul => Self::Mul,
+            AssignOpKind::Div => Self::Div,
+            AssignOpKind::Mod => Self::Mod,
+            AssignOpKind::Exp => Self::Exp,
+            AssignOpKind::And => Self::And,
+            AssignOpKind::Or => Self::Or,
+            AssignOpKind::BitAnd => Self::BitAnd,
+            AssignOpKind::BitOr => Self::BitOr,
+            AssignOpKind::BitRight => Self::BitRight,
+            AssignOpKind::BitLeft => Self::BitLeft,
+        }
+    }
+}
+
+/// An assignment operator that takes two operands, assigning the value of the right operand to the
+/// left operand, possibly with an intermediate operation.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct AssignOp {
+    /// The kind of assignment operator.
+    pub kind: AssignOpKind,
+
+    /// The region of the source code that this operator was parsed from.
+    pub span: Range<usize>,
+}
+
+impl AssignOp {
+    /// Returns true if this assignment operator is the standard assignment operator (i.e. `=`).
+    pub fn is_standard(&self) -> bool {
+        matches!(self.kind, AssignOpKind::Assign)
+    }
+
+    /// Returns true if this assignment operator is a compound assignment operator.
+    pub fn is_compound(&self) -> bool {
+        !self.is_standard()
+    }
+}
+
+impl<'source> Parse<'source> for AssignOp {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        _: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let token = input.next_token().map_err(|e| vec![e])?;
+        let kind = match token.kind {
+            TokenKind::Assign => Ok(AssignOpKind::Assign),
+            TokenKind::AddAssign => Ok(AssignOpKind::Add),
+            TokenKind::SubAssign => Ok(AssignOpKind::Sub),
+            TokenKind::MulAssign => Ok(AssignOpKind::Mul),
+            TokenKind::DivAssign => Ok(AssignOpKind::Div),
+            TokenKind::ModAssign => Ok(AssignOpKind::Mod),
+            TokenKind::ExpAssign => Ok(AssignOpKind::Exp),
+            TokenKind::AndAssign => Ok(AssignOpKind::And),
+            TokenKind::OrAssign => Ok(AssignOpKind::Or),
+            TokenKind::BitAndAssign => Ok(AssignOpKind::BitAnd),
+            TokenKind::BitOrAssign => Ok(AssignOpKind::BitOr),
+            TokenKind::BitRightAssign => Ok(AssignOpKind::BitRight),
+            TokenKind::BitLeftAssign => Ok(AssignOpKind::BitLeft),
+            _ => Err(vec![Error::new(
+                vec![token.span.clone()],
+                kind::UnexpectedToken {
+                    expected: &[
+                        TokenKind::Assign,
+                        TokenKind::AddAssign,
+                        TokenKind::SubAssign,
+                        TokenKind::MulAssign,
+                        TokenKind::DivAssign,
+                        TokenKind::ModAssign,
+                        TokenKind::ExpAssign,
+                        TokenKind::AndAssign,
+                        TokenKind::OrAssign,
+                        TokenKind::BitAndAssign,
+                        TokenKind::BitOrAssign,
+                        TokenKind::BitRightAssign,
+                        TokenKind::BitLeftAssign,
+                    ],
+                    found: token.kind,
+                },
+            )]),
+        }?;
+
+        Ok(Self {
+            kind,
+            span: token.span,
+        })
+    }
+}
+
+impl Latex for AssignOp {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            AssignOpKind::Assign => write!(f, "="),
+            AssignOpKind::Add => write!(f, "+="),
+            AssignOpKind::Sub => write!(f, "-="),
+            AssignOpKind::Mul => write!(f, "*="),
+            AssignOpKind::Div => write!(f, "/="),
+            AssignOpKind::Mod => write!(f, "\\mod="),
+            AssignOpKind::Exp => write!(f, "^="),
+            AssignOpKind::And => write!(f, "\\wedge="),
+            AssignOpKind::Or => write!(f, "\\vee="),
+            AssignOpKind::BitAnd => write!(f, "\\&="),
+            AssignOpKind::BitOr => write!(f, "\\vert="),
+            AssignOpKind::BitRight => write!(f, "\\gg="),
+            AssignOpKind::BitLeft => write!(f, "\\ll="),
         }
     }
 }

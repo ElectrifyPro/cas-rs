@@ -1,11 +1,11 @@
 use crate::{
     parser::{
-        error::{kind::InvalidAssignmentLhs, Error},
+        error::{kind::{CompoundAssignmentInHeader, InvalidAssignmentLhs, InvalidCompoundAssignmentLhs}, Error},
         expr::Expr,
         fmt::Latex,
         garbage::Garbage,
         literal::{Literal, LitSym},
-        token::Assign as AssignOp,
+        token::op::AssignOp,
         ParenDelimited,
         Parse,
         Parser,
@@ -47,7 +47,13 @@ impl<'source> Parse<'source> for Param {
     ) -> Result<Self, Vec<Error>> {
         let symbol = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
 
-        if input.try_parse::<AssignOp>().is_ok() {
+        if let Ok(assign) = input.try_parse::<AssignOp>().forward_errors(recoverable_errors) {
+            if assign.is_compound() {
+                recoverable_errors.push(Error::new(
+                    vec![assign.span.clone()],
+                    CompoundAssignmentInHeader,
+                ));
+            }
             let default = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
             Ok(Param::Default(symbol, default))
         } else {
@@ -138,25 +144,32 @@ impl AssignTarget {
     /// Tries to convert a general [`Expr`] into an [`AssignTarget`]. This is used when parsing
     /// assignment expressions, such as `x = 1` or `f(x) = x^2`.
     pub fn try_from_with_op(expr: Expr, op: &AssignOp) -> ParseResult<Self> {
+        let op_span = op.span.clone();
         match expr {
             Expr::Literal(Literal::Symbol(symbol)) => ParseResult::Ok(AssignTarget::Symbol(symbol)),
             Expr::Call(call) => {
-                let call_span = call.span();
+                let spans = vec![call.span.clone(), op_span.clone()];
+                let error = if op.is_compound() {
+                    Error::new(spans, InvalidCompoundAssignmentLhs)
+                } else {
+                    Error::new(spans, InvalidAssignmentLhs { is_call: true })
+                };
+
+                ParseResult::Recoverable(Garbage::garbage(), vec![error])
+            },
+            expr => {
+                let spans = vec![expr.span(), op_span.clone()];
+                let error = if op.is_compound() {
+                    Error::new(spans, InvalidCompoundAssignmentLhs)
+                } else {
+                    Error::new(spans, InvalidAssignmentLhs { is_call: false })
+                };
+
                 ParseResult::Recoverable(
                     Garbage::garbage(),
-                    vec![Error::new(
-                        vec![call_span, op.span.clone()],
-                        InvalidAssignmentLhs { is_call: true },
-                    )]
+                    vec![error]
                 )
             },
-            expr => ParseResult::Recoverable(
-                Garbage::garbage(),
-                vec![Error::new(
-                    vec![expr.span(), op.span.clone()],
-                    InvalidAssignmentLhs { is_call: false },
-                )]
-            ),
         }
     }
 }
@@ -186,6 +199,9 @@ impl Latex for AssignTarget {
 pub struct Assign {
     /// The target to assign to.
     pub target: AssignTarget,
+
+    /// The operator used to assign to the target.
+    pub op: AssignOp,
 
     /// The expression to assign to the target.
     pub value: Box<Expr>,
@@ -223,12 +239,20 @@ impl<'source> Parse<'source> for Assign {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let target = input.try_parse::<AssignTarget>().forward_errors(recoverable_errors)?;
-        input.try_parse::<AssignOp>().forward_errors(recoverable_errors)?;
+        let op = input.try_parse::<AssignOp>().forward_errors(recoverable_errors)?;
+        if matches!(target, AssignTarget::Func(_)) && op.is_compound() {
+            recoverable_errors.push(Error::new(
+                vec![target.span(), op.span.clone()],
+                InvalidCompoundAssignmentLhs,
+            ));
+        }
+
         let value = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
 
         let span = target.span().start..value.span().end;
         Ok(Self {
             target,
+            op,
             value: Box::new(value),
             span,
         })
@@ -237,6 +261,12 @@ impl<'source> Parse<'source> for Assign {
 
 impl Latex for Assign {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} = {}", self.target.as_display(), self.value.as_display())
+        write!(
+            f,
+            "{} {} {}",
+            self.target.as_display(),
+            self.op.as_display(),
+            self.value.as_display(),
+        )
     }
 }

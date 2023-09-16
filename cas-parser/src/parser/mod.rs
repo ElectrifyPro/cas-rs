@@ -401,7 +401,7 @@ mod tests {
     use literal::{Literal, LitNum, LitRadix, LitSym};
     use paren::Paren;
     use stmt::Stmt;
-    use token::op::{BinOp, BinOpKind, UnaryOp, UnaryOpKind};
+    use token::op::{AssignOp, AssignOpKind, BinOp, BinOpKind, UnaryOp, UnaryOpKind};
     use unary::Unary;
 
     #[test]
@@ -1221,6 +1221,10 @@ mod tests {
                             name: "x".to_string(),
                             span: 2..3,
                         }),
+                        op: AssignOp {
+                            kind: AssignOpKind::Assign,
+                            span: 4..5,
+                        },
                         value: Box::new(Expr::Literal(Literal::Number(LitNum {
                             value: "5".to_string(),
                             span: 6..7,
@@ -1236,6 +1240,10 @@ mod tests {
                             name: "y".to_string(),
                             span: 9..10,
                         }),
+                        op: AssignOp {
+                            kind: AssignOpKind::Assign,
+                            span: 11..12,
+                        },
                         value: Box::new(Expr::Literal(Literal::Number(LitNum {
                             value: "6".to_string(),
                             span: 13..14,
@@ -1312,6 +1320,10 @@ mod tests {
                                 name: "f".to_string(),
                                 span: 30..31,
                             }),
+                            op: AssignOp {
+                                kind: AssignOpKind::Assign,
+                                span: 32..33,
+                            },
                             value: Box::new(Expr::Literal(Literal::Number(LitNum {
                                 value: "1".to_string(),
                                 span: 34..35,
@@ -1341,7 +1353,7 @@ mod tests {
 
     #[test]
     fn assign_to_var() {
-        let mut parser = Parser::new("fx = 1 / pi");
+        let mut parser = Parser::new("fx += 1 / pi");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Assign(Assign {
@@ -1349,23 +1361,27 @@ mod tests {
                 name: "fx".to_string(),
                 span: 0..2,
             }),
+            op: AssignOp {
+                kind: AssignOpKind::Add,
+                span: 3..5,
+            },
             value: Box::new(Expr::Binary(Binary {
                 lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
                     value: "1".to_string(),
-                    span: 5..6,
+                    span: 6..7,
                 }))),
                 op: BinOp {
                     kind: BinOpKind::Div,
                     implicit: false,
-                    span: 7..8,
+                    span: 8..9,
                 },
                 rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                     name: "pi".to_string(),
-                    span: 9..11,
+                    span: 10..12,
                 }))),
-                span: 5..11,
+                span: 6..12,
             })),
-            span: 0..11,
+            span: 0..12,
         }));
     }
 
@@ -1388,6 +1404,10 @@ mod tests {
                 ],
                 span: 0..4,
             }),
+            op: AssignOp {
+                kind: AssignOpKind::Assign,
+                span: 5..6,
+            },
             value: Box::new(Expr::Binary(Binary {
                 lhs: Box::new(Expr::Binary(Binary {
                     lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -1473,6 +1493,10 @@ mod tests {
                 ],
                 span: 0..24,
             }),
+            op: AssignOp {
+                kind: AssignOpKind::Assign,
+                span: 25..26,
+            },
             value: Box::new(Expr::Binary(Binary {
                 lhs: Box::new(Expr::Binary(Binary {
                     lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
@@ -1591,6 +1615,10 @@ mod tests {
                 params: vec![],
                 span: 0..3,
             }),
+            op: AssignOp {
+                kind: AssignOpKind::Assign,
+                span: 4..5,
+            },
             value: Box::new(Expr::Literal(Literal::Number(LitNum {
                 value: "5".to_string(),
                 span: 6..7,

@@ -1,8 +1,8 @@
 fact(n) = {
     out = n;
     loop {
-        n = n - 1;
-        out = out * n;
+        n -= 1;
+        out *= n;
         if n <= 1 then break;
     };
     out

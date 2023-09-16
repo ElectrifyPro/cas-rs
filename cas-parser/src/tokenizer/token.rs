@@ -82,6 +82,42 @@ pub enum TokenKind {
     #[token("=")]
     Assign,
 
+    #[token("+=")]
+    AddAssign,
+
+    #[token("-=")]
+    SubAssign,
+
+    #[token("*=")]
+    MulAssign,
+
+    #[token("/=")]
+    DivAssign,
+
+    #[token("%=")]
+    ModAssign,
+
+    #[token("^=")]
+    ExpAssign,
+
+    #[token("&&=")]
+    AndAssign,
+
+    #[token("||=")]
+    OrAssign,
+
+    #[token("&=")]
+    BitAndAssign,
+
+    #[token("|=")]
+    BitOrAssign,
+
+    #[token(">>=")]
+    BitRightAssign,
+
+    #[token("<<=")]
+    BitLeftAssign,
+
     #[token("0b")]
     Bin,
 

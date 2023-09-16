@@ -1,7 +1,7 @@
 lcm(a, b) = {
     i = 0;
     loop {
-        i = i + 1;
+        i += 1;
         if i % a == 0 && i % b == 0 then {
             break i
         }

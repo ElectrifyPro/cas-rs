@@ -211,6 +211,24 @@ pub struct InvalidAssignmentLhs {
     pub is_call: bool,
 }
 
+/// The left-hand-side of a compound assignment operator cannot be a function header.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "invalid left-hand-side of compound assignment operator",
+    labels = ["(1) this expression must be a symbol...", "(2) ...to work with this compound assignment operator"],
+    help = "use the standard assignment operator (`=`) instead",
+)]
+pub struct InvalidCompoundAssignmentLhs;
+
+/// A compound assignment operator was used within a function header.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "cannot use compound assignment operator here",
+    labels = ["this operator"],
+    help = "only the standard assignment operator (`=`) is allowed in function headers",
+)]
+pub struct CompoundAssignmentInHeader;
+
 /// There were too many derivatives in prime notation.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

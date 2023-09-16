@@ -4,7 +4,7 @@ use super::{
     expr::{Expr, Primary},
     error::{kind, Error},
     fmt::{Latex, fmt_pow},
-    token::{op::{Associativity, BinOp, BinOpKind, Precedence}, Assign},
+    token::{op::{AssignOp, Associativity, BinOp, BinOpKind, Precedence}, Assign},
     unary::Unary,
     Parse,
     Parser,
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 /// A binary operator, including assignment.
 #[derive(Debug, Clone, PartialEq)]
-enum BinOpExt<'a> {
+enum BinOpExt {
     /// A binary operator, such as `+` or `*`.
     Op(BinOp),
 
@@ -26,10 +26,10 @@ enum BinOpExt<'a> {
     ImplicitMultiplication,
 
     /// An assignment operator, such as `+=` or `/=`.
-    Assign(Assign<'a>),
+    Assign(AssignOp),
 }
 
-impl BinOpExt<'_> {
+impl BinOpExt {
     /// Returns the precedence of the binary operator.
     fn precedence(&self) -> Precedence {
         match self {
@@ -40,14 +40,14 @@ impl BinOpExt<'_> {
     }
 }
 
-impl From<BinOp> for BinOpExt<'_> {
+impl From<BinOp> for BinOpExt {
     fn from(op: BinOp) -> Self {
         BinOpExt::Op(op)
     }
 }
 
-impl<'a> From<Assign<'a>> for BinOpExt<'a> {
-    fn from(op: Assign<'a>) -> Self {
+impl From<AssignOp> for BinOpExt {
+    fn from(op: AssignOp) -> Self {
         BinOpExt::Assign(op)
     }
 }
@@ -170,6 +170,7 @@ impl Binary {
             },
             BinOpExt::Assign(op) => Ok(Expr::Assign(AssignExpr {
                 target: AssignTarget::try_from_with_op(lhs, &op).forward_errors(recoverable_errors)?,
+                op,
                 value: Box::new(rhs),
                 span: start_span..end_span,
             })),
@@ -194,7 +195,7 @@ impl Binary {
                 input.set_cursor(&input_ahead);
                 let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
                 lhs = Self::complete_rhs(input, recoverable_errors, lhs, op.into(), rhs)?;
-            } else if let Ok(assign) = input_ahead.try_parse_then::<Assign, _>(|_, input| {
+            } else if let Ok(assign) = input_ahead.try_parse_then::<AssignOp, _>(|_, input| {
                 if Precedence::Assign >= precedence {
                     ParseResult::Ok(())
                 } else {

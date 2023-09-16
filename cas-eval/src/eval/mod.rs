@@ -4,6 +4,7 @@ mod block;
 mod break_expr;
 mod call;
 mod continue_expr;
+mod error;
 mod expr;
 mod if_expr;
 mod literal;

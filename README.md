@@ -58,7 +58,7 @@ Implicit multiplication is also reasonably supported:
 
 ## Assignment
 
-Variables and functions are created using the `=` operator:
+Variables and functions are created using the `=` operator. Compound assignments are also supported:
 
 ```
 > x = 2
@@ -69,6 +69,15 @@ Variables and functions are created using the `=` operator:
 
 > f(x)
 9
+
+> x *= x
+4
+
+> x ^= x
+256
+
+> f(x)
+66049
 ```
 
 Functions also support default parameters:
@@ -228,9 +237,9 @@ my_factorial(n) = {
     i = 1;
     result = 1;
     loop {
-        i = i + 1;
+        i += 1;
         if i > n then break;
-        result = result * i
+        result *= i;
     };
     result
 }
@@ -242,7 +251,7 @@ The `break` keyword can also be used to give a value to the loop expression. For
 lcm(a, b) = {
     i = 0;
     loop {
-        i = i + 1;
+        i += 1;
         if i % a == 0 && i % b == 0 then {
             break i
         }

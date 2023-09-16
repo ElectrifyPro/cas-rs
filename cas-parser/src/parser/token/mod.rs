@@ -75,6 +75,18 @@ token_kinds!(
     BitRight
     BitLeft
     Assign
+    AddAssign
+    SubAssign
+    MulAssign
+    DivAssign
+    ModAssign
+    ExpAssign
+    AndAssign
+    OrAssign
+    BitAndAssign
+    BitOrAssign
+    BitRightAssign
+    BitLeftAssign
     Bin
     Oct
     Hex

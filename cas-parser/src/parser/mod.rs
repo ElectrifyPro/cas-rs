@@ -1094,6 +1094,41 @@ mod tests {
     }
 
     #[test]
+    fn implicit_multiplication_ambiguous() {
+        let mut parser = Parser::new("1 / 2a");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: "1".to_string(),
+                    span: 0..1,
+                }))),
+                op: BinOp {
+                    kind: BinOpKind::Div,
+                    implicit: false,
+                    span: 2..3,
+                },
+                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: "2".to_string(),
+                    span: 4..5,
+                }))),
+                span: 0..5,
+            })),
+            op: BinOp {
+                kind: BinOpKind::Mul,
+                implicit: true,
+                span: 5..5,
+            },
+            rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                name: "a".to_string(),
+                span: 5..6,
+            }))),
+            span: 0..6,
+        }));
+    }
+
+    #[test]
     fn parenthesized() {
         let mut parser = Parser::new("(1 + 2) * __");
         let expr = parser.try_parse_full::<Expr>().unwrap();

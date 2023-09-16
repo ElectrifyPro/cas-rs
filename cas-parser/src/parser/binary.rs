@@ -120,9 +120,9 @@ impl Binary {
                 // there is no operator; check if there is a primary expression instead
                 // if there is, this is implicit multiplication
                 //
-                // first, check if the previous operator has higher precedence; if so, we cannot
-                // give priority to implicit multiplication
-                if precedence > BinOpKind::Mul.precedence() {
+                // first, check if the previous operator has higher or equal precedence; if so, we
+                // cannot give priority to implicit multiplication
+                if precedence >= BinOpKind::Mul.precedence() {
                     break;
                 }
 

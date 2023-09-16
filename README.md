@@ -56,6 +56,8 @@ Implicit multiplication is also reasonably supported:
 40
 ```
 
+See [here](#implicit-multiplication) for caveats related to implicit multiplication.
+
 ## Assignment
 
 Variables and functions are created using the `=` operator. Compound assignments are also supported:
@@ -209,6 +211,71 @@ f = 47'mC;
 
 a == b && b == c && c == d && d == f
 ```
+
+## Implicit multiplication
+
+`cas-rs` features implicit multiplication as a convenience. In `cas-rs`, implicitly inserted multiplication has the **same precedence** as explicit multiplication, division, and remainder division. Adding an explicit multiplication operator in the place of implicit multiplication will **always** evaluate to the same result.
+
+This is contrary to some calculators and mathematical literature, which will often treat implicit multiplication as having higher precedence than explicit multiplication. This would have the following behavior:
+
+```
+!! THIS IS NOT THE BEHAVIOR OF CAS-RS! !!
+
+a = 4;
+
+f = 1 / 2a;
+g = 1 / (2a);
+```
+
+In `cas-rs`, the three variables `f`, `g`, and `h` in the below example evaluate to the **same value**:
+
+```
+a = 4;
+
+f = 1 / 2a;
+g = (1 / 2)a;
+h = 1 / 2 * a;
+```
+
+### Whitespace
+
+In the below example, there must be whitespace between `a` and `c`, otherwise the parser will treat `ac` as a single symbol.
+
+```
+discriminant(a, b, c) = b^2 - 4a c
+```
+
+At the moment, the parser inserts implicit multiplication with disregard for whitespace, which can result in apparently strange results and / or errors when writing programs. For example, the output of this code is actually the unit type `()`, instead of the expected `true` (the result of `fact(14) == 14!`). Implicit multiplication is inserted between the block and the expression `fact(14) == 14!`:
+
+```
+fact(n) = {
+    out = n;
+    loop {
+        n -= 1;
+        out *= n;
+        if n <= 1 then break;
+    };
+    out
+}
+fact(14) == 14!
+```
+
+In these scenarios, semicolons can be used to clearly indicate termination of a statement and prevent implicit multiplication from appearing. This modified example will now output `true`:
+
+```
+fact(n) = {
+    out = n;
+    loop {
+        n -= 1;
+        out *= n;
+        if n <= 1 then break;
+    };
+    out
+};
+fact(14) == 14!
+```
+
+In the future, implicit multiplication will probably be restricted to individual lines in order to avoid this ambiguity.
 
 ## Programming constructs
 

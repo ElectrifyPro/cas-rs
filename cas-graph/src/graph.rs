@@ -1,7 +1,8 @@
-use cairo::{Context, Error};
+use cairo::{Context, Error, FontSlant, FontWeight};
 use cas_eval::{ctxt::Ctxt, eval::Eval, value::Value};
 use cas_parser::parser::expr::Expr;
 use std::collections::HashMap;
+use super::text_align::ShowTextAlign;
 
 /// A pair of `(x, y)` values in **graph** units.
 #[derive(Clone, Copy, Debug, Default)]
@@ -34,8 +35,8 @@ impl Default for GraphOptions {
     fn default() -> GraphOptions {
         GraphOptions {
             canvas_size: CanvasPoint(1000, 1000),
-            center: GraphPoint(0.0, 0.0),
-            scale: GraphPoint(10.0, 10.0),
+            center: GraphPoint(-2.0, -2.0),
+            scale: GraphPoint(std::f64::consts::PI, 10.0),
         }
     }
 }
@@ -59,11 +60,17 @@ impl GraphOptions {
         (x - self.canvas_size.0 as f64 / 2.0) / self.scale.0 + self.center.0
     }
 
+    /// Converts a y-value in **canvas** space to a y-value in **graph** space.
+    fn y_to_graph(&self, y: f64) -> f64 {
+        -(y - self.canvas_size.1 as f64 / 2.0) / self.scale.1 + self.center.1
+    }
+
     /// Converts a point in **canvas** space to **graph** space.
     pub fn to_graph(&self, point: CanvasPoint<f64>) -> GraphPoint<f64> {
-        let x = self.x_to_graph(point.0);
-        let y = -(point.1 - self.canvas_size.1 as f64 / 2.0) / self.scale.1 + self.center.1;
-        GraphPoint(x, y)
+        GraphPoint(
+            self.x_to_graph(point.0),
+            self.y_to_graph(point.1),
+        )
     }
 }
 
@@ -121,21 +128,23 @@ impl Graph {
         }
 
         // draw axes x = 0, y = 0 if applicable
-        let origin = self.options.to_canvas(GraphPoint(0.0, 0.0));
+        let origin_canvas = self.options.to_canvas(GraphPoint(0.0, 0.0));
         context.set_source_rgb(1.0, 1.0, 1.0);
         context.set_line_width(5.0);
 
-        if origin.0 >= 0.0 && origin.0 <= self.options.canvas_size.0 as f64 {
-            context.move_to(origin.0, 0.0);
-            context.line_to(origin.0, 1000.0);
+        if origin_canvas.0 >= 0.0 && origin_canvas.0 <= self.options.canvas_size.0 as f64 {
+            context.move_to(origin_canvas.0, 0.0);
+            context.line_to(origin_canvas.0, 1000.0);
             context.stroke()?;
         }
 
-        if origin.1 >= 0.0 && origin.1 <= self.options.canvas_size.1 as f64 {
-            context.move_to(0.0, origin.1);
-            context.line_to(1000.0, origin.1);
+        if origin_canvas.1 >= 0.0 && origin_canvas.1 <= self.options.canvas_size.1 as f64 {
+            context.move_to(0.0, origin_canvas.1);
+            context.line_to(1000.0, origin_canvas.1);
             context.stroke()?;
         }
+
+        self.draw_edge_labels(&context, origin_canvas)?;
 
         // evaluate expressions and draw as we go
         context.set_source_rgb(1.0, 0.0, 0.0);
@@ -166,6 +175,49 @@ impl Graph {
             }
         }
         context.stroke()?;
+
+        Ok(())
+    }
+
+    /// Draw the edge labels (the values at the edge of the canvas).
+    fn draw_edge_labels(
+        &self,
+        context: &Context,
+        origin_canvas: CanvasPoint<f64>,
+    ) -> Result<(), Error> {
+        context.set_source_rgb(1.0, 1.0, 1.0);
+        context.set_font_size(40.0);
+        context.select_font_face("sans-serif", FontSlant::Oblique, FontWeight::Normal);
+
+        let padding = 10.0;
+
+        // top edge, bottom edge
+        let x = origin_canvas.0 + padding;
+        context.show_text_align(
+            &format!("{}", self.options.center.1 + self.options.scale.1),
+            (x, padding),
+            (0.0, 1.0),
+        )?;
+
+        context.show_text_align(
+            &format!("{}", self.options.center.1 - self.options.scale.1),
+            (x, self.options.canvas_size.1 as f64 - padding),
+            (0.0, 0.0),
+        )?;
+
+        // left edge, right edge
+        let y = origin_canvas.1 + padding;
+        context.show_text_align(
+            &format!("{}", self.options.center.0 - self.options.scale.0),
+            (padding, y),
+            (0.0, 1.0),
+        )?;
+
+        context.show_text_align(
+            &format!("{}", self.options.center.0 + self.options.scale.0),
+            (self.options.canvas_size.0 as f64 - padding, y),
+            (1.0, 1.0),
+        )?;
 
         Ok(())
     }

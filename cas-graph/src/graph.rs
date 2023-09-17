@@ -19,6 +19,11 @@ struct EdgeExtents {
     pub right: TextExtents,
 }
 
+/// Round `n` to the nearest `k`.
+fn round_to(n: f64, k: f64) -> f64 {
+    (n / k).round() * k
+}
+
 /// A pair of `(x, y)` values in **graph** units.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct GraphPoint<T>(T, T);
@@ -44,30 +49,44 @@ pub struct GraphOptions {
     /// of the canvas. For example, when the graph is centered at `(0.0, 0.0)` with a scale of
     /// `(10.0, 10.0)`, the visible graph will be from `(-10.0, -10.0)` to `(10.0, 10.0)`.
     pub scale: GraphPoint<f64>,
+
+    /// The number of graph units between each minor grid line, given as a pair of `(x, y)` units.
+    ///
+    /// For example, to have a minor grid line every `3.0` units on the x-axis and every `2.0` units
+    /// on the y-axis, set this to `(3.0, 2.0)`.
+    pub minor_grid_spacing: GraphPoint<f64>,
 }
 
 impl Default for GraphOptions {
     fn default() -> GraphOptions {
         GraphOptions {
             canvas_size: CanvasPoint(1000, 1000),
-            center: GraphPoint(0.0, 0.0),
+            center: GraphPoint(-3.0, 2.41),
             scale: GraphPoint(10.0, 10.0),
+            minor_grid_spacing: GraphPoint(2.0, 2.0),
         }
     }
 }
 
 impl GraphOptions {
+    /// Converts an x-value in **graph** space to an x-value in **canvas** space.
+    fn x_to_canvas(&self, x: f64) -> f64 {
+        let half_size = self.canvas_size.0 as f64 / 2.0;
+        (x - self.center.0) * half_size / self.scale.0 + half_size
+    }
+
+    /// Converts a y-value in **graph** space to a y-value in **canvas** space.
+    fn y_to_canvas(&self, y: f64) -> f64 {
+        let half_size = self.canvas_size.1 as f64 / 2.0;
+        (y - self.center.1) * half_size / -self.scale.1 + half_size
+    }
+
     /// Converts a point in **graph** space to **canvas** space.
     pub fn to_canvas(&self, point: GraphPoint<f64>) -> CanvasPoint<f64> {
-        let half_size = (
-            self.canvas_size.0 as f64 / 2.0,
-            self.canvas_size.1 as f64 / 2.0,
-        );
-        let graph_dist_from_center = (point.0 - self.center.0, point.1 - self.center.1);
-
-        let x = graph_dist_from_center.0 * half_size.0 / self.scale.0 + half_size.0;
-        let y = graph_dist_from_center.1 * half_size.1 / -self.scale.1 + half_size.1;
-        CanvasPoint(x, y)
+        CanvasPoint(
+            self.x_to_canvas(point.0),
+            self.y_to_canvas(point.1),
+        )
     }
 
     /// Converts an x-value in **canvas** space to an x-value in **graph** space.
@@ -169,23 +188,44 @@ impl Graph {
         context.set_line_width(2.0);
 
         // vertical grid lines (x = ...)
-        let y_gridlines = 20;
-        for x in 0..y_gridlines {
-            let x = x as f64;
-            let scale = (x / y_gridlines as f64) * self.options.canvas_size.0 as f64;
-            context.move_to(scale, 0.0);
-            context.line_to(scale, 1000.0);
+        let vert_bounds = (
+            round_to(self.options.center.0 - self.options.scale.0, self.options.minor_grid_spacing.0),
+            round_to(self.options.center.0 + self.options.scale.0, self.options.minor_grid_spacing.0),
+        );
+        let mut x = vert_bounds.0;
+        while x <= vert_bounds.1 {
+            // is this grid line within the canvas bounds?
+            let x_canvas = self.options.x_to_canvas(x);
+            if x_canvas < 0.0 || x_canvas > self.options.canvas_size.0 as f64 {
+                x += self.options.minor_grid_spacing.0;
+                continue;
+            }
+
+            context.move_to(x_canvas, 0.0);
+            context.line_to(x_canvas, 1000.0);
             context.stroke()?;
+
+            x += self.options.minor_grid_spacing.0;
         }
 
         // horizontal grid lines (y = ...)
-        let x_gridlines = 20;
-        for y in 0..x_gridlines {
-            let y = y as f64;
-            let scale = (y / x_gridlines as f64) * self.options.canvas_size.1 as f64;
-            context.move_to(0.0, scale);
-            context.line_to(1000.0, scale);
+        let hor_bounds = (
+            round_to(self.options.center.1 - self.options.scale.1, self.options.minor_grid_spacing.1),
+            round_to(self.options.center.1 + self.options.scale.1, self.options.minor_grid_spacing.1),
+        );
+        let mut y = hor_bounds.0;
+        while y <= hor_bounds.1 {
+            let y_canvas = self.options.y_to_canvas(y);
+            if y_canvas < 0.0 || y_canvas > self.options.canvas_size.1 as f64 {
+                y += self.options.minor_grid_spacing.1;
+                continue;
+            }
+
+            context.move_to(0.0, y_canvas);
+            context.line_to(1000.0, y_canvas);
             context.stroke()?;
+
+            y += self.options.minor_grid_spacing.1;
         }
 
         Ok(())
@@ -205,29 +245,35 @@ impl Graph {
         let padding = 10.0;
 
         // vertical grid line numbers
-        let vert_gridlines = 20;
-        for x in 0..vert_gridlines {
-            let x = x as f64;
-
-            // compute the graph value at this grid line
-            let x_value = self.options.center.0 - self.options.scale.0 + x
-                / vert_gridlines as f64 * self.options.scale.0 * 2.0;
-
+        let vert_bounds = (
+            round_to(self.options.center.0 - self.options.scale.0, self.options.minor_grid_spacing.0),
+            round_to(self.options.center.0 + self.options.scale.0, self.options.minor_grid_spacing.0),
+        );
+        let mut x = vert_bounds.0;
+        while x <= vert_bounds.1 {
             // skip 0.0, as the origin axes will be drawn later
-            if x_value == 0.0 {
+            if x == 0.0 {
+                x += self.options.minor_grid_spacing.0;
                 continue;
             }
 
-            let x_value_str_raw = format!("{:.3}", x_value);
+            // is this grid line number within the canvas bounds?
+            let x_canvas = self.options.x_to_canvas(x);
+            if x_canvas < 0.0 || x_canvas > self.options.canvas_size.0 as f64 {
+                x += self.options.minor_grid_spacing.0;
+                continue;
+            }
+
+            let x_value_str_raw = format!("{:.3}", x);
             let x_value_str = x_value_str_raw.trim_end_matches('0').trim_end_matches('.');
             let x_value_extents = context.text_extents(x_value_str)?;
 
             // will this grid line number collide with the left / right edge labels?
-            let x_canvas = (x / vert_gridlines as f64) * self.options.canvas_size.0 as f64;
             let text_left_bound = x_canvas - x_value_extents.width() / 2.0;
             let text_right_bound = x_canvas + x_value_extents.width() / 2.0;
             if text_left_bound < edges.left.width() + padding
                 || text_right_bound > self.options.canvas_size.0 as f64 - edges.right.width() - padding {
+                x += self.options.minor_grid_spacing.0;
                 continue;
             }
 
@@ -237,30 +283,38 @@ impl Graph {
                 (0.5, 1.0),
                 &x_value_extents,
             )?;
+
+            x += self.options.minor_grid_spacing.0;
         }
 
         // horizontal grid line numbers
-        let hor_gridlines = 20;
-        for y in 0..hor_gridlines {
+        let hor_bounds = (
+            round_to(self.options.center.1 - self.options.scale.1, self.options.minor_grid_spacing.1),
+            round_to(self.options.center.1 + self.options.scale.1, self.options.minor_grid_spacing.1),
+        );
+        let mut y = hor_bounds.0;
+        while y <= hor_bounds.1 {
             // same as above, but for the y-axis
-            let y = y as f64;
-
-            let y_value = self.options.center.1 + self.options.scale.1 + y
-                / hor_gridlines as f64 * -self.options.scale.1 * 2.0;
-
-            if y_value == 0.0 {
+            if y == 0.0 {
+                y += self.options.minor_grid_spacing.1;
                 continue;
             }
 
-            let y_value_str_raw = format!("{:.3}", y_value);
+            let y_canvas = self.options.y_to_canvas(y);
+            if y_canvas < 0.0 || y_canvas > self.options.canvas_size.1 as f64 {
+                y += self.options.minor_grid_spacing.1;
+                continue;
+            }
+
+            let y_value_str_raw = format!("{:.3}", y);
             let y_value_str = y_value_str_raw.trim_end_matches('0').trim_end_matches('.');
             let y_value_extents = context.text_extents(y_value_str)?;
 
-            let y_canvas = (y / hor_gridlines as f64) * self.options.canvas_size.1 as f64;
             let text_top_bound = y_canvas - y_value_extents.height() / 2.0;
             let text_bottom_bound = y_canvas + y_value_extents.height() / 2.0;
             if text_top_bound < edges.top.height() + padding
                 || text_bottom_bound > self.options.canvas_size.1 as f64 - edges.bottom.height() - padding {
+                y += self.options.minor_grid_spacing.1;
                 continue;
             }
 
@@ -270,6 +324,8 @@ impl Graph {
                 (0.0, 0.5),
                 &y_value_extents,
             )?;
+
+            y += self.options.minor_grid_spacing.1;
         }
 
         Ok(())

@@ -93,8 +93,8 @@ fn evaluate_expr(
 }
 
 /// A pair of `(x, y)` values in **graph** units.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct GraphPoint<T>(T, T);
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct GraphPoint<T>(pub T, pub T);
 
 impl<T> From<(T, T)> for GraphPoint<T> {
     fn from((x, y): (T, T)) -> GraphPoint<T> {
@@ -103,8 +103,8 @@ impl<T> From<(T, T)> for GraphPoint<T> {
 }
 
 /// A pair of `(x, y)` values in **canvas** units.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct CanvasPoint<T>(T, T);
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct CanvasPoint<T>(pub T, pub T);
 
 /// Options to use when drawing a graph.
 #[derive(Clone, Copy, Debug)]
@@ -135,7 +135,7 @@ impl Default for GraphOptions {
     fn default() -> GraphOptions {
         GraphOptions {
             canvas_size: CanvasPoint(1000, 1000),
-            center: GraphPoint(-3.0, 2.41),
+            center: GraphPoint(0.0, 0.0),
             scale: GraphPoint(10.0, 10.0),
             minor_grid_spacing: GraphPoint(2.0, 2.0),
         }
@@ -145,14 +145,26 @@ impl Default for GraphOptions {
 impl GraphOptions {
     /// Converts an x-value in **graph** space to an x-value in **canvas** space.
     fn x_to_canvas(&self, x: f64) -> f64 {
-        let half_size = self.canvas_size.0 as f64 / 2.0;
-        (x - self.center.0) * half_size / self.scale.0 + half_size
+        let graph_space_range = self.scale.0 * 2.0;
+
+        // normalize x-value to [0.0, 1.0], where 0.0 indicates left-edge of visible graph, 1.0
+        // indicates right-edge of visible graph
+        let normalized = (x - self.center.0) / graph_space_range + 0.5;
+
+        // convert normalized x-value to canvas space
+        normalized * self.canvas_size.0 as f64
     }
 
     /// Converts a y-value in **graph** space to a y-value in **canvas** space.
     fn y_to_canvas(&self, y: f64) -> f64 {
-        let half_size = self.canvas_size.1 as f64 / 2.0;
-        (y - self.center.1) * half_size / -self.scale.1 + half_size
+        let graph_space_range = self.scale.1 * 2.0;
+
+        // normalize y-value to [0.0, 1.0], then flip the normalized value so, 0.0 is top, 1.0 is bottom
+        // this is because the y-axis is flipped in graph space
+        let normalized = 0.5 - (y - self.center.1) / graph_space_range;
+
+        // convert normalized y-value to canvas space
+        normalized * self.canvas_size.1 as f64
     }
 
     /// Converts a point in **graph** space to **canvas** space.
@@ -165,12 +177,28 @@ impl GraphOptions {
 
     /// Converts an x-value in **canvas** space to an x-value in **graph** space.
     fn x_to_graph(&self, x: f64) -> f64 {
-        (x - self.canvas_size.0 as f64 / 2.0) / self.scale.0 + self.center.0
+        // normalize x-value to [0.0, 1.0], where 0.0 indicates left-edge of canvas, 1.0 indicates
+        // right-edge of canvas (x should always be positive)
+        let normalized = x / self.canvas_size.0 as f64;
+
+        // convert normalized x-value to graph space
+        let graph_space_range = self.scale.0 * 2.0;
+        let left_edge_graph_space = self.center.0 - self.scale.0;
+
+        normalized * graph_space_range + left_edge_graph_space
     }
 
     /// Converts a y-value in **canvas** space to a y-value in **graph** space.
     fn y_to_graph(&self, y: f64) -> f64 {
-        -(y - self.canvas_size.1 as f64 / 2.0) / self.scale.1 + self.center.1
+        // normalize y-value to [0.0, 1.0], then flip the normalized value so, 0.0 is bottom, 1.0 is top
+        // this is because the y-axis is flipped in canvas space
+        let normalized = 1.0 - y / self.canvas_size.1 as f64;
+
+        // convert normalized y-value to graph space
+        let graph_space_range = self.scale.1 * 2.0;
+        let bottom_edge_graph_space = self.center.1 - self.scale.1;
+
+        normalized * graph_space_range + bottom_edge_graph_space
     }
 
     /// Converts a point in **canvas** space to **graph** space.
@@ -183,7 +211,7 @@ impl GraphOptions {
 }
 
 /// A graph containing expressions to draw.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Graph {
     /// The expressions to draw.
     pub expressions: Vec<Expr>,
@@ -198,10 +226,14 @@ pub struct Graph {
 impl Graph {
     /// Create a new, empty graph.
     pub fn new() -> Graph {
+        Graph::default()
+    }
+
+    /// Create a new graph with the given options.
+    pub fn with_opts(options: GraphOptions) -> Graph {
         Graph {
-            expressions: Vec::new(),
-            points: Vec::new(),
-            options: GraphOptions::default(),
+            options,
+            ..Graph::default()
         }
     }
 
@@ -549,5 +581,67 @@ impl Graph {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test the conversion functions from canvas to graph space.
+    #[test]
+    fn canvas_to_graph() {
+        let graph = Graph::with_opts(GraphOptions {
+            canvas_size: CanvasPoint(465, 917),
+            center: GraphPoint(-3.0, 2.41),
+            scale: GraphPoint(3.59, 5.69),
+            minor_grid_spacing: GraphPoint(2.0, 2.0),
+        });
+
+        assert_eq!(
+            graph.options.x_to_graph(0.0),
+            graph.options.center.0 - graph.options.scale.0,
+        );
+        assert_eq!(
+            graph.options.x_to_graph(graph.options.canvas_size.0 as f64),
+            graph.options.center.0 + graph.options.scale.0,
+        );
+        assert_eq!(
+            graph.options.y_to_graph(0.0),
+            graph.options.center.1 + graph.options.scale.1,
+        );
+        assert_eq!(
+            graph.options.y_to_graph(graph.options.canvas_size.1 as f64),
+            graph.options.center.1 - graph.options.scale.1,
+        );
+    }
+
+    /// Test the conversion functions from graph to canvas space.
+    #[test]
+    fn graph_to_canvas() {
+        let graph = Graph::with_opts(GraphOptions {
+            canvas_size: CanvasPoint(465, 917),
+            center: GraphPoint(-3.0, 2.41),
+            scale: GraphPoint(3.59, 5.69),
+            minor_grid_spacing: GraphPoint(2.0, 2.0),
+        });
+
+        assert_eq!(
+            graph.options.x_to_canvas(graph.options.center.0 - graph.options.scale.0),
+            0.0,
+        );
+        assert_eq!(
+            graph.options.x_to_canvas(graph.options.center.0 + graph.options.scale.0),
+            graph.options.canvas_size.0 as f64,
+        );
+        // precision is wonky with this one
+        assert_eq!(
+            round_to(graph.options.y_to_canvas(graph.options.center.1 + graph.options.scale.1), 1e-6),
+            0.0,
+        );
+        assert_eq!(
+            graph.options.y_to_canvas(graph.options.center.1 - graph.options.scale.1),
+            graph.options.canvas_size.1 as f64,
+        );
     }
 }

@@ -1,7 +1,7 @@
 pub mod graph;
 mod text_align;
 
-pub use graph::Graph;
+pub use graph::{CanvasPoint, Graph, GraphOptions, GraphPoint};
 
 use cairo::{Context, Format, ImageSurface};
 use std::fs::File;
@@ -10,7 +10,13 @@ pub fn draw() {
     // draw a test graph
     let surface = ImageSurface::create(Format::ARgb32, 1000, 1000).unwrap();
     let context = Context::new(&surface).unwrap();
-    let mut graph = Graph::new();
+    let mut graph = Graph::with_opts(GraphOptions {
+        canvas_size: CanvasPoint(1000, 1000),
+        center: GraphPoint(-3.0, 2.41),
+        scale: GraphPoint(10.0, 10.0),
+        minor_grid_spacing: GraphPoint(2.0, 2.0),
+    });
+
     graph.add(cas_parser::parser::Parser::new("erf(x)").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());
     graph.add(cas_parser::parser::Parser::new("gamma(x)").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());
     graph.add(cas_parser::parser::Parser::new("x^3-4").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());

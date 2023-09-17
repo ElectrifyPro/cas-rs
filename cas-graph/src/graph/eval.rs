@@ -44,7 +44,7 @@ pub(crate) fn evaluate_expr(
 
         // adjust our step length based on the slope of the expression
         // NOTE: this would be so nice with let chains
-        let step_len = if false && current_point.map(|p| p.1 < y_bounds.0 || p.1 > y_bounds.1).unwrap_or(false) {
+        let step_len = if current_point.map(|p| p.1 < y_bounds.0 || p.1 > y_bounds.1).unwrap_or(false) {
             // if the expression moves outside the graph viewport, we hardcode the step length to
             // be an arbitrary high step length so we can get to a visible point more quickly
             min_step_len * 4.0

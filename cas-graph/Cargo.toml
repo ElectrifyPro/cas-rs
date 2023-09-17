@@ -13,3 +13,4 @@ path = "../cas-eval"
 
 [dependencies]
 cairo-rs = { version = "0.18.2", features = ["png"] }
+rayon = "1.7.0"

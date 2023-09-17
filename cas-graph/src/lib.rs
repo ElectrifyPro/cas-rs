@@ -12,6 +12,11 @@ pub fn draw() {
     let context = Context::new(&surface).unwrap();
     let mut graph = Graph::new();
     graph.add(cas_parser::parser::Parser::new("erf(x)").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());
+    graph.add(cas_parser::parser::Parser::new("gamma(x)").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());
+    graph.add(cas_parser::parser::Parser::new("x^3-4").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());
+    graph.add(cas_parser::parser::Parser::new("1/x").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());
+    graph.add(cas_parser::parser::Parser::new("ln(x)").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());
+    graph.add(cas_parser::parser::Parser::new("sin(cos(x))").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());
     graph.points.push((0.0, 8.1).into());
     graph.points.push((1.2, 6.2).into());
     graph.points.push((2.3, 4.3).into());

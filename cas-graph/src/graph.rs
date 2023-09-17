@@ -28,6 +28,12 @@ fn round_to(n: f64, k: f64) -> f64 {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct GraphPoint<T>(T, T);
 
+impl<T> From<(T, T)> for GraphPoint<T> {
+    fn from((x, y): (T, T)) -> GraphPoint<T> {
+        GraphPoint(x, y)
+    }
+}
+
 /// A pair of `(x, y)` values in **canvas** units.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CanvasPoint<T>(T, T);
@@ -114,6 +120,9 @@ pub struct Graph {
     /// The expressions to draw.
     pub expressions: Vec<Expr>,
 
+    /// The points to draw.
+    pub points: Vec<GraphPoint<f64>>,
+
     /// The rendering options for the graph.
     pub options: GraphOptions,
 }
@@ -123,6 +132,7 @@ impl Graph {
     pub fn new() -> Graph {
         Graph {
             expressions: Vec::new(),
+            points: Vec::new(),
             options: GraphOptions::default(),
         }
     }
@@ -130,6 +140,35 @@ impl Graph {
     /// Add an expression to the graph.
     pub fn add(&mut self, expr: Expr) {
         self.expressions.push(expr);
+    }
+
+    /// Center the graph on the points in the graph.
+    pub fn center_on_points(&mut self) {
+        let mut sum = GraphPoint(0.0, 0.0);
+
+        // find the average of the points and center on that
+        for point in self.points.iter() {
+            sum.0 += point.0;
+            sum.1 += point.1;
+        }
+
+        self.options.center = GraphPoint(
+            sum.0 / self.points.len() as f64,
+            sum.1 / self.points.len() as f64,
+        );
+
+        // find the point furthest from the center and scale so that is is visible
+        let mut max_dist = 0.0;
+        for point in self.points.iter() {
+            let dist = (point.0 - self.options.center.0).hypot(point.1 - self.options.center.1);
+            if dist > max_dist {
+                max_dist = dist;
+            }
+        }
+        self.options.scale = GraphPoint(
+            max_dist * 1.5,
+            max_dist * 1.5,
+        );
     }
 
     /// Draw the graph to the given context.
@@ -175,6 +214,8 @@ impl Graph {
             }
         }
         context.stroke()?;
+
+        self.draw_points(&context)?;
 
         Ok(())
     }
@@ -372,32 +413,68 @@ impl Graph {
 
         // top edge, bottom edge
         let x = origin_canvas.0 + padding;
+        let top_value = format!("{:.3}", self.options.center.1 + self.options.scale.1);
         let top = context.show_text_align(
-            &format!("{}", self.options.center.1 + self.options.scale.1),
+            top_value.trim_end_matches('0').trim_end_matches('.'),
             (x, padding),
             (0.0, 1.0),
         )?;
 
+        let bottom_value = format!("{:.3}", self.options.center.1 - self.options.scale.1);
         let bottom = context.show_text_align(
-            &format!("{}", self.options.center.1 - self.options.scale.1),
+            bottom_value.trim_end_matches('0').trim_end_matches('.'),
             (x, self.options.canvas_size.1 as f64 - padding),
             (0.0, 0.0),
         )?;
 
         // left edge, right edge
         let y = origin_canvas.1 + padding;
+        let left_value = format!("{:.3}", self.options.center.0 - self.options.scale.0);
         let left = context.show_text_align(
-            &format!("{}", self.options.center.0 - self.options.scale.0),
+            left_value.trim_end_matches('0').trim_end_matches('.'),
             (padding, y),
             (0.0, 1.0),
         )?;
 
+        let right_value = format!("{:.3}", self.options.center.0 + self.options.scale.0);
         let right = context.show_text_align(
-            &format!("{}", self.options.center.0 + self.options.scale.0),
+            right_value.trim_end_matches('0').trim_end_matches('.'),
             (self.options.canvas_size.0 as f64 - padding, y),
             (1.0, 1.0),
         )?;
 
         Ok(EdgeExtents { top, bottom, left, right })
+    }
+
+    /// Draw the points in the graph.
+    fn draw_points(
+        &self,
+        context: &Context,
+    ) -> Result<(), Error> {
+        context.set_source_rgb(1.0, 0.0, 0.0);
+        context.set_font_size(30.0);
+
+        for point in self.points.iter() {
+            let canvas = self.options.to_canvas(*point);
+            context.arc(canvas.0, canvas.1, 10.0, 0.0, 2.0 * std::f64::consts::PI);
+            context.fill()?;
+
+            // draw the point's coordinates
+            let point_value = (
+                format!("{:.3}", point.0),
+                format!("{:.3}", point.1),
+            );
+            context.show_text_align(
+                &format!(
+                    "({}, {})",
+                    point_value.0.trim_end_matches('0').trim_end_matches('.'),
+                    point_value.1.trim_end_matches('0').trim_end_matches('.')
+                ),
+                (canvas.0, canvas.1),
+                (-0.1, -0.1),
+            )?;
+        }
+
+        Ok(())
     }
 }

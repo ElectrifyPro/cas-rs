@@ -12,6 +12,12 @@ pub fn draw() {
     let context = Context::new(&surface).unwrap();
     let mut graph = Graph::new();
     graph.add(cas_parser::parser::Parser::new("erf(x)").try_parse_full::<cas_parser::parser::expr::Expr>().unwrap());
+    graph.points.push((0.0, 8.1).into());
+    graph.points.push((1.2, 6.2).into());
+    graph.points.push((2.3, 4.3).into());
+    graph.points.push((3.4, 2.4).into());
+    graph.points.push((4.5, 0.5).into());
+    graph.center_on_points();
     graph.draw(&context).unwrap();
 
     let mut file = File::create("output.png").unwrap();

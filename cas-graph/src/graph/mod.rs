@@ -1,9 +1,14 @@
+mod eval;
+pub mod opts;
+pub mod point;
+
 use cairo::{Context, Error, FontSlant, FontWeight, TextExtents};
-use cas_eval::{ctxt::Ctxt, eval::Eval, value::Value};
 use cas_parser::parser::expr::Expr;
+use eval::evaluate_expr;
+pub use point::{CanvasPoint, GraphPoint};
 use rayon::prelude::*;
-use std::collections::HashMap;
 use super::text_align::ShowTextAlign;
+pub use opts::GraphOptions;
 
 /// The extents of the edge labels.
 struct EdgeExtents {
@@ -23,191 +28,6 @@ struct EdgeExtents {
 /// Round `n` to the nearest `k`.
 fn round_to(n: f64, k: f64) -> f64 {
     (n / k).round() * k
-}
-
-/// Evaluate the given expression and returns the points to draw.
-///
-/// The options of the graph are used alongside the estimated derivative of the expression as an
-/// optimization. If the evaluation of the expression results in a point outside the viewport, we
-/// can start to assume that the next points might be outside the viewport as well. This allows us
-/// to cut down on the number of points we need to evaluate.
-///
-/// Also in general, when the slope of the expression is steep, the step size can be somewhat
-/// larger, since variation in the slope will not be as noticeable, in terms of someone observing
-/// the graph.
-///
-/// However, when the slope of the expression is shallow, the step size must be smaller. For
-/// example, if the step size is too large, we could end up skipping past a relative minimum /
-/// maximum of the expression, which would be extremely obvious.
-fn evaluate_expr(
-    expr: &Expr,
-    x_bounds: (f64, f64),
-    options: GraphOptions,
-) -> Vec<GraphPoint<f64>> {
-    let mut ctxt = Ctxt::default();
-    let mut points = Vec::new();
-
-    let mut last_point = None;
-    let mut current_point = None;
-
-    let mut x = x_bounds.0;
-    let min_step_len = options.scale.0 / 32.0;
-
-    let y_bounds = (options.center.1 - options.scale.1, options.center.1 + options.scale.1);
-
-    while x <= x_bounds.1 {
-        ctxt.add_var("x", x.into());
-        if let Ok(Value::Number(float)) = expr.eval(&mut ctxt).map(|v| v.coerce_real()) {
-            let point = GraphPoint(x, float.to_f64());
-            points.push(point);
-
-            last_point = current_point;
-            current_point = Some(point);
-        }
-
-        // adjust our step length based on the slope of the expression
-        // NOTE: this would be so nice with let chains
-        let step_len = if false && current_point.map(|p| p.1 < y_bounds.0 || p.1 > y_bounds.1).unwrap_or(false) {
-            // if the expression moves outside the graph viewport, we hardcode the step length to
-            // be an arbitrary high step length so we can get to a visible point more quickly
-            min_step_len * 4.0
-        } else if let (Some(last), Some(current)) = (last_point, current_point) {
-            // in our slope calculation, we divide by the y-scale again to account for the scale
-            // changing the visual slope of the expression
-            //
-            // for example, if we graph y=x^3 with a very large y-scale, an observer looking at the
-            // graph will see a very shallow slope in the area around x=0, even though the true
-            // slope of the expression past x=0 gets very steep very fast
-            let slope = (current.1 - last.1) / (current.0 - last.0) / options.scale.1;
-
-            // the larger the slope, the larger the step length can be
-            // not too large though, so we can catch discontinuities
-            min_step_len.max(slope.abs() / 10.0).min(min_step_len * 4.0)
-        } else {
-            min_step_len
-        };
-        x += step_len;
-    }
-
-    points
-}
-
-/// A pair of `(x, y)` values in **graph** units.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct GraphPoint<T>(pub T, pub T);
-
-impl<T> From<(T, T)> for GraphPoint<T> {
-    fn from((x, y): (T, T)) -> GraphPoint<T> {
-        GraphPoint(x, y)
-    }
-}
-
-/// A pair of `(x, y)` values in **canvas** units.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct CanvasPoint<T>(pub T, pub T);
-
-/// Options to use when drawing a graph.
-#[derive(Clone, Copy, Debug)]
-pub struct GraphOptions {
-    /// The width and height of the canvas, in pixels.
-    pub canvas_size: CanvasPoint<u16>,
-
-    /// The `(x, y)` point at which to center the graph.
-    ///
-    /// For example, to place the origin at the center of the graph, set this to `(0.0, 0.0)`.
-    pub center: GraphPoint<f64>,
-
-    /// The `(x, y)` scale of the graph.
-    ///
-    /// The scale indicates the distance, in graph units, from the center of the canvas to the edge
-    /// of the canvas. For example, when the graph is centered at `(0.0, 0.0)` with a scale of
-    /// `(10.0, 10.0)`, the visible graph will be from `(-10.0, -10.0)` to `(10.0, 10.0)`.
-    pub scale: GraphPoint<f64>,
-
-    /// The number of graph units between each minor grid line, given as a pair of `(x, y)` units.
-    ///
-    /// For example, to have a minor grid line every `3.0` units on the x-axis and every `2.0` units
-    /// on the y-axis, set this to `(3.0, 2.0)`.
-    pub minor_grid_spacing: GraphPoint<f64>,
-}
-
-impl Default for GraphOptions {
-    fn default() -> GraphOptions {
-        GraphOptions {
-            canvas_size: CanvasPoint(1000, 1000),
-            center: GraphPoint(0.0, 0.0),
-            scale: GraphPoint(10.0, 10.0),
-            minor_grid_spacing: GraphPoint(2.0, 2.0),
-        }
-    }
-}
-
-impl GraphOptions {
-    /// Converts an x-value in **graph** space to an x-value in **canvas** space.
-    fn x_to_canvas(&self, x: f64) -> f64 {
-        let graph_space_range = self.scale.0 * 2.0;
-
-        // normalize x-value to [0.0, 1.0], where 0.0 indicates left-edge of visible graph, 1.0
-        // indicates right-edge of visible graph
-        let normalized = (x - self.center.0) / graph_space_range + 0.5;
-
-        // convert normalized x-value to canvas space
-        normalized * self.canvas_size.0 as f64
-    }
-
-    /// Converts a y-value in **graph** space to a y-value in **canvas** space.
-    fn y_to_canvas(&self, y: f64) -> f64 {
-        let graph_space_range = self.scale.1 * 2.0;
-
-        // normalize y-value to [0.0, 1.0], then flip the normalized value so, 0.0 is top, 1.0 is bottom
-        // this is because the y-axis is flipped in graph space
-        let normalized = 0.5 - (y - self.center.1) / graph_space_range;
-
-        // convert normalized y-value to canvas space
-        normalized * self.canvas_size.1 as f64
-    }
-
-    /// Converts a point in **graph** space to **canvas** space.
-    pub fn to_canvas(&self, point: GraphPoint<f64>) -> CanvasPoint<f64> {
-        CanvasPoint(
-            self.x_to_canvas(point.0),
-            self.y_to_canvas(point.1),
-        )
-    }
-
-    /// Converts an x-value in **canvas** space to an x-value in **graph** space.
-    fn x_to_graph(&self, x: f64) -> f64 {
-        // normalize x-value to [0.0, 1.0], where 0.0 indicates left-edge of canvas, 1.0 indicates
-        // right-edge of canvas (x should always be positive)
-        let normalized = x / self.canvas_size.0 as f64;
-
-        // convert normalized x-value to graph space
-        let graph_space_range = self.scale.0 * 2.0;
-        let left_edge_graph_space = self.center.0 - self.scale.0;
-
-        normalized * graph_space_range + left_edge_graph_space
-    }
-
-    /// Converts a y-value in **canvas** space to a y-value in **graph** space.
-    fn y_to_graph(&self, y: f64) -> f64 {
-        // normalize y-value to [0.0, 1.0], then flip the normalized value so, 0.0 is bottom, 1.0 is top
-        // this is because the y-axis is flipped in canvas space
-        let normalized = 1.0 - y / self.canvas_size.1 as f64;
-
-        // convert normalized y-value to graph space
-        let graph_space_range = self.scale.1 * 2.0;
-        let bottom_edge_graph_space = self.center.1 - self.scale.1;
-
-        normalized * graph_space_range + bottom_edge_graph_space
-    }
-
-    /// Converts a point in **canvas** space to **graph** space.
-    pub fn to_graph(&self, point: CanvasPoint<f64>) -> GraphPoint<f64> {
-        GraphPoint(
-            self.x_to_graph(point.0),
-            self.y_to_graph(point.1),
-        )
-    }
 }
 
 /// A graph containing expressions to draw.
@@ -279,14 +99,14 @@ impl Graph {
         context.select_font_face("sans-serif", FontSlant::Oblique, FontWeight::Normal);
 
         let origin_canvas = self.options.to_canvas(GraphPoint(0.0, 0.0));
-        self.draw_grid_lines(&context)?;
-        self.draw_origin_axes(&context, origin_canvas)?;
+        self.draw_grid_lines(context)?;
+        self.draw_origin_axes(context, origin_canvas)?;
 
-        let edges = self.draw_edge_labels(&context, origin_canvas)?;
-        self.draw_grid_line_numbers(&context, origin_canvas, edges)?;
+        let edges = self.draw_edge_labels(context, origin_canvas)?;
+        self.draw_grid_line_numbers(context, origin_canvas, edges)?;
 
-        self.draw_expressions(&context)?;
-        self.draw_points(&context)?;
+        self.draw_expressions(context)?;
+        self.draw_points(context)?;
 
         Ok(())
     }

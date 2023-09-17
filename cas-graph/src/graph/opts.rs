@@ -1,0 +1,105 @@
+use super::point::{CanvasPoint, GraphPoint};
+
+/// Options to use when drawing a graph.
+#[derive(Clone, Copy, Debug)]
+pub struct GraphOptions {
+    /// The width and height of the canvas, in pixels.
+    pub canvas_size: CanvasPoint<u16>,
+
+    /// The `(x, y)` point at which to center the graph.
+    ///
+    /// For example, to place the origin at the center of the graph, set this to `(0.0, 0.0)`.
+    pub center: GraphPoint<f64>,
+
+    /// The `(x, y)` scale of the graph.
+    ///
+    /// The scale indicates the distance, in graph units, from the center of the canvas to the edge
+    /// of the canvas. For example, when the graph is centered at `(0.0, 0.0)` with a scale of
+    /// `(10.0, 10.0)`, the visible graph will be from `(-10.0, -10.0)` to `(10.0, 10.0)`.
+    pub scale: GraphPoint<f64>,
+
+    /// The number of graph units between each minor grid line, given as a pair of `(x, y)` units.
+    ///
+    /// For example, to have a minor grid line every `3.0` units on the x-axis and every `2.0` units
+    /// on the y-axis, set this to `(3.0, 2.0)`.
+    pub minor_grid_spacing: GraphPoint<f64>,
+}
+
+impl Default for GraphOptions {
+    fn default() -> GraphOptions {
+        GraphOptions {
+            canvas_size: CanvasPoint(1000, 1000),
+            center: GraphPoint(0.0, 0.0),
+            scale: GraphPoint(10.0, 10.0),
+            minor_grid_spacing: GraphPoint(2.0, 2.0),
+        }
+    }
+}
+
+impl GraphOptions {
+    /// Converts an x-value in **graph** space to an x-value in **canvas** space.
+    pub(crate) fn x_to_canvas(&self, x: f64) -> f64 {
+        let graph_space_range = self.scale.0 * 2.0;
+
+        // normalize x-value to [0.0, 1.0], where 0.0 indicates left-edge of visible graph, 1.0
+        // indicates right-edge of visible graph
+        let normalized = (x - self.center.0) / graph_space_range + 0.5;
+
+        // convert normalized x-value to canvas space
+        normalized * self.canvas_size.0 as f64
+    }
+
+    /// Converts a y-value in **graph** space to a y-value in **canvas** space.
+    pub(crate) fn y_to_canvas(&self, y: f64) -> f64 {
+        let graph_space_range = self.scale.1 * 2.0;
+
+        // normalize y-value to [0.0, 1.0], then flip the normalized value so, 0.0 is top, 1.0 is bottom
+        // this is because the y-axis is flipped in graph space
+        let normalized = 0.5 - (y - self.center.1) / graph_space_range;
+
+        // convert normalized y-value to canvas space
+        normalized * self.canvas_size.1 as f64
+    }
+
+    /// Converts a point in **graph** space to **canvas** space.
+    pub fn to_canvas(&self, point: GraphPoint<f64>) -> CanvasPoint<f64> {
+        CanvasPoint(
+            self.x_to_canvas(point.0),
+            self.y_to_canvas(point.1),
+        )
+    }
+
+    /// Converts an x-value in **canvas** space to an x-value in **graph** space.
+    pub(crate) fn x_to_graph(&self, x: f64) -> f64 {
+        // normalize x-value to [0.0, 1.0], where 0.0 indicates left-edge of canvas, 1.0 indicates
+        // right-edge of canvas (x should always be positive)
+        let normalized = x / self.canvas_size.0 as f64;
+
+        // convert normalized x-value to graph space
+        let graph_space_range = self.scale.0 * 2.0;
+        let left_edge_graph_space = self.center.0 - self.scale.0;
+
+        normalized * graph_space_range + left_edge_graph_space
+    }
+
+    /// Converts a y-value in **canvas** space to a y-value in **graph** space.
+    pub(crate) fn y_to_graph(&self, y: f64) -> f64 {
+        // normalize y-value to [0.0, 1.0], then flip the normalized value so, 0.0 is bottom, 1.0 is top
+        // this is because the y-axis is flipped in canvas space
+        let normalized = 1.0 - y / self.canvas_size.1 as f64;
+
+        // convert normalized y-value to graph space
+        let graph_space_range = self.scale.1 * 2.0;
+        let bottom_edge_graph_space = self.center.1 - self.scale.1;
+
+        normalized * graph_space_range + bottom_edge_graph_space
+    }
+
+    /// Converts a point in **canvas** space to **graph** space.
+    pub fn to_graph(&self, point: CanvasPoint<f64>) -> GraphPoint<f64> {
+        GraphPoint(
+            self.x_to_graph(point.0),
+            self.y_to_graph(point.1),
+        )
+    }
+}

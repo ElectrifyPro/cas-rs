@@ -20,7 +20,7 @@ impl Eval for Unary {
                 UnaryOpKind::Neg => Value::Number(-num),
             }),
             Value::Complex(ref comp) => Ok(match self.op.kind {
-                UnaryOpKind::Not => Value::Boolean(comp.eq0()),
+                UnaryOpKind::Not => Value::Boolean(comp.is_zero()),
                 UnaryOpKind::Neg => Value::Complex(complex(&*comp.as_neg())),
                 _ => return Err(Error::new(vec![self.operand.span(), self.op.span.clone()], InvalidUnaryOperation {
                     op: self.op.kind,

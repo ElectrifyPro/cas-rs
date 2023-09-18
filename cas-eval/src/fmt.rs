@@ -438,7 +438,7 @@ fn format_float(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std
 
 /// Formats a complex number.
 fn format_complex(f: &mut Formatter<'_>, c: &Complex, options: FormatOptions) -> std::fmt::Result {
-    if c.eq0() {
+    if c.is_zero() {
         return write!(f, "0");
     }
 

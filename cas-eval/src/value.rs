@@ -118,7 +118,7 @@ impl Value {
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Number(n) => !n.is_zero(),
-            Value::Complex(c) => !c.eq0(),
+            Value::Complex(c) => !c.is_zero(),
             Value::Boolean(b) => *b,
             Value::Unit => false,
         }

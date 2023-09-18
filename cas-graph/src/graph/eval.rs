@@ -1,6 +1,5 @@
 use cas_eval::{ctxt::Ctxt, eval::Eval, value::Value};
-use cas_parser::parser::expr::Expr;
-use super::{GraphOptions, GraphPoint};
+use super::{analyzed::{AnalyzedExpr, Variable}, GraphOptions, GraphPoint};
 
 /// Evaluate the given expression and returns the points to draw.
 ///
@@ -17,8 +16,7 @@ use super::{GraphOptions, GraphPoint};
 /// example, if the step size is too large, we could end up skipping past a relative minimum /
 /// maximum of the expression, which would be extremely obvious.
 pub(crate) fn evaluate_expr(
-    expr: &Expr,
-    x_bounds: (f64, f64),
+    analyzed: &AnalyzedExpr,
     options: GraphOptions,
 ) -> Vec<GraphPoint<f64>> {
     let mut ctxt = Ctxt::default();
@@ -27,15 +25,34 @@ pub(crate) fn evaluate_expr(
     let mut last_point = None;
     let mut current_point = None;
 
-    let mut x = x_bounds.0;
+    let (bounds, cross_axis_bounds) = {
+        let x_bounds = (options.center.0 - options.scale.0, options.center.0 + options.scale.0);
+        let y_bounds = (options.center.1 - options.scale.1, options.center.1 + options.scale.1);
+        match analyzed.independent {
+            Variable::X => (x_bounds, y_bounds),
+            Variable::Y => (y_bounds, x_bounds),
+            Variable::Theta => todo!("polar coordinates"),
+        }
+    };
+    let compute_slope = |previous: GraphPoint<f64>, current: GraphPoint<f64>| {
+        match analyzed.independent {
+            Variable::X => (current.1 - previous.1) / (current.0 - previous.0) / options.scale.1,
+            Variable::Y => (current.0 - previous.0) / (current.1 - previous.1) / options.scale.0,
+            Variable::Theta => todo!("polar coordinates"),
+        }
+    };
+
+    let mut current_trace = bounds.0;
     let min_step_len = options.scale.0 / 32.0;
 
-    let y_bounds = (options.center.1 - options.scale.1, options.center.1 + options.scale.1);
-
-    while x <= x_bounds.1 {
-        ctxt.add_var("x", x.into());
-        if let Ok(Value::Number(float)) = expr.eval(&mut ctxt).map(|v| v.coerce_real()) {
-            let point = GraphPoint(x, float.to_f64());
+    while current_trace <= bounds.1 {
+        ctxt.add_var(analyzed.independent.as_str(), current_trace.into());
+        if let Ok(Value::Number(float)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_real()) {
+            let point = match analyzed.independent {
+                Variable::X => GraphPoint(current_trace, float.to_f64()),
+                Variable::Y => GraphPoint(float.to_f64(), current_trace),
+                Variable::Theta => todo!("polar coordinates"),
+            };
             points.push(point);
 
             last_point = current_point;
@@ -44,7 +61,7 @@ pub(crate) fn evaluate_expr(
 
         // adjust our step length based on the slope of the expression
         // NOTE: this would be so nice with let chains
-        let step_len = if current_point.map(|p| p.1 < y_bounds.0 || p.1 > y_bounds.1).unwrap_or(false) {
+        let step_len = if current_point.map(|p| p.1 < cross_axis_bounds.0 || p.1 > cross_axis_bounds.1).unwrap_or(false) {
             // if the expression moves outside the graph viewport, we hardcode the step length to
             // be an arbitrary high step length so we can get to a visible point more quickly
             min_step_len * 4.0
@@ -55,7 +72,7 @@ pub(crate) fn evaluate_expr(
             // for example, if we graph y=x^3 with a very large y-scale, an observer looking at the
             // graph will see a very shallow slope in the area around x=0, even though the true
             // slope of the expression past x=0 gets very steep very fast
-            let slope = (current.1 - last.1) / (current.0 - last.0) / options.scale.1;
+            let slope = compute_slope(last, current);
 
             // the larger the slope, the larger the step length can be
             // not too large though, so we can catch discontinuities
@@ -63,7 +80,7 @@ pub(crate) fn evaluate_expr(
         } else {
             min_step_len
         };
-        x += step_len;
+        current_trace += step_len;
     }
 
     points

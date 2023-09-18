@@ -1,7 +1,9 @@
+pub mod analyzed;
 mod eval;
 pub mod opts;
 pub mod point;
 
+use analyzed::AnalyzedExpr;
 use cairo::{Context, Error, FontSlant, FontWeight, TextExtents};
 use cas_parser::parser::expr::Expr;
 use eval::evaluate_expr;
@@ -34,7 +36,7 @@ fn round_to(n: f64, k: f64) -> f64 {
 #[derive(Clone, Debug, Default)]
 pub struct Graph {
     /// The expressions to draw.
-    pub expressions: Vec<Expr>,
+    pub expressions: Vec<AnalyzedExpr>,
 
     /// The points to draw.
     pub points: Vec<GraphPoint<f64>>,
@@ -59,7 +61,7 @@ impl Graph {
 
     /// Add an expression to the graph.
     pub fn add(&mut self, expr: Expr) {
-        self.expressions.push(expr);
+        self.expressions.push(AnalyzedExpr::new(expr));
     }
 
     /// Center the graph on the points in the graph.
@@ -346,13 +348,8 @@ impl Graph {
         context.set_source_rgb(1.0, 0.0, 0.0);
         context.set_line_width(5.0);
 
-        let x_bounds = (
-            self.options.center.0 - self.options.scale.0,
-            self.options.center.0 + self.options.scale.0,
-        );
-
         let expr_points = self.expressions.par_iter()
-            .map(|expr| evaluate_expr(expr, x_bounds, self.options))
+            .map(|expr| evaluate_expr(expr, self.options))
             .collect::<Vec<_>>();
         for points in expr_points {
             let mut first_eval = true;

@@ -11,7 +11,6 @@ macro_rules! eval_break {
     ($value:expr, $ctxt:expr) => {{
         let value = $value.eval($ctxt)?;
         if $ctxt.break_loop {
-            $ctxt.break_loop = false;
             return Ok(value);
         }
         value
@@ -26,10 +25,15 @@ impl Eval for Break {
                 LoopControlOutsideLoop,
             ))
         } else {
-            ctxt.break_loop = true;
             if let Some(value) = &self.value {
-                value.eval(ctxt)
+                // evaluate the entire expression first, then begin breaking the loop
+                // `loop` expression will then set `break_loop` back to false once we propogate up
+                // the stack
+                let result = value.eval(ctxt)?;
+                ctxt.break_loop = true;
+                Ok(result)
             } else {
+                ctxt.break_loop = true;
                 Ok(Value::Unit)
             }
         }

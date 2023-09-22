@@ -71,20 +71,20 @@ pub struct Ctxt {
     /// The current depth of the loop stack. This is used to detect `break` and `continue` outside
     /// of a loop.
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub loop_depth: usize,
+    pub(crate) loop_depth: usize,
 
     /// When true, a `break` expression was evaluated in the current loop. The evaluator should
     /// stop and propogate the value of the `break` expression.
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub break_loop: bool,
+    pub(crate) break_loop: bool,
 
     /// The current depth of the stack. This is used to detect stack overflows.
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub stack_depth: usize,
+    pub(crate) stack_depth: usize,
 
     /// TODO: Whether the maximum recursion depth was reached while evaluating an expression.
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub max_depth_reached: bool,
+    pub(crate) max_depth_reached: bool,
 }
 
 impl Default for Ctxt {

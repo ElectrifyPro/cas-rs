@@ -250,10 +250,9 @@ At the moment, the parser inserts implicit multiplication with disregard for whi
 ```
 fact(n) = {
     out = n;
-    loop {
+    while n > 1 then {
         n -= 1;
         out *= n;
-        if n <= 1 then break;
     };
     out
 }
@@ -265,10 +264,9 @@ In these scenarios, semicolons can be used to clearly indicate termination of a 
 ```
 fact(n) = {
     out = n;
-    loop {
+    while n > 1 then {
         n -= 1;
         out *= n;
-        if n <= 1 then break;
     };
     out
 };
@@ -279,7 +277,7 @@ In the future, implicit multiplication will probably be restricted to individual
 
 ## Programming constructs
 
-`cas-rs` supports usual programming constructs, such as `if` / `else` statements, and `loop`s.
+`cas-rs` supports usual programming constructs, such as `if` / `else` statements, `loop`s, and `while` loops.
 
 In the case of `if` / `else` statements, you often will not need to enclose conditions or branches with any special syntax (you can do so with curly braces or parentheses if needed):
 
@@ -297,15 +295,14 @@ quadratic_formula(a, b, c, plus = true) = {
 };
 ```
 
-`loop`s are also supported; within the scope of a `loop` expression, the `break` and `continue` keywords can be used to break out of the loop or skip to the next iteration, respectively:
+`loop`s and `while` loops are also supported. A `loop` expression will execute its body forever, while a `while` expression will run its body for as long as the given condition is true. Within the scope of a `loop` / `while` expression, the `break` and `continue` keywords can be used to break out of the loop or skip to the next iteration, respectively:
 
 ```
 my_factorial(n) = {
     i = 1;
     result = 1;
-    loop {
+    while i < n then {
         i += 1;
-        if i > n then break;
         result *= i;
     };
     result

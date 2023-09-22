@@ -17,6 +17,7 @@ pub mod stmt;
 pub mod surrounded;
 pub mod token;
 pub mod unary;
+pub mod while_expr;
 
 use cas_error::ErrorKind;
 use error::{Error, kind};
@@ -403,6 +404,7 @@ mod tests {
     use stmt::Stmt;
     use token::op::{AssignOp, AssignOpKind, BinOp, BinOpKind, UnaryOp, UnaryOpKind};
     use unary::Unary;
+    use while_expr::While;
 
     #[test]
     fn literal_int() {
@@ -1659,6 +1661,49 @@ mod tests {
                 span: 6..7,
             }))),
             span: 0..7,
+        }));
+    }
+
+    #[test]
+    fn oneline_while_loop() {
+        let mut parser = Parser::new("while x < 5 then x += 1");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::While(While {
+            condition: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                    name: "x".to_string(),
+                    span: 6..7,
+                }))),
+                op: BinOp {
+                    kind: BinOpKind::Less,
+                    implicit: false,
+                    span: 8..9,
+                },
+                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: "5".to_string(),
+                    span: 10..11,
+                }))),
+                span: 6..11,
+            })),
+            body: Box::new(Expr::Assign(Assign {
+                target: AssignTarget::Symbol(LitSym {
+                    name: "x".to_string(),
+                    span: 17..18,
+                }),
+                op: AssignOp {
+                    kind: AssignOpKind::Add,
+                    span: 19..21,
+                },
+                value: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: "1".to_string(),
+                    span: 22..23,
+                }))),
+                span: 17..23,
+            })),
+            span: 0..23,
+            while_span: 0..5,
+            then_span: 12..16,
         }));
     }
 

@@ -71,6 +71,13 @@ impl<'a> Iterator for ExprIter<'a> {
                     }
                     self.stack.push(&loop_expr.body);
                 },
+                Expr::While(while_expr) => {
+                    if self.is_last_visited(&while_expr.body) {
+                        return self.visit();
+                    }
+                    self.stack.push(&while_expr.body);
+                    self.stack.push(&while_expr.condition);
+                },
                 Expr::Break(break_expr) => {
                     if let Some(value) = &break_expr.value {
                         if self.is_last_visited(value) {

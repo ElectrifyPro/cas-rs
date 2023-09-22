@@ -9,6 +9,7 @@ impl Eval for Primary {
             Primary::Block(block) => block.eval(ctxt),
             Primary::If(if_expr) => if_expr.eval(ctxt),
             Primary::Loop(loop_expr) => loop_expr.eval(ctxt),
+            Primary::While(while_expr) => while_expr.eval(ctxt),
             Primary::Break(break_expr) => break_expr.eval(ctxt),
             Primary::Continue(continue_expr) => continue_expr.eval(ctxt),
             Primary::Call(call) => call.eval(ctxt),

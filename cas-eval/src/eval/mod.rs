@@ -8,7 +8,7 @@ mod error;
 mod expr;
 mod if_expr;
 mod literal;
-mod loop_expr;
+mod loops;
 mod primary;
 mod stmt;
 mod unary;

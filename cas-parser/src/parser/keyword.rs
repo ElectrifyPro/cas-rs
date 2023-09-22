@@ -62,6 +62,7 @@ keywords!(
     (Then, then)
     (Else, else)
     (Loop, loop)
+    (While, while)
     (Break, break)
     (Continue, continue)
 );

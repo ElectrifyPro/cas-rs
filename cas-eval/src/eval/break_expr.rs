@@ -1,4 +1,4 @@
-use cas_parser::parser::loop_expr::Break;
+use cas_parser::parser::ast::loop_expr::Break;
 use crate::{ctxt::Ctxt, error::{kind::LoopControlOutsideLoop, Error}, eval::Eval, value::Value};
 
 /// Helper macro to call [`Eval::eval`], then check if the loop should be broken. Errors will also

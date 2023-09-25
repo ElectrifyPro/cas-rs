@@ -1,5 +1,5 @@
+use crate::parser::{error::Error, Parse, Parser};
 use std::marker::PhantomData;
-use super::{error::Error, Parse, Parser};
 
 /// Represents zero or more values that are delimited by a certain token.
 #[derive(Debug, Clone, PartialEq, Eq)]

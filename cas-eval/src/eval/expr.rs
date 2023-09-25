@@ -1,4 +1,4 @@
-use cas_parser::parser::expr::Expr;
+use cas_parser::parser::ast::expr::Expr;
 use crate::{ctxt::Ctxt, error::Error, eval::Eval, value::Value};
 
 impl Eval for Expr {

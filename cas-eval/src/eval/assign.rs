@@ -1,6 +1,5 @@
 use cas_parser::parser::{
-    assign::{Assign, AssignTarget},
-    literal::LitSym,
+    ast::{assign::{Assign, AssignTarget}, literal::LitSym},
     token::op::AssignOpKind,
 };
 use crate::{

@@ -1,25 +1,27 @@
-use std::{fmt, ops::Range};
 use crate::{
     parser::{
-        assign::Assign,
-        binary::Binary,
-        block::Block,
-        call::Call,
+        ast::{
+            assign::Assign,
+            binary::Binary,
+            block::Block,
+            call::Call,
+            if_expr::If,
+            literal::Literal,
+            loop_expr::{Break, Continue, Loop},
+            paren::Paren,
+            unary::Unary,
+            while_expr::While,
+        },
         error::{kind, Error},
         fmt::Latex,
-        if_expr::If,
         iter::ExprIter,
-        literal::Literal,
-        loop_expr::{Break, Continue, Loop},
-        paren::Paren,
         token::{op::Precedence, CloseParen},
-        unary::Unary,
-        while_expr::While,
         Parse,
         Parser,
     },
     return_if_ok,
 };
+use std::{fmt, ops::Range};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,4 @@
-use cas_parser::parser::literal::Literal;
+use cas_parser::parser::ast::literal::Literal;
 use crate::{
     consts::{float, float_from_str},
     ctxt::Ctxt,

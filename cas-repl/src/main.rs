@@ -1,6 +1,6 @@
 use ariadne::Source;
 use cas_eval::{ctxt::Ctxt, eval::eval_stmts};
-use cas_parser::parser::{stmt::Stmt, Parser};
+use cas_parser::parser::{ast::stmt::Stmt, Parser};
 use std::io::{self, IsTerminal, Read, Write};
 
 fn main() {

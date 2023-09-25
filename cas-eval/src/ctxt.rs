@@ -1,4 +1,4 @@
-use cas_parser::parser::{assign::FuncHeader, expr::Expr};
+use cas_parser::parser::ast::{assign::FuncHeader, expr::Expr};
 use levenshtein::levenshtein;
 use std::collections::HashMap;
 use super::value::Value;

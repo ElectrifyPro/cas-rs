@@ -1,4 +1,4 @@
-use cas_parser::parser::loop_expr::Continue;
+use cas_parser::parser::ast::loop_expr::Continue;
 use crate::{ctxt::Ctxt, error::{kind::LoopControlOutsideLoop, Error}, eval::Eval, value::Value};
 
 impl Eval for Continue {

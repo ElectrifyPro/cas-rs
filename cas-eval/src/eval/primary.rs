@@ -1,4 +1,4 @@
-use cas_parser::parser::expr::Primary;
+use cas_parser::parser::ast::expr::Primary;
 use crate::{ctxt::Ctxt, error::Error, eval::Eval, value::Value};
 
 impl Eval for Primary {

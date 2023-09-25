@@ -1,35 +1,15 @@
-pub mod assign;
-pub mod binary;
-pub mod block;
-pub mod call;
-pub mod delimited;
+pub mod ast;
 pub mod error;
-pub mod expr;
 pub mod fmt;
 pub mod garbage;
-pub mod if_expr;
 pub mod iter;
 pub mod keyword;
-pub mod literal;
-pub mod loop_expr;
-pub mod paren;
-pub mod stmt;
-pub mod surrounded;
 pub mod token;
-pub mod unary;
-pub mod while_expr;
 
 use cas_error::ErrorKind;
 use error::{Error, kind};
 use super::tokenizer::{tokenize_complete, Token};
 use std::ops::Range;
-
-/// Type alias for a comma-separated list of values, surrounded by parentheses.
-pub type ParenDelimited<'source, T> = surrounded::Surrounded<
-    token::OpenParen<'source>,
-    token::CloseParen<'source>,
-    delimited::Delimited<token::Comma<'source>, T>,
->;
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
 /// code into an abstract syntax tree.
@@ -393,18 +373,8 @@ mod tests {
     use pretty_assertions::assert_eq;
     use super::*;
 
-    use assign::{Assign, AssignTarget, FuncHeader, Param};
-    use block::Block;
-    use binary::Binary;
-    use call::Call;
-    use expr::Expr;
-    use if_expr::If;
-    use literal::{Literal, LitNum, LitRadix, LitSym};
-    use paren::Paren;
-    use stmt::Stmt;
+    use ast::*;
     use token::op::{AssignOp, AssignOpKind, BinOp, BinOpKind, UnaryOp, UnaryOpKind};
-    use unary::Unary;
-    use while_expr::While;
 
     #[test]
     fn literal_int() {

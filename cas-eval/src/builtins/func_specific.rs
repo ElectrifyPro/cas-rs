@@ -1,6 +1,6 @@
 use cas_attrs::ErrorKind;
 use cas_error::ErrorKind;
-use cas_parser::parser::call::Call;
+use cas_parser::parser::ast::call::Call;
 use crate::builtins::BuiltinError;
 use std::ops::Range;
 

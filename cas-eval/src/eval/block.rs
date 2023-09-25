@@ -1,4 +1,4 @@
-use cas_parser::parser::{block::Block, stmt::Stmt};
+use cas_parser::parser::ast::{block::Block, stmt::Stmt};
 use crate::{ctxt::Ctxt, error::Error, eval::Eval, value::Value, eval_break};
 
 /// Evaluates multiple statements, returning the value of the last one.

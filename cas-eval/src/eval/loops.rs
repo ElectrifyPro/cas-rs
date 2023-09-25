@@ -1,4 +1,4 @@
-use cas_parser::parser::{expr::Expr, loop_expr::Loop, while_expr::While};
+use cas_parser::parser::ast::{expr::Expr, loop_expr::Loop, while_expr::While};
 use crate::{ctxt::Ctxt, error::Error, eval::Eval, value::Value};
 
 /// Trait for loop expressions that utilize a boolean condition to determine whether they should

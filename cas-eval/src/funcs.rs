@@ -1,4 +1,4 @@
-use cas_parser::parser::literal::DIGITS;
+use cas_parser::parser::ast::literal::DIGITS;
 use once_cell::sync::Lazy;
 use rand::{Fill, Rng};
 use rug::{float::Special, ops::Pow, Complex, Float, Integer};

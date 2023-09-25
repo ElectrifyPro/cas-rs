@@ -1,12 +1,10 @@
 use crate::{
     parser::{
+        ast::{expr::Expr, helper::ParenDelimited, literal::{Literal, LitSym}},
         error::{kind::{CompoundAssignmentInHeader, InvalidAssignmentLhs, InvalidCompoundAssignmentLhs}, Error},
-        expr::Expr,
         fmt::Latex,
         garbage::Garbage,
-        literal::{Literal, LitSym},
         token::op::AssignOp,
-        ParenDelimited,
         Parse,
         Parser,
         ParseResult,

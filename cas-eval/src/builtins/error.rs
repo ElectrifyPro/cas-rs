@@ -1,5 +1,5 @@
 use cas_error::ErrorKind;
-use cas_parser::parser::call::Call;
+use cas_parser::parser::ast::call::Call;
 use crate::{
     builtins::func_specific::FunctionSpecific,
     error::{kind::{MissingArgument, TooManyArguments, TypeMismatch}, Error},

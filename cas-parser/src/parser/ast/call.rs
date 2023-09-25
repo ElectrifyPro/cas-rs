@@ -1,14 +1,12 @@
-use std::{fmt, ops::Range};
-use super::{
+use crate::parser::{
+    ast::{expr::Expr, helper::ParenDelimited, literal::LitSym},
     error::{kind::TooManyDerivatives, Error},
-    expr::Expr,
     fmt::{Latex, fmt_pow},
-    literal::LitSym,
     token::Quote,
-    ParenDelimited,
     Parse,
     Parser,
 };
+use std::{fmt, ops::Range};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

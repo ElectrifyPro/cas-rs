@@ -1,4 +1,4 @@
-use cas_parser::parser::stmt::Stmt;
+use cas_parser::parser::ast::stmt::Stmt;
 use crate::{ctxt::Ctxt, error::Error, eval::Eval, value::Value};
 
 impl Eval for Stmt {

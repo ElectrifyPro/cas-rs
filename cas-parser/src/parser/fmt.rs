@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter, Result};
-use super::{expr::Expr, token::op::BinOpKind};
+use super::{ast::expr::Expr, token::op::BinOpKind};
 
 /// A trait for types that can be formatted as LaTeX.
 pub trait Latex {

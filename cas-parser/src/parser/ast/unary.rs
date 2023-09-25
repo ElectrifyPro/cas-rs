@@ -1,8 +1,6 @@
-use std::{fmt, ops::Range};
 use crate::{
     parser::{
-        binary::Binary,
-        expr::{Expr, Primary},
+        ast::{binary::Binary, expr::{Expr, Primary}},
         error::{kind, Error},
         fmt::Latex,
         token::op::{Associativity, UnaryOp},
@@ -12,6 +10,7 @@ use crate::{
     },
     return_if_ok,
 };
+use std::{fmt, ops::Range};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

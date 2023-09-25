@@ -1,13 +1,13 @@
-use std::{fmt, ops::Range};
-use super::{
+use crate::parser::{
+    ast::stmt::Stmt,
     error::{kind, Error},
     fmt::Latex,
     garbage::Garbage,
-    stmt::Stmt,
     token::{CloseCurly, OpenCurly},
     Parse,
     Parser,
 };
+use std::{fmt, ops::Range};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

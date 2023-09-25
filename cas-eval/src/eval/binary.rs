@@ -1,4 +1,4 @@
-use cas_parser::parser::{binary::Binary, token::op::BinOpKind};
+use cas_parser::parser::{ast::binary::Binary, token::op::BinOpKind};
 use rug::ops::Pow;
 use crate::{
     consts::{int_from_float, float},

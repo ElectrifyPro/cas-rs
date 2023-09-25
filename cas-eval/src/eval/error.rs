@@ -1,5 +1,5 @@
 use cas_error::ErrorKind;
-use cas_parser::parser::{assign::Assign, binary::Binary};
+use cas_parser::parser::ast::{assign::Assign, binary::Binary};
 use crate::error::{kind::{BitshiftOverflow, InvalidBinaryOperation}, Error};
 use std::ops::Range;
 

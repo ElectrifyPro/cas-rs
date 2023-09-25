@@ -1,4 +1,4 @@
-use super::{error::Error, Parse, Parser};
+use crate::parser::{error::Error, Parse, Parser};
 
 /// Represents a value that is surrounded by two tokens.
 #[derive(Debug, Clone, PartialEq, Eq)]

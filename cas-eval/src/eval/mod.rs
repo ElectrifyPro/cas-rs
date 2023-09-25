@@ -37,7 +37,7 @@ mod tests {
     use rug::ops::Pow;
     use super::*;
 
-    use cas_parser::parser::{expr::Expr, Parser};
+    use cas_parser::parser::{ast::expr::Expr, Parser};
 
     #[test]
     fn binary_expr() {

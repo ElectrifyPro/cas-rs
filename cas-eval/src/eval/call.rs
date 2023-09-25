@@ -1,4 +1,4 @@
-use cas_parser::parser::{assign::Param, call::Call};
+use cas_parser::parser::ast::{assign::Param, call::Call};
 use crate::{
     builtins::{self, Builtin},
     consts::float,

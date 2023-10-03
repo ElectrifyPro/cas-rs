@@ -130,11 +130,11 @@ pub(crate) fn eval_operands(
     right: Value,
 ) -> Result<Value, EvalError> {
     if left.is_real() && right.is_real() {
-        return eval_real_operands(op, implicit, left, right);
+        return eval_real_operands(op, implicit, left.coerce_real(), right.coerce_real());
     }
 
     if left.is_complex() && right.is_complex() {
-        return eval_complex_operands(op, implicit, left, right);
+        return eval_complex_operands(op, implicit, left.coerce_complex(), right.coerce_complex());
     }
 
     if left.is_boolean() && right.is_boolean() {

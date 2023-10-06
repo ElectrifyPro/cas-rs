@@ -1,15 +1,22 @@
-/// A representation of mathematical expressions that is easier to manipulate than an AST.
-///
-/// The [`Expr`] type from `cas_parser` is a recursive `enum` that represents the AST of a
-/// mathematical expression. It's convenient for parsing, but not so much for algebraic
-/// manipulation.
-///
-/// This module defines [`MathExpr`], a type that stores additional information about the
-/// expression, such as the terms and factors that make it up. It simplifies the situation by
-/// recursively flattening the AST into a vector of terms or factors, depending on the operation,
-/// and normalizing the expression into a sum of products.
+//! A representation of mathematical expressions that is easier to manipulate than an AST.
+//!
+//! The [`Expr`](cas_parser::parser::ast::expr::Expr) type from `cas_parser` is a recursive `enum`
+//! that represents the AST of a mathematical expression. It's convenient for parsing, but not so
+//! much for algebraic manipulation.
+//!
+//! This module defines a separate [`Expr`](crate::algebra::expr::Expr), a type that stores
+//! additional information about the expression, such as the terms and factors that make it up. It
+//! simplifies the situation by recursively flattening the AST into a vector of terms or factors,
+//! depending on the operation, and normalizing the expression into a sum of products.
+//!
+//! All algebra submodules in this crate that deal with algebraic manipulation will use
+//! [`Expr`](crate::algebra::expr::Expr), and any occurrences of the word `expression` will refer
+//! to this type.
 
-use cas_parser::parser::{ast::{expr::Expr as AstExpr, literal::Literal}, token::op::{BinOpKind, UnaryOpKind}};
+use cas_parser::parser::{
+    ast::{expr::Expr as AstExpr, literal::Literal},
+    token::op::{BinOpKind, UnaryOpKind},
+};
 use std::ops::Mul;
 
 /// A single term / factor, such as a number, variable, or function call.
@@ -209,9 +216,9 @@ impl From<AstExpr> for Expr {
     }
 }
 
-/// Multiplies two [`MathExpr`]s together. No simplification is done, except for the case where the
-/// operands are a [`MathExpr::Number`] and a [`MathExpr::Mul`], in which case the number is added
-/// to the list of factors (flattening).
+/// Multiplies two [`Expr`]s together. No simplification is done, except for the case where the
+/// operands are a [`Expr::Number`] and a [`Expr::Mul`], in which case the number is added to the
+/// list of factors (flattening).
 impl Mul for Expr {
     type Output = Self;
 

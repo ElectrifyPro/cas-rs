@@ -10,7 +10,10 @@
 //! function to the ``simplify_with`` function.
 
 pub mod rules;
+pub mod step;
 
+use crate::step::StepCollector;
+use step::Step;
 use super::expr::{Expr, Primary};
 
 /// The default complexity heuristic function.
@@ -53,9 +56,72 @@ pub fn default_complexity(expr: &Expr) -> usize {
     complexity
 }
 
+/// Base implementation of the simplification algorithm.
+fn inner_simplify_with<F>(
+    expr: &Expr,
+    complexity: F,
+    step_collector: &mut dyn StepCollector<Step>,
+) -> (Expr, bool)
+where
+    F: Copy + Fn(&Expr) -> usize,
+{
+    let mut expr = expr.clone();
+    let mut changed_at_least_once = false;
+
+    loop {
+        // TODO: use complexity
+        let mut current_complexity = complexity(&expr);
+        let mut changed_in_this_pass = false;
+
+        // try to simplify this expression using all rules
+        if let Some(new_expr) = rules::all(&expr, step_collector) {
+            expr = new_expr;
+            changed_in_this_pass = true;
+            changed_at_least_once = true;
+        }
+
+        // then begin recursing into the expression's children
+        match expr {
+            Expr::Primary(primary) => return (Expr::Primary(primary), changed_at_least_once),
+            Expr::Add(ref mut terms) => {
+                for term in terms.iter_mut() {
+                    let result = inner_simplify_with(&term, complexity, step_collector);
+                    *term = result.0;
+                    // use |= instead of = to not reset these variables to false if already true
+                    changed_in_this_pass |= result.1;
+                    changed_at_least_once |= result.1;
+                }
+            },
+            Expr::Mul(ref mut factors) => {
+                for factor in factors.iter_mut() {
+                    let result = inner_simplify_with(&factor, complexity, step_collector);
+                    *factor = result.0;
+                    changed_in_this_pass |= result.1;
+                    changed_at_least_once |= result.1;
+                }
+            },
+            Expr::Exp(ref mut lhs, ref mut rhs) => {
+                let result_l = inner_simplify_with(&lhs, complexity, step_collector);
+                let result_r = inner_simplify_with(&rhs, complexity, step_collector);
+
+                *lhs = Box::new(result_l.0);
+                *rhs = Box::new(result_r.0);
+                changed_in_this_pass |= result_l.1 || result_r.1;
+                changed_at_least_once |= result_l.1 || result_r.1;
+            },
+        }
+
+        if !changed_in_this_pass {
+            break;
+        }
+    }
+
+    (expr, changed_at_least_once)
+}
+
 /// Simplify the given expression, using the default complexity heuristic function.
 pub fn simplify(expr: &Expr) -> Expr {
-    simplify_with(expr, default_complexity)
+    inner_simplify_with(expr, default_complexity, &mut ()).0
 }
 
 /// Simplify the given expression, using the given complexity heuristic function.
@@ -64,23 +130,18 @@ pub fn simplify(expr: &Expr) -> Expr {
 /// given expression. The lower the number, the simpler the expression.
 pub fn simplify_with<F>(expr: &Expr, complexity: F) -> Expr
 where
-    F: Fn(&Expr) -> usize,
+    F: Copy + Fn(&Expr) -> usize,
 {
-    let mut expr = expr.clone();
-    loop {
-        // TODO use complexity
-        let mut current_complexity = complexity(&expr);
-        let mut changed = false;
-        if let Some(new_expr) = rules::all(&expr) {
-            changed = true;
-            expr = new_expr;
-        }
-        if !changed {
-            break;
-        }
-    }
+    inner_simplify_with(expr, complexity, &mut ()).0
+}
 
-    expr
+/// Simplify the given expression, using the default complexity heuristic function. The steps taken
+/// by the simplifier will also be collected and returned. This is useful for debugging, and also
+/// for displaying the steps taken to the user.
+pub fn simplify_with_steps(expr: &Expr) -> (Expr, Vec<Step>) {
+    let mut steps = Vec::new();
+    let expr = inner_simplify_with(expr, default_complexity, &mut steps).0;
+    (expr, steps)
 }
 
 #[cfg(test)]
@@ -96,5 +157,29 @@ mod tests {
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
         assert_eq!(simplified_expr, Expr::Primary(Primary::Number("1".to_string())));
+    }
+
+    #[test]
+    fn power_rules_2() {
+        let input = String::from("(0^1)^0");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number("1".to_string())));
+    }
+
+    #[test]
+    fn power_rule_steps() {
+        let input = String::from("(1^0)^(3x+5b^2i)^1^(3a)");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let (simplified_expr, steps) = simplify_with_steps(&math_expr);
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number("1".to_string())));
+        assert_eq!(steps, vec![
+            Step::PowerZero,
+            Step::PowerOneLeft,
+            Step::PowerOne,
+            Step::PowerOneLeft,
+        ]);
     }
 }

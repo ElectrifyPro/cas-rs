@@ -6,9 +6,10 @@
 
 pub mod power;
 
-use super::Expr;
+use crate::step::StepCollector;
+use super::{Expr, step::Step};
 
 /// Applies all rules.
-pub fn all(expr: &Expr) -> Option<Expr> {
-    power::all(expr)
+pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+    power::all(expr, step_collector)
 }

@@ -234,13 +234,67 @@ mod tests {
     use super::*;
 
     #[test]
-    fn complicated_expr() {
-        let input = String::from("3x - (x+t)y - z*a^(1/5/6)*b");
+    fn simple_expr() {
+        let input = String::from("x^2 + 5x + 6");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
 
         // NOTE: the order of the terms and factors is not guaranteed, but the output is still
         // semantically correct
+        assert_eq!(math_expr, Expr::Add(vec![
+            // 6
+            Expr::Primary(Primary::Number(String::from("6"))),
+            // + 5x
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Symbol(String::from("x"))),
+                Expr::Primary(Primary::Number(String::from("5"))),
+            ]),
+            // + x^2
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
+                Box::new(Expr::Primary(Primary::Number(String::from("2")))),
+            ),
+        ]));
+    }
+
+    #[test]
+    fn factors_only() {
+        let input = String::from("-2x^2y^-3/5");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+
+        assert_eq!(math_expr, Expr::Mul(vec![
+            // y^-3
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
+                Box::new(Expr::Mul(vec![
+                    Expr::Primary(Primary::Number(String::from("-1"))),
+                    Expr::Primary(Primary::Number(String::from("3"))),
+                ])),
+            ),
+            // * x^2
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
+                Box::new(Expr::Primary(Primary::Number(String::from("2")))),
+            ),
+            // * -1
+            Expr::Primary(Primary::Number(String::from("-1"))),
+            // * 2
+            Expr::Primary(Primary::Number(String::from("2"))),
+            // / 5
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Number(String::from("5")))),
+                Box::new(Expr::Primary(Primary::Number(String::from("-1")))),
+            ),
+        ]));
+    }
+
+    #[test]
+    fn complicated_expr() {
+        let input = String::from("3x - (x+t)y - z*a^(1/5/6)*b");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+
         assert_eq!(math_expr, Expr::Add(vec![
             // 3 * x
             Expr::Mul(vec![

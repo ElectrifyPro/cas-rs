@@ -37,6 +37,15 @@ impl Paren {
         }
         inner
     }
+
+    /// Returns the innermost expression in the parenthesized expression, consuming the [`Paren`].
+    pub fn into_innermost(self) -> Expr {
+        let mut inner = self.expr;
+        while let Expr::Paren(paren) = *inner {
+            inner = paren.expr;
+        }
+        *inner
+    }
 }
 
 impl<'source> Parse<'source> for Paren {

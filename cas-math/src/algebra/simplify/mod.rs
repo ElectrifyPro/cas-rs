@@ -151,6 +151,38 @@ mod tests {
     use super::*;
 
     #[test]
+    fn add_rules() {
+        // also tests multiply_zero
+        let input = String::from("0+0*(3x+5b^2i)+0+(3a)");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Mul(vec![
+            Expr::Primary(Primary::Symbol("a".to_string())),
+            Expr::Primary(Primary::Number("3".to_string())),
+        ]));
+    }
+
+    #[test]
+    fn multiply_rules() {
+        let input = String::from("0*(3x+5b^2i)*1*(3a)");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number("0".to_string())));
+    }
+
+    #[test]
+    fn multiply_rules_2() {
+        // also tests add_zero
+        let input = String::from("1*3*1*1*1*(1+(x^2+5x+6)*0)*1*1");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number("3".to_string())));
+    }
+
+    #[test]
     fn power_rules() {
         let input = String::from("(1^0)^(3x+5b^2i)^1^(3a)");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();

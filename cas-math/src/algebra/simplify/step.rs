@@ -13,6 +13,12 @@ pub enum Step {
     /// `a*1 = a`
     MultiplyOne,
 
+    /// `a*a = a^2`
+    /// `a*a*a = a^3`
+    /// `a^2*a^3 = a^5`
+    /// etc.
+    CombineLikeFactors,
+
     /// `a^0 = 1`
     PowerZero,
 

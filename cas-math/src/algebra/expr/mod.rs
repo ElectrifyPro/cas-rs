@@ -12,6 +12,42 @@
 //! All algebra submodules in this crate that deal with algebraic manipulation will use
 //! [`Expr`](crate::algebra::expr::Expr), and any occurrences of the word `expression` will refer
 //! to this type.
+//!
+//! # Strict equality
+//!
+//! A common problem that arises in symbolic computation is determining if two expressions are
+//! semantically / mathematically equal, in order to determine if terms / factors are similar
+//! enough to be combined, for example. However, this is extremely difficult to do, because there
+//! are an infinite number of ways to represent the same expression.
+//!
+//! Consider pairs of expressions such as `x^2 + 2x + 1` and `(x + 1)^2`, or `cos(2x)` and
+//! `cos(x)^2 - sin(x)^2`. Both pairs are semantically equal, but it is impossible to check this
+//! without first applying expansion / factoring / simplification. As you can see, this is a bit of
+//! a chicken-and-egg problem. To simplify, we need to check semantic equality, but to check
+//! semantic equality, we need to simplify!
+//!
+//! To alleviate these issues, we define a subset of semantic equality for expressions, called
+//! **strict equality**. We define two expressions to be strictly equal if:
+//!
+//! - They are the same type of expression (i.e. both [`Expr::Primary`], both [`Expr::Add`], etc.).
+//! - If both are [`Expr::Primary`], both expressions must have strictly equal values.
+//! - If both are [`Expr::Add`] or [`Expr::Mul`], both expressions must have strictly equal terms /
+//! factors, in any order.
+//! - If both are [`Expr::Exp`], both expressions must have strictly equal base and exponent.
+//!
+//! Strict equality is not the same as semantic / mathematical equality. For the pairs of
+//! expressions listed above, `x^2 + 2x + 1` and `(x + 1)^2`, and `cos(2x)` and `cos(x)^2 - sin(x)^2`
+//! would **not** be considered strictly equal.
+//!
+//! However, because strict equality is a subset of semantic equality, strict equality can
+//! **never** report false positives. If two expressions are strictly equal, then they must be
+//! semantically equal. More importantly, strict equality is intended to be simple and fast to
+//! compute, and it does not depend on any simplification to work. This means that strict equality
+//! can be used **in conjunction** with simplification to determine if two expressions are similar
+//! enough to be combined.
+//!
+//! The [`PartialEq`] and [`Eq`] implementation for [`Expr`](crate::algebra::expr::Expr) implements
+//! strict equality, not semantic equality.
 
 use cas_eval::{funcs::from_str_radix, consts::{float, float_from_str}};
 use cas_parser::parser::{
@@ -19,7 +55,7 @@ use cas_parser::parser::{
     token::op::{BinOpKind, UnaryOpKind},
 };
 use rug::Float;
-use std::ops::Mul;
+use std::ops::{Add, AddAssign, Mul};
 
 /// A single term / factor, such as a number, variable, or function call.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,8 +75,44 @@ pub enum Primary {
 /// this to happen.
 impl Eq for Primary {}
 
+/// Adds two [`Primary`]s together. If both are [`Primary::Number`]s, the numbers are added
+/// together. Otherwise, the two [`Primary`]s are wrapped in an [`Expr::Add`].
+impl Add<Primary> for Primary {
+    type Output = Expr;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Primary::Number(lhs), Primary::Number(rhs)) => {
+                Expr::Primary(Primary::Number(lhs + rhs))
+            },
+            (lhs, rhs) => Expr::Add(vec![
+                Expr::Primary(lhs),
+                Expr::Primary(rhs),
+            ]),
+        }
+    }
+}
+
+/// Multiplies two [`Primary`]s together. If both are [`Primary::Number`]s, the numbers are
+/// multiplied together. Otherwise, the two [`Primary`]s are wrapped in an [`Expr::Mul`].
+impl Mul<Primary> for Primary {
+    type Output = Expr;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Primary::Number(lhs), Primary::Number(rhs)) => {
+                Expr::Primary(Primary::Number(lhs * rhs))
+            },
+            (lhs, rhs) => Expr::Mul(vec![
+                Expr::Primary(lhs),
+                Expr::Primary(rhs),
+            ]),
+        }
+    }
+}
+
 /// A mathematical expression with information about its terms and factors.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub enum Expr {
     /// A single term or factor.
     Primary(Primary),
@@ -53,6 +125,42 @@ pub enum Expr {
 
     /// An expression raised to a power.
     Exp(Box<Expr>, Box<Expr>),
+}
+
+impl Expr {
+    /// If the expression is an [`Primary::Number`], returns a reference to the contained number.
+    pub fn as_number(&self) -> Option<&Float> {
+        match self {
+            Self::Primary(Primary::Number(num)) => Some(num),
+            _ => None,
+        }
+    }
+}
+
+/// Checks if two expressions are **strictly** equal.
+///
+/// Two expressions are strictly equal if:
+/// - They are the same type of expression (i.e. both [`Expr::Primary`], both [`Expr::Add`], etc.).
+/// - If both are [`Expr::Primary`], both expressions must have strictly equal values.
+/// - If both are [`Expr::Add`] or [`Expr::Mul`], both expressions must have strictly equal terms /
+/// factors, in any order.
+/// - If both are [`Expr::Exp`], both expressions must have strictly equal base and exponent.
+///
+/// For more information about strict equality, see the [module-level documentation](crate::algebra::expr).
+impl PartialEq for Expr {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Primary(lhs), Self::Primary(rhs)) => lhs == rhs,
+            (Self::Add(lhs), Self::Add(rhs)) | (Self::Mul(lhs), Self::Mul(rhs)) => {
+                lhs.len() == rhs.len()
+                    && lhs.iter().all(|lhs| rhs.contains(lhs))
+            },
+            (Self::Exp(lhs_base, lhs_exp), Self::Exp(rhs_base, rhs_exp)) => {
+                lhs_base == rhs_base && lhs_exp == rhs_exp
+            },
+            _ => false,
+        }
+    }
 }
 
 impl From<AstExpr> for Expr {
@@ -223,14 +331,43 @@ impl From<AstExpr> for Expr {
     }
 }
 
+/// Adds two [`Expr`]s together. No simplification is done, except for the case where the operands
+/// are a mix of [`Primary`] and / or [`Expr::Add`], in which case both are combined in one list
+/// of terms (flattening).
+impl Add for Expr {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Primary(lhs), Self::Primary(rhs)) => lhs + rhs,
+            (Self::Add(mut terms), Self::Add(rhs_terms)) => {
+                terms.extend(rhs_terms);
+                Self::Add(terms)
+            },
+            (Self::Add(mut terms), other) | (other, Self::Add(mut terms)) => {
+                terms.push(other);
+                Self::Add(terms)
+            },
+            (lhs, rhs) => Self::Add(vec![lhs, rhs]),
+        }
+    }
+}
+
+impl AddAssign for Expr {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = self.clone() + rhs;
+    }
+}
+
 /// Multiplies two [`Expr`]s together. No simplification is done, except for the case where the
-/// operands are a [`Primary`] and a [`Expr::Mul`], in which case the number is added to the list
-/// of factors (flattening).
+/// operands are a mix of [`Primary`] and / or [`Expr::Mul`], in which case both are combined in
+/// one list of factors (flattening).
 impl Mul for Expr {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
         match (self, rhs) {
+            (Self::Primary(lhs), Self::Primary(rhs)) => lhs * rhs,
             (Self::Primary(primary), Self::Mul(mut other))
                 | (Self::Mul(mut other), Self::Primary(primary)) => {
                 other.push(Self::Primary(primary));
@@ -246,6 +383,30 @@ mod tests {
     use cas_parser::parser::{ast::expr::Expr as AstExpr, Parser};
     use pretty_assertions::assert_eq;
     use super::*;
+
+    #[test]
+    fn strict_equality() {
+        let a = String::from("2(x + (y - 5))");
+        let b = String::from("(y - 5 + x) * 2");
+        let a_expr = Parser::new(&a).try_parse_full::<AstExpr>().unwrap();
+        let b_expr = Parser::new(&b).try_parse_full::<AstExpr>().unwrap();
+        let a_math_expr = Expr::from(a_expr);
+        let b_math_expr = Expr::from(b_expr);
+        assert_eq!(a_math_expr, b_math_expr);
+    }
+
+    #[test]
+    fn strict_equality_2() {
+        // these is NOT strictly equal (but are semantically equal)
+        // `b` is a simplified version of `a`
+        let a = String::from("2(x + (y - 5))");
+        let b = String::from("2x + 2y - 10");
+        let a_expr = Parser::new(&a).try_parse_full::<AstExpr>().unwrap();
+        let b_expr = Parser::new(&b).try_parse_full::<AstExpr>().unwrap();
+        let a_math_expr = Expr::from(a_expr);
+        let b_math_expr = Expr::from(b_expr);
+        assert_ne!(a_math_expr, b_math_expr);
+    }
 
     #[test]
     fn simple_expr() {

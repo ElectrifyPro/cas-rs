@@ -186,6 +186,57 @@ mod tests {
     }
 
     #[test]
+    fn combine_like_factors() {
+        let input = String::from("a * b * a^3 * c^2 * d^2 * a^2 * b^4 * d^2");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Mul(vec![
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol("d".to_string()))),
+                Box::new(Expr::Primary(Primary::Number(float(4)))),
+            ),
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol("b".to_string()))),
+                Box::new(Expr::Primary(Primary::Number(float(5)))),
+            ),
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol("a".to_string()))),
+                Box::new(Expr::Primary(Primary::Number(float(6)))),
+            ),
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol("c".to_string()))),
+                Box::new(Expr::Primary(Primary::Number(float(2)))),
+            ),
+        ]));
+    }
+
+    #[test]
+    fn combine_like_factors_strict_eq() {
+        let input = String::from("(a + 1 + b) * (b + a) * (b + a + 1) * (a + b)");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Mul(vec![
+            Expr::Exp(
+                Box::new(Expr::Add(vec![
+                    Expr::Primary(Primary::Symbol("a".to_string())),
+                    Expr::Primary(Primary::Symbol("b".to_string())),
+                    Expr::Primary(Primary::Number(float(1))),
+                ])),
+                Box::new(Expr::Primary(Primary::Number(float(2)))),
+            ),
+            Expr::Exp(
+                Box::new(Expr::Add(vec![
+                    Expr::Primary(Primary::Symbol("a".to_string())),
+                    Expr::Primary(Primary::Symbol("b".to_string())),
+                ])),
+                Box::new(Expr::Primary(Primary::Number(float(2)))),
+            ),
+        ]));
+    }
+
+    #[test]
     fn power_rules() {
         let input = String::from("(1^0)^(3x+5b^2i)^1^(3a)");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();

@@ -13,17 +13,19 @@
 //! [`Expr`](crate::algebra::expr::Expr), and any occurrences of the word `expression` will refer
 //! to this type.
 
+use cas_eval::{funcs::from_str_radix, consts::{float, float_from_str}};
 use cas_parser::parser::{
     ast::{expr::Expr as AstExpr, literal::Literal},
     token::op::{BinOpKind, UnaryOpKind},
 };
+use rug::Float;
 use std::ops::Mul;
 
 /// A single term / factor, such as a number, variable, or function call.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Primary {
-    /// A numerical literal, such as `2`, `3.14`, or `4/7`.
-    Number(String),
+    /// A numerical literal, such as `2` or `3.14`.
+    Number(Float),
 
     /// A variable, such as `x` or `y`.
     Symbol(String),
@@ -31,6 +33,11 @@ pub enum Primary {
     /// A function call, such as `sin(x)` or `f(x, y)`.
     Call(String, Vec<Expr>),
 }
+
+/// [`Eq`] is implemented manually to allow comparing [`Primary::Number`]s. This module **must
+/// never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report any bugs that cause
+/// this to happen.
+impl Eq for Primary {}
 
 /// A mathematical expression with information about its terms and factors.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,8 +59,8 @@ impl From<AstExpr> for Expr {
     fn from(expr: AstExpr) -> Self {
         match expr {
             AstExpr::Literal(literal) => match literal {
-                Literal::Number(num) => Self::Primary(Primary::Number(num.value)),
-                Literal::Radix(_) => todo!(),
+                Literal::Number(num) => Self::Primary(Primary::Number(float_from_str(&num.value))),
+                Literal::Radix(radix) => Self::Primary(Primary::Number(float(from_str_radix(&radix.value, radix.base)))),
                 Literal::Symbol(sym) => Self::Primary(Primary::Symbol(sym.name)),
             },
             AstExpr::Paren(paren) => Self::from(paren.into_innermost()),
@@ -71,10 +78,10 @@ impl From<AstExpr> for Expr {
                 match unary.op.kind {
                     UnaryOpKind::Neg => {
                         // treat this as -1 * rhs
-                        let mut factors = Vec::new();
-                        factors.push(Self::Primary(Primary::Number(String::from("-1"))));
-                        factors.push(Self::from(*unary.operand));
-                        Self::Mul(factors)
+                        Self::Mul(vec![
+                            Self::Primary(Primary::Number(float(-1))),
+                            Self::from(*unary.operand),
+                        ])
                     },
                     _ => todo!(),
                 }
@@ -134,7 +141,7 @@ impl From<AstExpr> for Expr {
                         // don't do the same for rhs? TODO
                         let rhs = Self::Exp(
                             Box::new(Expr::from(*bin.rhs)),
-                            Box::new(Self::Primary(Primary::Number(String::from("-1")))),
+                            Box::new(Self::Primary(Primary::Number(float(-1)))),
                         );
                         factors.push(rhs);
 
@@ -189,7 +196,7 @@ impl From<AstExpr> for Expr {
                         }
 
                         // don't do the same for rhs? TODO
-                        let rhs = Self::Primary(Primary::Number(String::from("-1")))
+                        let rhs = Self::Primary(Primary::Number(float(-1)))
                             * Self::from(*bin.rhs);
                         terms.push(rhs);
 
@@ -217,16 +224,16 @@ impl From<AstExpr> for Expr {
 }
 
 /// Multiplies two [`Expr`]s together. No simplification is done, except for the case where the
-/// operands are a [`Expr::Number`] and a [`Expr::Mul`], in which case the number is added to the
-/// list of factors (flattening).
+/// operands are a [`Primary`] and a [`Expr::Mul`], in which case the number is added to the list
+/// of factors (flattening).
 impl Mul for Expr {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
         match (self, rhs) {
-            (Self::Primary(Primary::Number(num)), Self::Mul(mut other))
-                | (Self::Mul(mut other), Self::Primary(Primary::Number(num))) => {
-                other.push(Self::Primary(Primary::Number(num)));
+            (Self::Primary(primary), Self::Mul(mut other))
+                | (Self::Mul(mut other), Self::Primary(primary)) => {
+                other.push(Self::Primary(primary));
                 Self::Mul(other)
             },
             (lhs, rhs) => Self::Mul(vec![lhs, rhs]),
@@ -250,16 +257,16 @@ mod tests {
         // semantically correct
         assert_eq!(math_expr, Expr::Add(vec![
             // 6
-            Expr::Primary(Primary::Number(String::from("6"))),
+            Expr::Primary(Primary::Number(float(6))),
             // + 5x
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Number(String::from("5"))),
+                Expr::Primary(Primary::Number(float(5))),
             ]),
             // + x^2
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                Box::new(Expr::Primary(Primary::Number(String::from("2")))),
+                Box::new(Expr::Primary(Primary::Number(float(2)))),
             ),
         ]));
     }
@@ -275,23 +282,23 @@ mod tests {
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
                 Box::new(Expr::Mul(vec![
-                    Expr::Primary(Primary::Number(String::from("-1"))),
-                    Expr::Primary(Primary::Number(String::from("3"))),
+                    Expr::Primary(Primary::Number(float(-1))),
+                    Expr::Primary(Primary::Number(float(3))),
                 ])),
             ),
             // * x^2
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                Box::new(Expr::Primary(Primary::Number(String::from("2")))),
+                Box::new(Expr::Primary(Primary::Number(float(2)))),
             ),
             // * -1
-            Expr::Primary(Primary::Number(String::from("-1"))),
+            Expr::Primary(Primary::Number(float(-1))),
             // * 2
-            Expr::Primary(Primary::Number(String::from("2"))),
+            Expr::Primary(Primary::Number(float(2))),
             // / 5
             Expr::Exp(
-                Box::new(Expr::Primary(Primary::Number(String::from("5")))),
-                Box::new(Expr::Primary(Primary::Number(String::from("-1")))),
+                Box::new(Expr::Primary(Primary::Number(float(5)))),
+                Box::new(Expr::Primary(Primary::Number(float(-1)))),
             ),
         ]));
     }
@@ -306,7 +313,7 @@ mod tests {
             // 3 * x
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Number(String::from("3"))),
+                Expr::Primary(Primary::Number(float(3))),
             ]),
             // + -1 * (x + t) * y
             Expr::Mul(vec![
@@ -315,7 +322,7 @@ mod tests {
                     Expr::Primary(Primary::Symbol(String::from("t"))),
                     Expr::Primary(Primary::Symbol(String::from("x"))),
                 ]),
-                Expr::Primary(Primary::Number(String::from("-1"))),
+                Expr::Primary(Primary::Number(float(-1))),
             ]),
             // + -1 * z * a^(1/5/6) * b
             Expr::Mul(vec![
@@ -323,19 +330,19 @@ mod tests {
                 Expr::Exp(
                     Box::new(Expr::Primary(Primary::Symbol(String::from("a")))),
                     Box::new(Expr::Mul(vec![
-                        Expr::Primary(Primary::Number(String::from("1"))),
+                        Expr::Primary(Primary::Number(float(1))),
                         Expr::Exp(
-                            Box::new(Expr::Primary(Primary::Number(String::from("5")))),
-                            Box::new(Expr::Primary(Primary::Number(String::from("-1")))),
+                            Box::new(Expr::Primary(Primary::Number(float(5)))),
+                            Box::new(Expr::Primary(Primary::Number(float(-1)))),
                         ),
                         Expr::Exp(
-                            Box::new(Expr::Primary(Primary::Number(String::from("6")))),
-                            Box::new(Expr::Primary(Primary::Number(String::from("-1")))),
+                            Box::new(Expr::Primary(Primary::Number(float(6)))),
+                            Box::new(Expr::Primary(Primary::Number(float(-1)))),
                         ),
                     ])),
                 ),
                 Expr::Primary(Primary::Symbol(String::from("z"))),
-                Expr::Primary(Primary::Number(String::from("-1"))),
+                Expr::Primary(Primary::Number(float(-1))),
             ]),
         ]));
     }

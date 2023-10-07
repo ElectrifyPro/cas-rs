@@ -13,6 +13,7 @@ pub mod rules;
 pub mod step;
 
 use crate::step::StepCollector;
+use cas_eval::consts::float;
 use step::Step;
 use super::expr::{Expr, Primary};
 
@@ -20,7 +21,7 @@ use super::expr::{Expr, Primary};
 ///
 /// This function computes complexity using these simple rules:
 ///
-/// - `complexity(number) = length(number)`
+/// - `complexity(number) = abs(number)`
 /// - `complexity(symbol) = length(symbol)`
 /// - `complexity(call) = length(name) + length(args)`
 /// - `complexity(add) = 3 + sum(complexity(terms))`
@@ -33,7 +34,9 @@ pub fn default_complexity(expr: &Expr) -> usize {
         complexity += match expr {
             Expr::Primary(primary) => {
                 match primary {
-                    Primary::Number(num) => num.len(),
+                    Primary::Number(num) => float(num.abs_ref())
+                        .to_integer().unwrap()
+                        .to_usize().unwrap(),
                     Primary::Symbol(sym) => sym.len(),
                     Primary::Call(name, args) => name.len() + args.len(),
                 }
@@ -158,8 +161,8 @@ mod tests {
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
         assert_eq!(simplified_expr, Expr::Mul(vec![
-            Expr::Primary(Primary::Symbol("a".to_string())),
-            Expr::Primary(Primary::Number("3".to_string())),
+            Expr::Primary(Primary::Symbol(String::from("a"))),
+            Expr::Primary(Primary::Number(float(3))),
         ]));
     }
 
@@ -169,7 +172,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number("0".to_string())));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(0))));
     }
 
     #[test]
@@ -179,7 +182,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number("3".to_string())));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(3))));
     }
 
     #[test]
@@ -188,7 +191,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number("1".to_string())));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
     }
 
     #[test]
@@ -197,7 +200,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number("1".to_string())));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
     }
 
     #[test]
@@ -206,7 +209,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let (simplified_expr, steps) = simplify_with_steps(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number("1".to_string())));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
         assert_eq!(steps, vec![
             Step::PowerZero,
             Step::PowerOneLeft,

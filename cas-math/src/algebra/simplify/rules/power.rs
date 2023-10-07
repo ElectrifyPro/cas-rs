@@ -1,5 +1,6 @@
 //! Simplification rules for power expressions.
 
+use cas_eval::consts::{ZERO, ONE};
 use crate::{
     algebra::{expr::{Expr, Primary}, simplify::step::Step},
     step::StepCollector,
@@ -24,8 +25,8 @@ fn do_power(expr: &Expr, f: impl Copy + Fn(&Expr, &Expr) -> Option<Expr>) -> Opt
 pub fn power_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |_, rhs| {
         if let Expr::Primary(Primary::Number(n)) = rhs {
-            if n == "0" {
-                return Some(Expr::Primary(Primary::Number("1".to_string())));
+            if n.is_zero() {
+                return Some(Expr::Primary(Primary::Number(ONE.clone())));
             }
         }
 
@@ -43,8 +44,8 @@ pub fn power_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> 
 pub fn power_zero_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, _| {
         if let Expr::Primary(Primary::Number(n)) = lhs {
-            if n == "0" {
-                return Some(Expr::Primary(Primary::Number("0".to_string())));
+            if n.is_zero() {
+                return Some(Expr::Primary(Primary::Number(ZERO.clone())));
             }
         }
 
@@ -59,8 +60,8 @@ pub fn power_zero_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>
 pub fn power_one_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, _| {
         if let Expr::Primary(Primary::Number(n)) = lhs {
-            if n == "1" {
-                return Some(Expr::Primary(Primary::Number("1".to_string())));
+            if n == &1 {
+                return Some(Expr::Primary(Primary::Number(ONE.clone())));
             }
         }
 
@@ -75,7 +76,7 @@ pub fn power_one_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>)
 pub fn power_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, rhs| {
         if let Expr::Primary(Primary::Number(n)) = rhs {
-            if n == "1" {
+            if n == &1 {
                 return Some(lhs.clone());
             }
         }

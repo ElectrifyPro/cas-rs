@@ -1,6 +1,7 @@
 //! Simplification rules for expressions involving multiplication, including combining like
 //! factors.
 
+use cas_eval::consts::{ZERO, ONE};
 use crate::{
     algebra::{expr::{Expr, Primary}, simplify::step::Step},
     step::StepCollector,
@@ -24,8 +25,8 @@ pub fn multiply_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) 
     let opt = do_multiply(expr, |factors| {
         for factor in factors {
             if let Expr::Primary(Primary::Number(n)) = factor {
-                if n == "0" {
-                    return Some(Expr::Primary(Primary::Number("0".to_string())));
+                if n.is_zero() {
+                    return Some(Expr::Primary(Primary::Number(ZERO.clone())));
                 }
             }
         }
@@ -45,7 +46,7 @@ pub fn multiply_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -
         let mut new_factors = factors.iter()
             .filter(|factor| {
                 if let Expr::Primary(Primary::Number(n)) = factor {
-                    if n == "1" {
+                    if n == &1 {
                         return false;
                     }
                 }
@@ -58,7 +59,7 @@ pub fn multiply_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -
         if new_factors.len() == factors.len() {
             None
         } else if new_factors.is_empty() {
-            Some(Expr::Primary(Primary::Number("1".to_string())))
+            Some(Expr::Primary(Primary::Number(ONE.clone())))
         } else if new_factors.len() == 1 {
             Some(new_factors.remove(0))
         } else {

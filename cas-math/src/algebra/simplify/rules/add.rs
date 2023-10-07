@@ -1,5 +1,6 @@
 //! Simplification rules for expressions involving addition, including combining like terms.
 
+use cas_eval::consts::ZERO;
 use crate::{
     algebra::{expr::{Expr, Primary}, simplify::step::Step},
     step::StepCollector,
@@ -23,7 +24,7 @@ pub fn add_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Op
         let mut new_terms = terms.iter()
             .filter(|term| {
                 if let Expr::Primary(Primary::Number(n)) = term {
-                    if n == "0" {
+                    if n.is_zero() {
                         return false;
                     }
                 }
@@ -36,7 +37,7 @@ pub fn add_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Op
         if new_terms.len() == terms.len() {
             None
         } else if new_terms.is_empty() {
-            Some(Expr::Primary(Primary::Number("0".to_string())))
+            Some(Expr::Primary(Primary::Number(ZERO.clone())))
         } else if new_terms.len() == 1 {
             Some(new_terms.remove(0))
         } else {

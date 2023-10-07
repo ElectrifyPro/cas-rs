@@ -39,7 +39,7 @@ impl Unit {
         if self.power != target.power {
             return self.quantity.conversion_factor_to(target)
                 .or_else(|| target.quantity.conversion_factor_to(*self).map(|f| 1.0 / f))
-                .ok_or_else(|| ConversionError { unit: *self, target });
+                .ok_or(ConversionError { unit: *self, target });
         }
 
         let power = self.power as i32;

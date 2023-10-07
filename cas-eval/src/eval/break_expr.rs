@@ -24,18 +24,16 @@ impl Eval for Break {
                 vec![self.span.clone()],
                 LoopControlOutsideLoop,
             ))
+        } else if let Some(value) = &self.value {
+            // evaluate the entire expression first, then begin breaking the loop
+            // `loop` expression will then set `break_loop` back to false once we propogate up
+            // the stack
+            let result = value.eval(ctxt)?;
+            ctxt.break_loop = true;
+            Ok(result)
         } else {
-            if let Some(value) = &self.value {
-                // evaluate the entire expression first, then begin breaking the loop
-                // `loop` expression will then set `break_loop` back to false once we propogate up
-                // the stack
-                let result = value.eval(ctxt)?;
-                ctxt.break_loop = true;
-                Ok(result)
-            } else {
-                ctxt.break_loop = true;
-                Ok(Value::Unit)
-            }
+            ctxt.break_loop = true;
+            Ok(Value::Unit)
         }
     }
 }

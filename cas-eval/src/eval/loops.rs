@@ -11,7 +11,7 @@ trait ConditionalLoop {
     fn eval_loop(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
         ctxt.loop_depth += 1;
         while self.condition(ctxt)? {
-            let value = match &*self.body() {
+            let value = match self.body() {
                 Expr::Literal(literal) => literal.eval(ctxt),
                 Expr::Paren(paren) => paren.expr.eval(ctxt),
                 Expr::Block(block) => block.eval(ctxt),

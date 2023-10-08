@@ -237,6 +237,15 @@ mod tests {
     }
 
     #[test]
+    fn simple_combine_like_factors() {
+        let input = String::from("(a+b)/(a+b)");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
+    }
+
+    #[test]
     fn power_rules() {
         let input = String::from("(1^0)^(3x+5b^2i)^1^(3a)");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();

@@ -292,6 +292,24 @@ mod tests {
     }
 
     #[test]
+    fn power_rules_3a() {
+        let input = String::from("x^3 * x^-2");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Symbol("x".to_string())));
+    }
+
+    #[test]
+    fn power_rules_3b() {
+        let input = String::from("x^3 / x^2");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Symbol("x".to_string())));
+    }
+
+    #[test]
     fn power_rule_steps() {
         let input = String::from("(1^0)^(3x+5b^2i)^1^(3a)");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();

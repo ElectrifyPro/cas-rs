@@ -95,7 +95,10 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
                 }
             }
 
-            if current_factor_exp.as_number() != Some(&ONE) {
+            // after all combining, update the current factor
+            if current_factor_exp.as_number() == Some(&ONE) {
+                new_factors[current_factor_idx] = current_factor;
+            } else {
                 new_factors[current_factor_idx] = Expr::Exp(
                     Box::new(current_factor),
                     Box::new(current_factor_exp),

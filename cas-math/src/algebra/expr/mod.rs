@@ -58,7 +58,7 @@ use cas_parser::parser::{
 };
 use iter::ExprIter;
 use rug::Float;
-use std::ops::{Add, AddAssign, Mul};
+use std::ops::{Add, AddAssign, Mul, MulAssign};
 
 /// A single term / factor, such as a number, variable, or function call.
 #[derive(Debug, Clone, PartialEq)]
@@ -208,7 +208,9 @@ impl From<AstExpr> for Expr {
                     },
                     BinOpKind::Mul => {
                         // iteratively flatten binary expressions into factors
-                        let mut factors = Vec::new();
+                        // because the AST obviously exists, `factors` will never end up as a
+                        // `Expr::Mul` with zero factors
+                        let mut factors = Self::Mul(Vec::new());
                         let mut stack = vec![AstExpr::Binary(bin)];
                         while let Some(bin) = stack.pop() {
                             match bin {
@@ -220,52 +222,32 @@ impl From<AstExpr> for Expr {
                                         // if the generated `MathExpr` is another `MathExpr::Mul`,
                                         // add its factors to the current list of factors instead
                                         // we call this "flattening" the expression
-                                        let math_expr = Self::from(AstExpr::Binary(bin));
-                                        if let Self::Mul(mul) = math_expr {
-                                            factors.extend(mul);
-                                        } else {
-                                            factors.push(math_expr);
-                                        }
+                                        factors *= Self::from(AstExpr::Binary(bin));
                                     }
                                 },
-                                _ => {
+                                expr => {
                                     // same as above
-                                    let math_expr = Self::from(bin);
-                                    if let Self::Mul(mul) = math_expr {
-                                        factors.extend(mul);
-                                    } else {
-                                        factors.push(math_expr);
-                                    }
+                                    factors *= Self::from(expr);
                                 },
                             }
                         }
-                        Self::Mul(factors)
+                        factors
                     },
                     BinOpKind::Div => {
                         // treat this as lhs*rhs^-1
-                        let mut factors = Vec::new();
-
                         // add lhs factors, flattening `MathExpr::Mul`s if necessary
-                        let lhs_factors = Self::from(*bin.lhs);
-                        if let Self::Mul(mul) = lhs_factors {
-                            factors.extend(mul);
-                        } else {
-                            factors.push(lhs_factors);
-                        }
-
-                        // don't do the same for rhs? TODO
-                        let rhs = Self::Exp(
-                            Box::new(Expr::from(*bin.rhs)),
-                            Box::new(Self::Primary(Primary::Number(float(-1)))),
-                        );
-                        factors.push(rhs);
-
-                        Self::Mul(factors)
+                        Self::from(*bin.lhs) *
+                            Self::Exp(
+                                Box::new(Expr::from(*bin.rhs)),
+                                Box::new(Self::Primary(Primary::Number(float(-1))))
+                            )
                     },
                     BinOpKind::Mod => todo!(),
                     BinOpKind::Add => {
                         // iteratively flatten binary expressions into terms
-                        let mut terms = Vec::new();
+                        // because the AST obviously exists, `terms` will never end up as a
+                        // `Expr::Add` with zero terms
+                        let mut terms = Self::Add(Vec::new());
                         let mut stack = vec![AstExpr::Binary(bin)];
                         while let Some(bin) = stack.pop() {
                             match bin {
@@ -277,45 +259,22 @@ impl From<AstExpr> for Expr {
                                         // if the generated `MathExpr` is another `MathExpr::Add`,
                                         // add its terms to the current list of terms instead
                                         // we call this "flattening" the expression
-                                        let math_expr = Self::from(AstExpr::Binary(bin));
-                                        if let Self::Add(add) = math_expr {
-                                            terms.extend(add);
-                                        } else {
-                                            terms.push(math_expr);
-                                        }
+                                        terms += Self::from(AstExpr::Binary(bin));
                                     }
                                 },
                                 _ => {
                                     // same as above
-                                    let math_expr = Self::from(bin);
-                                    if let Self::Add(add) = math_expr {
-                                        terms.extend(add);
-                                    } else {
-                                        terms.push(math_expr);
-                                    }
+                                    terms += Self::from(bin);
                                 },
                             }
                         }
-                        Self::Add(terms)
+                        terms
                     },
                     BinOpKind::Sub => {
                         // treat this as lhs + -1 * rhs
-                        let mut terms = Vec::new();
-
-                        // add lhs terms, flattening `MathExpr::Add`s if necessary
-                        let lhs_terms = Self::from(*bin.lhs);
-                        if let Self::Add(add) = lhs_terms {
-                            terms.extend(add);
-                        } else {
-                            terms.push(lhs_terms);
-                        }
-
-                        // don't do the same for rhs? TODO
-                        let rhs = Self::Primary(Primary::Number(float(-1)))
-                            * Self::from(*bin.rhs);
-                        terms.push(rhs);
-
-                        Self::Add(terms)
+                        // add lhs and rhs terms, flattening `MathExpr::Add`s if necessary
+                        Self::from(*bin.lhs) +
+                            Self::Primary(Primary::Number(float(-1))) * Self::from(*bin.rhs)
                     },
                     BinOpKind::BitRight => todo!(),
                     BinOpKind::BitLeft => todo!(),
@@ -385,6 +344,12 @@ impl Mul for Expr {
             },
             (lhs, rhs) => Self::Mul(vec![lhs, rhs]),
         }
+    }
+}
+
+impl MulAssign for Expr {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = self.clone() * rhs;
     }
 }
 

@@ -3,21 +3,9 @@
 
 use cas_eval::consts::{ZERO, ONE};
 use crate::{
-    algebra::{expr::{Expr, Primary}, simplify::step::Step},
+    algebra::{expr::{Expr, Primary}, simplify::{rules::do_multiply, step::Step}},
     step::StepCollector,
 };
-
-/// If the expression is a multiplication expression, calls the given transformation function with
-/// the factors.
-///
-/// Returns `Some(expr)` with the transformed expression if a transformation was applied.
-fn do_multiply(expr: &Expr, f: impl Copy + Fn(&[Expr]) -> Option<Expr>) -> Option<Expr> {
-    if let Expr::Mul(factors) = expr {
-        f(factors)
-    } else {
-        None
-    }
-}
 
 /// `0*a = 0`
 /// `a*0 = 0`

@@ -2,20 +2,9 @@
 
 use cas_eval::consts::ZERO;
 use crate::{
-    algebra::{expr::{Expr, Primary}, simplify::step::Step},
+    algebra::{expr::{Expr, Primary}, simplify::{rules::do_add, step::Step}},
     step::StepCollector,
 };
-
-/// If the expression is an add expression, calls the given transformation function with the terms.
-///
-/// Returns `Some(expr)` with the transformed expression if a transformation was applied.
-fn do_add(expr: &Expr, f: impl Copy + Fn(&[Expr]) -> Option<Expr>) -> Option<Expr> {
-    if let Expr::Add(terms) = expr {
-        f(terms)
-    } else {
-        None
-    }
-}
 
 /// `0+a = a`
 /// `a+0 = a`

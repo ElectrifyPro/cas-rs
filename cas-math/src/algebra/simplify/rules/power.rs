@@ -2,21 +2,9 @@
 
 use cas_eval::consts::{ZERO, ONE};
 use crate::{
-    algebra::{expr::{Expr, Primary}, simplify::step::Step},
+    algebra::{expr::{Expr, Primary}, simplify::{rules::do_power, step::Step}},
     step::StepCollector,
 };
-
-/// If the expression is a power expression, calls the given transformation function with the left
-/// and right-hand-side of the power.
-///
-/// Returns `Some(expr)` with the transformed expression if a transformation was applied.
-fn do_power(expr: &Expr, f: impl Copy + Fn(&Expr, &Expr) -> Option<Expr>) -> Option<Expr> {
-    if let Expr::Exp(lhs, rhs) = expr {
-        f(lhs, rhs)
-    } else {
-        None
-    }
-}
 
 /// `a^0 = 1`
 ///

@@ -1,21 +1,9 @@
 //! Simplification rules related to the distributive property.
 
 use crate::{
-    algebra::{expr::Expr, simplify::step::Step},
+    algebra::{expr::Expr, simplify::{rules::do_multiply, step::Step}},
     step::StepCollector,
 };
-
-/// If the expression is a multiplication expression, calls the given transformation function with
-/// the factors.
-///
-/// Returns `Some(expr)` with the transformed expression if a transformation was applied.
-fn do_multiply(expr: &Expr, f: impl Copy + Fn(&[Expr]) -> Option<Expr>) -> Option<Expr> {
-    if let Expr::Mul(factors) = expr {
-        f(factors)
-    } else {
-        None
-    }
-}
 
 /// `a*(b+c) = a*b + a*c`
 pub fn distributive_property(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {

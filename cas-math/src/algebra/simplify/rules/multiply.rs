@@ -11,15 +11,11 @@ use crate::{
 /// `a*0 = 0`
 pub fn multiply_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_multiply(expr, |factors| {
-        for factor in factors {
-            if let Expr::Primary(Primary::Number(n)) = factor {
-                if n.is_zero() {
-                    return Some(Expr::Primary(Primary::Number(ZERO.clone())));
-                }
-            }
+        if factors.iter().any(|factor| factor.as_number() == Some(&ZERO)) {
+            return Some(Expr::Primary(Primary::Number(ZERO.clone())));
+        } else {
+            None
         }
-
-        None
     })?;
 
     // keep the step collection logic outside of the closure to make it implement `Fn`
@@ -33,13 +29,10 @@ pub fn multiply_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -
     let opt = do_multiply(expr, |factors| {
         let mut new_factors = factors.iter()
             .filter(|factor| {
-                if let Expr::Primary(Primary::Number(n)) = factor {
-                    if n == &1 {
-                        return false;
-                    }
-                }
-
-                true
+                // keep all non-one factors
+                factor.as_number()
+                    .map(|n| n != &1)
+                    .unwrap_or(true)
             })
             .cloned()
             .collect::<Vec<_>>();

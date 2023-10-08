@@ -12,13 +12,10 @@ pub fn add_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Op
     let opt = do_add(expr, |terms| {
         let mut new_terms = terms.iter()
             .filter(|term| {
-                if let Expr::Primary(Primary::Number(n)) = term {
-                    if n.is_zero() {
-                        return false;
-                    }
-                }
-
-                true
+                // keep all non-zero terms
+                term.as_number()
+                    .map(|n| !n.is_zero())
+                    .unwrap_or(true)
             })
             .cloned()
             .collect::<Vec<_>>();

@@ -30,4 +30,10 @@ pub enum Step {
 
     /// `a^1 = a`
     PowerOne,
+
+    /// `a^b^c = a^(b*c)`
+    PowerPower,
+
+    /// `a*(b+c) = a*b + a*c`
+    DistributiveProperty,
 }

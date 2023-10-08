@@ -373,6 +373,10 @@ impl Mul for Expr {
                 other.push(Self::Primary(primary));
                 Self::Mul(other)
             },
+            (Self::Mul(mut factors), Self::Mul(other)) => {
+                factors.extend(other);
+                Self::Mul(factors)
+            },
             (lhs, rhs) => Self::Mul(vec![lhs, rhs]),
         }
     }

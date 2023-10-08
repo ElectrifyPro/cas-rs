@@ -88,6 +88,23 @@ pub fn power_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> O
     Some(opt)
 }
 
+/// `(a^b)^c = a^(b*c)`
+pub fn power_power(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+    let opt = do_power(expr, |lhs, rhs| {
+        if let Expr::Exp(base, exponent) = lhs {
+            return Some(Expr::Exp(
+                Box::new(*base.clone()),
+                Box::new(*exponent.clone() * rhs.clone()),
+            ));
+        }
+
+        None
+    })?;
+
+    step_collector.push(Step::PowerPower);
+    Some(opt)
+}
+
 /// Applies all power rules.
 ///
 /// All power rules will reduce the complexity of the expression.
@@ -96,4 +113,5 @@ pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<
         .or_else(|| power_zero_left(expr, step_collector))
         .or_else(|| power_one_left(expr, step_collector))
         .or_else(|| power_one(expr, step_collector))
+        .or_else(|| power_power(expr, step_collector))
 }

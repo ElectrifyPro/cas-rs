@@ -5,6 +5,7 @@
 //! rule does not apply.
 
 pub mod add;
+pub mod distribute;
 pub mod multiply;
 pub mod power;
 
@@ -16,4 +17,5 @@ pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<
     add::all(expr, step_collector)
         .or_else(|| multiply::all(expr, step_collector))
         .or_else(|| power::all(expr, step_collector))
+        .or_else(|| distribute::all(expr, step_collector))
 }

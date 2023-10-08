@@ -55,12 +55,8 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
         /// - `a` -> `(1, a)`
         fn get_coeff(expr: &Expr) -> (Expr, Expr) {
             match expr {
-                Expr::Primary(primary) => {
-                    match primary {
-                        Primary::Number(_) =>
-                            (expr.clone(), Expr::Primary(Primary::Number(ONE.clone()))),
-                        _ => (Expr::Primary(Primary::Number(ONE.clone())), expr.clone()),
-                    }
+                Expr::Primary(Primary::Number(_)) => {
+                    (expr.clone(), Expr::Primary(Primary::Number(ONE.clone())))
                 },
                 Expr::Mul(factors) => {
                     let mut factors = factors.clone();

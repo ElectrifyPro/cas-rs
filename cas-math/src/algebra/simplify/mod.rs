@@ -87,12 +87,14 @@ where
                 expr = output;
             },
             Expr::Mul(ref mut factors) => {
+                let mut output = Expr::Mul(Vec::new());
                 for factor in factors.iter_mut() {
                     let result = inner_simplify_with(factor, complexity, step_collector);
-                    *factor = result.0;
+                    output *= result.0;
                     changed_in_this_pass |= result.1;
                     changed_at_least_once |= result.1;
                 }
+                expr = output;
             },
             Expr::Exp(ref mut lhs, ref mut rhs) => {
                 let result_l = inner_simplify_with(lhs, complexity, step_collector);
@@ -249,6 +251,32 @@ mod tests {
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
         assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
+    }
+
+    #[test]
+    fn complicated_combine_like_factors() {
+        let input = String::from("3p^-5q^9r^7/(12p^-2q*r^2)");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Mul(vec![
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol("r".to_string()))),
+                Box::new(Expr::Primary(Primary::Number(float(5)))),
+            ),
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol("q".to_string()))),
+                Box::new(Expr::Primary(Primary::Number(float(8)))),
+            ),
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol("p".to_string()))),
+                Box::new(Expr::Primary(Primary::Number(float(-3)))),
+            ),
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Number(float(4)))),
+                Box::new(Expr::Primary(Primary::Number(float(-1)))),
+            ),
+        ]));
     }
 
     #[test]

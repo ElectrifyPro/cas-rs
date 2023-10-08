@@ -1,7 +1,7 @@
 //! Simplification rules related to the distributive property.
 
 use crate::{
-    algebra::{expr::Expr, simplify::{rules::do_multiply, step::Step}},
+    algebra::{expr::Expr, simplify::{rules::{do_multiply, do_power}, step::Step}},
     step::StepCollector,
 };
 
@@ -37,10 +37,32 @@ pub fn distributive_property(expr: &Expr, step_collector: &mut dyn StepCollector
     Some(opt)
 }
 
+/// `(a*b)^c = a^c * b^c`
+pub fn distribute_power(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+    let opt = do_power(expr, |lhs, rhs| {
+        if let Expr::Mul(factors) = lhs {
+            let new_factors = factors.iter()
+                .map(|factor| Expr::Exp(
+                    Box::new(factor.clone()),
+                    Box::new(rhs.clone()),
+                ))
+                .collect::<Vec<_>>();
+
+            return Some(Expr::Mul(new_factors));
+        }
+
+        None
+    })?;
+
+    step_collector.push(Step::DistributePower);
+    Some(opt)
+}
+
 /// Applies all distribution rules.
 ///
 /// The distributive property may or may not reduce the complexity of the expression, since it can
 /// introduce additional operations. However, it may be necessary for future rules to apply.
 pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     distributive_property(expr, step_collector)
+        .or_else(|| distribute_power(expr, step_collector))
 }

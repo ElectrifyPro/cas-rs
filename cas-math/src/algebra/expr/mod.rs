@@ -131,8 +131,16 @@ pub enum Expr {
 }
 
 impl Expr {
-    /// If the expression is an [`Primary::Number`], returns a reference to the contained number.
+    /// If the expression is a [`Primary::Number`], returns a reference to the contained number.
     pub fn as_number(&self) -> Option<&Float> {
+        match self {
+            Self::Primary(Primary::Number(num)) => Some(num),
+            _ => None,
+        }
+    }
+
+    /// If the expression is a [`Primary::Number`], returns the contained number.
+    pub fn into_number(self) -> Option<Float> {
         match self {
             Self::Primary(Primary::Number(num)) => Some(num),
             _ => None,
@@ -142,6 +150,19 @@ impl Expr {
     /// Returns true if the expression is a [`Primary::Number`].
     pub fn is_number(&self) -> bool {
         matches!(self, Self::Primary(Primary::Number(_)))
+    }
+
+    /// Returns true if the expression is a [`Primary::Number`] raised to the power of -1.
+    pub fn is_number_recip(&self) -> bool {
+        if let Self::Exp(base, exp) = self {
+            if matches!(&**base, Self::Primary(Primary::Number(_))) {
+                if let Self::Primary(Primary::Number(exp)) = &**exp {
+                    return exp == &-1;
+                }
+            }
+        }
+
+        false
     }
 
     /// Returns an iterator that traverses the tree of expressions in left-to-right post-order

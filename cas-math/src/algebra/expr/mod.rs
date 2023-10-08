@@ -49,11 +49,14 @@
 //! The [`PartialEq`] and [`Eq`] implementation for [`Expr`](crate::algebra::expr::Expr) implements
 //! strict equality, not semantic equality.
 
+mod iter;
+
 use cas_eval::{funcs::from_str_radix, consts::{float, float_from_str}};
 use cas_parser::parser::{
     ast::{expr::Expr as AstExpr, literal::Literal},
     token::op::{BinOpKind, UnaryOpKind},
 };
+use iter::ExprIter;
 use rug::Float;
 use std::ops::{Add, AddAssign, Mul};
 
@@ -134,6 +137,12 @@ impl Expr {
             Self::Primary(Primary::Number(num)) => Some(num),
             _ => None,
         }
+    }
+
+    /// Returns an iterator that traverses the tree of expressions in left-to-right post-order
+    /// (i.e. depth-first).
+    pub fn post_order_iter(&self) -> ExprIter {
+        ExprIter::new(self)
     }
 }
 

@@ -28,10 +28,8 @@ use super::expr::{Expr, Primary};
 /// - `complexity(mul) = 2 + sum(complexity(factors))`
 /// - `complexity(exp) = 1 + complexity(lhs) + complexity(rhs)`
 pub fn default_complexity(expr: &Expr) -> usize {
-    let mut complexity = 0;
-    let mut stack = vec![expr];
-    while let Some(expr) = stack.pop() {
-        complexity += match expr {
+    expr.post_order_iter()
+        .map(|expr| match expr {
             Expr::Primary(primary) => {
                 match primary {
                     Primary::Number(num) => float(num.abs_ref())
@@ -41,22 +39,11 @@ pub fn default_complexity(expr: &Expr) -> usize {
                     Primary::Call(name, args) => name.len() + args.len(),
                 }
             },
-            Expr::Add(terms) => {
-                stack.extend(terms.iter());
-                3
-            },
-            Expr::Mul(factors) => {
-                stack.extend(factors.iter());
-                2
-            },
-            Expr::Exp(lhs, rhs) => {
-                stack.push(lhs);
-                stack.push(rhs);
-                1
-            },
-        };
-    }
-    complexity
+            Expr::Add(terms) => 3 + terms.len(),
+            Expr::Mul(factors) => 2 + factors.len(),
+            Expr::Exp(_, _) => 1,
+        })
+        .sum()
 }
 
 /// Base implementation of the simplification algorithm.

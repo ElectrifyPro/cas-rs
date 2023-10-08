@@ -78,17 +78,23 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
         // this is O(n^2) worst case, due to scanning the whole vec for each factor
         // TODO: optimize with hashing?
         while current_factor_idx < new_factors.len() {
-            let (current_factor, mut current_factor_exp) = get_exp(&new_factors[current_factor_idx]);
+            let (mut current_factor, mut current_factor_exp) = get_exp(&new_factors[current_factor_idx]);
 
             // look at every factor after `current_factor`
             let mut next_factor_idx = current_factor_idx + 1;
             while next_factor_idx < new_factors.len() {
                 let (next_factor, next_factor_exp) = get_exp(&new_factors[next_factor_idx]);
 
-                // bases must be strictly equal
                 if current_factor == next_factor {
-                    // if so, apply a^n * a^m = a^(n+m)
+                    // bases must be strictly equal
+                    // if they are, apply a^b*a^c = a^(b+c)
                     current_factor_exp += next_factor_exp;
+                    new_factors.swap_remove(next_factor_idx);
+                } else if current_factor_exp == next_factor_exp
+                    && current_factor.is_number() && next_factor.is_number() {
+                    // degrees must be strictly equal
+                    // if they are, apply a^c*b^c = (a*b)^c
+                    current_factor *= next_factor;
                     new_factors.swap_remove(next_factor_idx);
                 } else {
                     next_factor_idx += 1;

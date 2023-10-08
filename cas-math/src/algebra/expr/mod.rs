@@ -139,6 +139,11 @@ impl Expr {
         }
     }
 
+    /// Returns true if the expression is a [`Primary::Number`].
+    pub fn is_number(&self) -> bool {
+        matches!(self, Self::Primary(Primary::Number(_)))
+    }
+
     /// Returns an iterator that traverses the tree of expressions in left-to-right post-order
     /// (i.e. depth-first).
     pub fn post_order_iter(&self) -> ExprIter {

@@ -68,19 +68,23 @@ where
             expr = new_expr;
             changed_in_this_pass = true;
             changed_at_least_once = true;
+            continue;
         }
 
         // then begin recursing into the expression's children
         match expr {
             Expr::Primary(primary) => return (Expr::Primary(primary), changed_at_least_once),
-            Expr::Add(ref mut terms) => {
-                for term in terms.iter_mut() {
+            Expr::Add(ref terms) => {
+                let mut output = Expr::Add(Vec::new());
+                for term in terms {
                     let result = inner_simplify_with(term, complexity, step_collector);
-                    *term = result.0;
+                    output += result.0;
+
                     // use |= instead of = to not reset these variables to false if already true
                     changed_in_this_pass |= result.1;
                     changed_at_least_once |= result.1;
                 }
+                expr = output;
             },
             Expr::Mul(ref mut factors) => {
                 for factor in factors.iter_mut() {
@@ -150,6 +154,21 @@ mod tests {
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Primary(Primary::Symbol(String::from("a"))),
             Expr::Primary(Primary::Number(float(3))),
+        ]));
+    }
+
+    #[test]
+    fn combine_like_terms() {
+        let input = String::from("-9(6m-3) + 6(1+4m)");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Add(vec![
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Symbol(String::from("m"))),
+                Expr::Primary(Primary::Number(float(-30))),
+            ]),
+            Expr::Primary(Primary::Number(float(33))),
         ]));
     }
 
@@ -318,8 +337,7 @@ mod tests {
         assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
         assert_eq!(steps, vec![
             Step::PowerPower,
-            Step::MultiplyZero,
-            Step::PowerZero,
+            Step::PowerOneLeft,
         ]);
     }
 }

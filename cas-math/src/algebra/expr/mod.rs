@@ -195,10 +195,8 @@ impl From<AstExpr> for Expr {
                 match unary.op.kind {
                     UnaryOpKind::Neg => {
                         // treat this as -1 * rhs
-                        Self::Mul(vec![
-                            Self::Primary(Primary::Number(float(-1))),
-                            Self::from(*unary.operand),
-                        ])
+                        Self::Primary(Primary::Number(float(-1)))
+                            * Self::from(*unary.operand)
                     },
                     _ => todo!(),
                 }
@@ -377,13 +375,12 @@ impl Mul for Expr {
     fn mul(self, rhs: Self) -> Self {
         match (self, rhs) {
             (Self::Primary(lhs), Self::Primary(rhs)) => lhs * rhs,
-            (Self::Primary(primary), Self::Mul(mut other))
-                | (Self::Mul(mut other), Self::Primary(primary)) => {
-                other.push(Self::Primary(primary));
-                Self::Mul(other)
-            },
             (Self::Mul(mut factors), Self::Mul(other)) => {
                 factors.extend(other);
+                Self::Mul(factors)
+            },
+            (Self::Mul(mut factors), other) | (other, Self::Mul(mut factors)) => {
+                factors.push(other);
                 Self::Mul(factors)
             },
             (lhs, rhs) => Self::Mul(vec![lhs, rhs]),
@@ -455,20 +452,15 @@ mod tests {
             // y^-3
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
-                Box::new(Expr::Mul(vec![
-                    Expr::Primary(Primary::Number(float(-1))),
-                    Expr::Primary(Primary::Number(float(3))),
-                ])),
+                Box::new(Expr::Primary(Primary::Number(float(-3)))),
             ),
             // * x^2
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
                 Box::new(Expr::Primary(Primary::Number(float(2)))),
             ),
-            // * -1
-            Expr::Primary(Primary::Number(float(-1))),
-            // * 2
-            Expr::Primary(Primary::Number(float(2))),
+            // * -2
+            Expr::Primary(Primary::Number(float(-2))),
             // / 5
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Number(float(5)))),

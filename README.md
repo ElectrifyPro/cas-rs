@@ -6,6 +6,7 @@ See below for a guide on the REPL and some code examples.
 
 # Features
 
+- Simplification of algebraic expressions, learn more [here](cas-math/README.md)
 - Robust expression parser and evaluator with very human-friendly output
 - Arbitrary precision arithmetic
 - Real and complex numbers

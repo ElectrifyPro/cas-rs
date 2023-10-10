@@ -1,4 +1,4 @@
-//! Module to simplify expressions.
+//! Simplify expressions algebraically.
 //!
 //! This module provides the [`simplify`] function, which attempts to reduce the complexity of an
 //! expression. It does this by repeatedly applying rewriting rules to the expression in multiple
@@ -7,7 +7,11 @@
 //! Complexity is an informal, arbitrary metric that is used to determine whether one expression is
 //! simpler than another. The default complexity heuristic used is [`default_complexity`] (click
 //! for more information). However, this can be overridden by providing a custom complexity
-//! function to the ``simplify_with`` function.
+//! function to the [`simplify_with`] function.
+//!
+//! It is also possible to collect the simplification steps taken during simplification, using
+//! [`simplify_with_steps`]. This is useful for debugging, and also for displaying the steps taken
+//! to the user.
 
 pub mod rules;
 pub mod step;

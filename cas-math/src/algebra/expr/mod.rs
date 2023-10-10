@@ -6,8 +6,8 @@
 //!
 //! This module defines a separate [`Expr`](crate::algebra::expr::Expr), a type that stores
 //! additional information about the expression, such as the terms and factors that make it up. It
-//! simplifies the situation by recursively flattening the AST into a vector of terms or factors,
-//! depending on the operation, and normalizing the expression into a sum of products.
+//! simplifies the AST by recursively flattening it into a list of terms or factors, depending on
+//! the operation, and normalizing the expression into a sum of products.
 //!
 //! All algebra submodules in this crate that deal with algebraic manipulation will use
 //! [`Expr`](crate::algebra::expr::Expr), and any occurrences of the word `expression` will refer
@@ -115,6 +115,13 @@ impl Mul<Primary> for Primary {
 }
 
 /// A mathematical expression with information about its terms and factors.
+///
+/// This type should be distinguished from the [`cas_parser::parser::ast::Expr`] type, which is
+/// produced by [`cas_parser`]. The main difference is that this type **flattens** out the tree
+/// structure. For example, the expression `x + (y + z)` would be represented internally as a
+/// single [`Expr::Add`] node with _three_ children, `x`, `y`, and `z`.
+///
+/// For more information about this type, see the [module-level documentation](crate::algebra).
 #[derive(Debug, Clone, Eq)]
 pub enum Expr {
     /// A single term or factor.

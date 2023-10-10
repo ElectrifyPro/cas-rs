@@ -1,7 +1,7 @@
 use crate::parser::{
     ast::{
         assign::{Assign as AssignExpr, AssignTarget},
-        expr::{Expr, Primary},
+        expr::Expr,
         unary::Unary,
     },
     error::{kind, Error},
@@ -79,6 +79,42 @@ impl Binary {
 
     /// After parsing the left-hand-side, the operator, and the right-hand-side of a potential
     /// binary expression, parse ahead to see if the right-hand-side is incomplete.
+    ///
+    /// If we are parsing the expression `1 + 2 * 3`, we will first parse the left-hand-side `1`,
+    /// then the operator `+`, then the right-hand-side `2`. However, before we build the
+    /// corresponding AST node, we should check if the operator after `2` has higher precedence
+    /// than `+` (if it exists).
+    ///
+    /// If it does, we should parse the expression starting with `2` first, so that we get `2 * 3`
+    /// as the right-hand-side to the `1 +` node. This works by calling into [`Self::parse_expr`]
+    /// again, but with `rhs` (`2` in this case) as the `lhs` argument.
+    ///
+    /// If it does not (such as in the expression `3 * 2 + 1`), we build the AST node `3 * 2`
+    /// first. Then, [`Self::parse_expr`] will pick up the `+ 1` part of the expression, and
+    /// build the AST node `3 * 2 + 1`.
+    ///
+    /// Implicit multiplication is also handled here. In an expression such as `1 + 2x y`, the
+    /// first call to [`Self::parse_expr`] will parse `1 + 2`. However, there is no operator after
+    /// `2`, so instead, we assume an implicit multiplication operator, because multiplication has
+    /// higher precedence than addition, then continue with the same procedure as if the operator
+    /// did exist.
+    ///
+    /// There is one distinction we must make when parsing implicit multiplication. Since we're
+    /// essentially creating multiplication out of thin air, [`Self::complete_rhs`] can get into an
+    /// infinite loop if we're not careful!
+    ///
+    /// Consider the expression `1 + 2x`. The first call to [`Self::complete_rhs`] will contain the
+    /// left-hand-side `1`, the operator `+`, and the right-hand-side `2`. Since there is no
+    /// operator after `2`, we assume implicit multiplication (higher precedence than `+`), and
+    /// successfully parse `2x`. At this point, we've returned to the first call to
+    /// [`Self::complete_rhs`], where the right-hand-side is now `2x`. However, there is still no
+    /// operator after `2x`, so we assume implicit multiplication again, but parse nothing;
+    /// [`Self::parse_expr`] would simply return `2x` as-is, and we would return to the first call
+    /// to [`Self::complete_rhs`] again.
+    ///
+    /// Thankfully, the solution is simple: just check if `2x` is returned as-is! If so, there is
+    /// no expression after `2x`, so we should break out of the loop and return the AST node
+    /// `1 + 2x`. This is the purpose of the `changed` boolean returned by [`Self::parse_expr`].
     fn complete_rhs(
         input: &mut Parser,
         recoverable_errors: &mut Vec<Error>,
@@ -99,7 +135,7 @@ impl Binary {
                 if next_op.precedence() > precedence || next_op.associativity() == Associativity::Right {
                     // this operator has a higher precedence or it is right associative, so we should
                     // parse its expression starting with `rhs` first
-                    rhs = Self::parse_expr(input, recoverable_errors, rhs, next_op.precedence())?;
+                    rhs = Self::parse_expr(input, recoverable_errors, rhs, next_op.precedence())?.0;
                 } else {
                     // this operator has lower precedence, or equal precedence and
                     // left-associativity; this is in scenarios like:
@@ -114,13 +150,13 @@ impl Binary {
                 // assignment is right-associative, so we should parse its expression starting with
                 // `rhs` first
                 if Precedence::Assign >= precedence {
-                    rhs = Self::parse_expr(input, recoverable_errors, rhs, Precedence::Assign)?;
+                    rhs = Self::parse_expr(input, recoverable_errors, rhs, Precedence::Assign)?.0;
                 } else {
                     break;
                 }
             } else {
-                // there is no operator; check if there is a primary expression instead
-                // if there is, this is implicit multiplication
+                // there is no operator; check if there is a valid expression after
+                // if there is, this could be implicit multiplication
                 //
                 // first, check if the previous operator has higher or equal precedence; if so, we
                 // cannot give priority to implicit multiplication
@@ -128,21 +164,13 @@ impl Binary {
                     break;
                 }
 
-                if let Ok(primary) = input.try_parse::<Primary>().forward_errors(recoverable_errors) {
-                    let expr: Expr = primary.into();
-                    let (start_span, end_span) = (rhs.span().start, expr.span().end);
-                    let op_span = rhs.span().end..expr.span().start;
-                    rhs = Expr::Binary(Binary {
-                        lhs: Box::new(rhs),
-                        op: BinOp {
-                            kind: BinOpKind::Mul,
-                            implicit: true,
-                            span: op_span,
-                        },
-                        rhs: Box::new(expr),
-                        span: start_span..end_span,
-                    });
-                } else {
+                let (expr, changed) = Self::parse_expr(input, recoverable_errors, rhs, BinOpKind::Mul.precedence())?;
+
+                // `rhs = expr;` must happen in all cases, even if `changed` is false, otherwise it
+                // would've been moved into `Self::parse_expr` above
+                rhs = expr;
+
+                if !changed {
                     break;
                 }
             }
@@ -179,12 +207,17 @@ impl Binary {
         }
     }
 
+    /// After parsing the left-hand-side of a potential binary expression, parse ahead to see if
+    /// there is a binary operator and a right-hand-side.
+    ///
+    /// See [`Self::complete_rhs`] for more information about the return value of this function.
     pub fn parse_expr(
         input: &mut Parser,
         recoverable_errors: &mut Vec<Error>,
         mut lhs: Expr,
         precedence: Precedence
-    ) -> Result<Expr, Vec<Error>> {
+    ) -> Result<(Expr, bool), Vec<Error>> {
+        let mut changed = false;
         loop {
             let mut input_ahead = input.clone();
             if let Ok(op) = input_ahead.try_parse_then::<BinOp, _>(|bin_op, input| {
@@ -235,9 +268,11 @@ impl Binary {
             } else {
                 break;
             }
+
+            changed = true;
         }
 
-        Ok(lhs)
+        Ok((lhs, changed))
     }
 }
 

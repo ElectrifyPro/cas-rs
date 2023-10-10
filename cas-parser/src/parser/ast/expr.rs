@@ -119,7 +119,7 @@ impl<'source> Parse<'source> for Expr {
 
         let _ = return_if_ok!(input.try_parse::<Assign>().map(Self::Assign).forward_errors(recoverable_errors));
         let lhs = Unary::parse_or_lower(input, recoverable_errors)?;
-        Binary::parse_expr(input, recoverable_errors, lhs, Precedence::Any)
+        Ok(Binary::parse_expr(input, recoverable_errors, lhs, Precedence::Any)?.0)
     }
 }
 

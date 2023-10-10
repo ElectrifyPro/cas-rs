@@ -379,6 +379,11 @@ impl MulAssign for Expr {
     }
 }
 
+/// NOTE: The output of `pretty_assertions` for failing tests is horrifically ugly, mainly because
+/// we're utilizing strict equality here. Strict equality allows different orderings of terms and
+/// factors, but `pretty_assertions` doesn't care about order. If a test fails and we put the
+/// expected terms and factors in a different order than the generated terms and factors, the
+/// output will be a mess. Just a forewarning!
 #[cfg(test)]
 mod tests {
     use cas_parser::parser::{ast::expr::Expr as AstExpr, Parser};
@@ -499,6 +504,67 @@ mod tests {
                     ])),
                 ),
                 Expr::Primary(Primary::Symbol(String::from("z"))),
+                Expr::Primary(Primary::Number(float(-1))),
+            ]),
+        ]));
+    }
+
+    #[test]
+    fn complicated_expr_2() {
+        let input = String::from("3x^2y - 16x y + 2x^2y - 13x y + 4x y^2 - 11x y^2");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+
+        assert_eq!(math_expr, Expr::Add(vec![
+            // 4 * x * y^2
+            Expr::Mul(vec![
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
+                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                ),
+                Expr::Primary(Primary::Symbol(String::from("x"))),
+                Expr::Primary(Primary::Number(float(4))),
+            ]),
+            // + 2 * x^2 * y
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Symbol(String::from("y"))),
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
+                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                ),
+                Expr::Primary(Primary::Number(float(2))),
+            ]),
+            // + 3 * x^2 * y
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Symbol(String::from("y"))),
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
+                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                ),
+                Expr::Primary(Primary::Number(float(3))),
+            ]),
+            // + -1 * 16 * x * y
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Symbol(String::from("y"))),
+                Expr::Primary(Primary::Symbol(String::from("x"))),
+                Expr::Primary(Primary::Number(float(16))),
+                Expr::Primary(Primary::Number(float(-1))),
+            ]),
+            // + -1 * 13 * x * y
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Symbol(String::from("y"))),
+                Expr::Primary(Primary::Symbol(String::from("x"))),
+                Expr::Primary(Primary::Number(float(13))),
+                Expr::Primary(Primary::Number(float(-1))),
+            ]),
+            // + -1 * 11 * x * y^2
+            Expr::Mul(vec![
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
+                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                ),
+                Expr::Primary(Primary::Symbol(String::from("x"))),
+                Expr::Primary(Primary::Number(float(11))),
                 Expr::Primary(Primary::Number(float(-1))),
             ]),
         ]));

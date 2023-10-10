@@ -175,6 +175,46 @@ mod tests {
     }
 
     #[test]
+    fn combine_like_terms_2() {
+        let input = String::from("3x^2y - 16x y + 5x y^2 + 2x^2y - 13x y + 4x y^2 + 2x y + 11x y^2 + x^3y");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+
+        // x^3y + 20y^2x + 5x^2y - 27xy
+        assert_eq!(simplified_expr, Expr::Add(vec![
+            Expr::Mul(vec![
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
+                    Box::new(Expr::Primary(Primary::Number(float(3)))),
+                ),
+                Expr::Primary(Primary::Symbol(String::from("y"))),
+            ]),
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Number(float(20))),
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
+                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                ),
+                Expr::Primary(Primary::Symbol(String::from("x"))),
+            ]),
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Number(float(5))),
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
+                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                ),
+                Expr::Primary(Primary::Symbol(String::from("y"))),
+            ]),
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Number(float(-27))),
+                Expr::Primary(Primary::Symbol(String::from("x"))),
+                Expr::Primary(Primary::Symbol(String::from("y"))),
+            ]),
+        ]));
+    }
+
+    #[test]
     fn multiply_rules() {
         let input = String::from("0*(3x+5b^2i)*1*(3a)");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();

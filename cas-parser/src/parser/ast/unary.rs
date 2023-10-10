@@ -84,7 +84,7 @@ impl Unary {
                 let start_span = input.prev_token().unwrap().span.start;
                 let operand = {
                     let lhs = Unary::parse_or_lower(input, recoverable_errors)?;
-                    Binary::parse_expr(input, recoverable_errors, lhs, op_precedence)?
+                    Binary::parse_expr(input, recoverable_errors, lhs, op_precedence)?.0
                 };
                 let end_span = operand.span().end;
                 Ok(Self {

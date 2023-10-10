@@ -6,12 +6,10 @@ impl Eval for If {
         let condition = eval_break!(self.condition, ctxt);
         if condition.is_truthy() {
             self.then_expr.eval(ctxt)
+        } else if let Some(else_expr) = &self.else_expr {
+            else_expr.eval(ctxt)
         } else {
-            if let Some(else_expr) = &self.else_expr {
-                else_expr.eval(ctxt)
-            } else {
-                Ok(Value::Unit)
-            }
+            Ok(Value::Unit)
         }
     }
 }

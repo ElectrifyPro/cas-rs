@@ -909,6 +909,41 @@ mod tests {
     }
 
     #[test]
+    fn implicit_multiplication_2() {
+        let mut parser = Parser::new("1 + 2x");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: "1".to_string(),
+                span: 0..1,
+            }))),
+            op: BinOp {
+                kind: BinOpKind::Add,
+                implicit: false,
+                span: 2..3,
+            },
+            rhs: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: "2".to_string(),
+                    span: 4..5,
+                }))),
+                op: BinOp {
+                    kind: BinOpKind::Mul,
+                    implicit: true,
+                    span: 5..5,
+                },
+                rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                    name: "x".to_string(),
+                    span: 5..6,
+                }))),
+                span: 4..6,
+            })),
+            span: 0..6,
+        }));
+    }
+
+    #[test]
     fn implicit_multiplication_extra() {
         let mut parser = Parser::new("4x^2 + 5x + 1");
         let expr = parser.try_parse_full::<Expr>().unwrap();
@@ -1098,6 +1133,105 @@ mod tests {
             }))),
             span: 0..6,
         }));
+    }
+
+    #[test]
+    fn implicit_multiplication_terms_with_power() {
+        let mut parser = Parser::new("-16x y + 2x^2y");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        // -16xy
+        let lhs = Expr::Binary(Binary {
+            lhs: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Unary(Unary {
+                    operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: "16".to_string(),
+                        span: 1..3,
+                    }))),
+                    op: UnaryOp {
+                        kind: UnaryOpKind::Neg,
+                        span: 0..1,
+                    },
+                    span: 0..3,
+                })),
+                op: BinOp {
+                    kind: BinOpKind::Mul,
+                    implicit: true,
+                    span: 3..3,
+                },
+                rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                    name: "x".to_string(),
+                    span: 3..4,
+                }))),
+                span: 0..4,
+            })),
+            op: BinOp {
+                kind: BinOpKind::Mul,
+                implicit: true,
+                span: 4..5,
+            },
+            rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                name: "y".to_string(),
+                span: 5..6,
+            }))),
+            span: 0..6,
+        });
+
+        // 2x^2y
+        let rhs = Expr::Binary(Binary {
+            lhs: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    value: "2".to_string(),
+                    span: 9..10,
+                }))),
+                op: BinOp {
+                    kind: BinOpKind::Mul,
+                    implicit: true,
+                    span: 10..10,
+                },
+                rhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                        name: "x".to_string(),
+                        span: 10..11,
+                    }))),
+                    op: BinOp {
+                        kind: BinOpKind::Exp,
+                        implicit: false,
+                        span: 11..12,
+                    },
+                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: "2".to_string(),
+                        span: 12..13,
+                    }))),
+                    span: 10..13,
+                })),
+                span: 9..13,
+            })),
+            op: BinOp {
+                kind: BinOpKind::Mul,
+                implicit: true,
+                span: 13..13,
+            },
+            rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                name: "y".to_string(),
+                span: 13..14,
+            }))),
+            span: 9..14,
+        });
+
+        // -16xy + 2x^2y
+        let add = Expr::Binary(Binary {
+            lhs: Box::new(lhs),
+            op: BinOp {
+                kind: BinOpKind::Add,
+                implicit: false,
+                span: 7..8,
+            },
+            rhs: Box::new(rhs),
+            span: 0..14,
+        });
+
+        assert_eq!(expr, add);
     }
 
     #[test]

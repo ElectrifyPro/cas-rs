@@ -311,6 +311,15 @@ mod tests {
     }
 
     #[test]
+    fn combine_like_factors_mul_numbers() {
+        let input = String::from("-1 * -1 * 2 * 2");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(4))));
+    }
+
+    #[test]
     fn complicated_combine_like_factors() {
         let input = String::from("3p^-5q^9r^7/(12p^-2q*r^2)");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();

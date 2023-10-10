@@ -156,16 +156,16 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
             while next_factor_idx < new_factors.len() {
                 let (next_factor, next_factor_exp) = get_exp(&new_factors[next_factor_idx]);
 
-                if current_factor == next_factor {
-                    // bases must be strictly equal
-                    // if they are, apply a^b*a^c = a^(b+c)
-                    current_factor_exp += next_factor_exp;
-                    new_factors.swap_remove(next_factor_idx);
-                } else if current_factor_exp == next_factor_exp
+                if current_factor_exp == next_factor_exp
                     && current_factor.is_number() && next_factor.is_number() {
                     // degrees must be strictly equal
                     // if they are, apply a^c*b^c = (a*b)^c
                     current_factor *= next_factor;
+                    new_factors.swap_remove(next_factor_idx);
+                } else if current_factor == next_factor {
+                    // bases must be strictly equal
+                    // if they are, apply a^b*a^c = a^(b+c)
+                    current_factor_exp += next_factor_exp;
                     new_factors.swap_remove(next_factor_idx);
                 } else {
                     next_factor_idx += 1;

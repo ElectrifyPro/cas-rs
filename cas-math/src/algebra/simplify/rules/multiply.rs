@@ -1,11 +1,11 @@
 //! Simplification rules for expressions involving multiplication, including combining like
 //! factors.
 
-use cas_eval::consts::{ZERO, ONE, float, int_from_float};
+use cas_eval::consts::{ZERO, ONE, int_from_float};
 use crate::{
     algebra::{
         expr::{Expr, Primary},
-        simplify::{fraction::extract_numerical_fraction, rules::do_multiply, step::Step},
+        simplify::{fraction::{extract_numerical_fraction, make_fraction}, rules::do_multiply, step::Step},
     },
     step::StepCollector,
 };
@@ -69,15 +69,11 @@ pub fn reduce_numerical_fraction(expr: &Expr, step_collector: &mut dyn StepColle
             return None;
         }
 
-        let numerator = Expr::Primary(Primary::Number(numerator / &gcd));
-        let denominator = Expr::Exp(
-            Box::new(Expr::Primary(Primary::Number(denominator / &gcd))),
-            Box::new(Expr::Primary(Primary::Number(float(-1)))),
-        );
-
         // insert the reduced fraction back into the factors
-        new_factors.extend([numerator, denominator]);
-        Some(Expr::Mul(new_factors))
+        Some(Expr::Mul(new_factors) * make_fraction(
+            Expr::Primary(Primary::Number(numerator / &gcd)),
+            Expr::Primary(Primary::Number(denominator / &gcd)),
+        ))
     })?;
 
     step_collector.push(Step::ReduceFraction);

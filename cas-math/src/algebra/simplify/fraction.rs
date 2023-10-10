@@ -4,6 +4,18 @@ use cas_eval::consts::float;
 use crate::algebra::expr::{Expr, Primary};
 use rug::Float;
 
+/// Create an [`Expr`] representing a fraction with the given numerator and denominator.
+///
+/// The representation is an [`Expr::Mul`] containing two factors. The first factor is the
+/// numerator, and the second factor is the denominator raised to the power of -1.
+pub(crate) fn make_fraction(numerator: Expr, denominator: Expr) -> Expr {
+    numerator *
+        Expr::Exp(
+            Box::new(denominator),
+            Box::new(Expr::Primary(Primary::Number(float(-1)))),
+        )
+}
+
 /// Extracts a numerical fraction from the factors of an [`Expr::Mul`].
 ///
 /// Because all expressions are in a canonical form, a fraction is represented as an [`Expr::Mul`]

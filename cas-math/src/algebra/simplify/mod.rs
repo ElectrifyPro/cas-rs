@@ -147,9 +147,11 @@ pub fn simplify_with_steps(expr: &Expr) -> (Expr, Vec<Step>) {
 
 #[cfg(test)]
 mod tests {
-    use cas_parser::parser::{ast::expr::Expr as AstExpr, Parser};
-    use pretty_assertions::assert_eq;
     use super::*;
+
+    use cas_parser::parser::{ast::expr::Expr as AstExpr, Parser};
+    use fraction::make_fraction;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn add_rules() {
@@ -171,13 +173,10 @@ mod tests {
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
 
-        assert_eq!(simplified_expr, Expr::Mul(vec![
+        assert_eq!(simplified_expr, make_fraction(
             Expr::Primary(Primary::Number(float(-1))),
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Number(float(3)))),
-                Box::new(Expr::Primary(Primary::Number(float(-1)))),
-            ),
-        ]));
+            Expr::Primary(Primary::Number(float(3))),
+        ));
     }
 
     #[test]
@@ -188,21 +187,17 @@ mod tests {
         let simplified_expr = simplify(&math_expr);
 
         assert_eq!(simplified_expr, Expr::Add(vec![
-            Expr::Mul(vec![
+            make_fraction(
                 Expr::Primary(Primary::Number(float(5))),
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Number(float(3)))),
-                    Box::new(Expr::Primary(Primary::Number(float(-1)))),
-                ),
-            ]),
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Number(float(-1))),
-                Expr::Primary(Primary::Symbol(String::from("pi"))),
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Number(float(3)))),
-                    Box::new(Expr::Primary(Primary::Number(float(-1)))),
-                ),
-            ]),
+                Expr::Primary(Primary::Number(float(3))),
+            ),
+            make_fraction(
+                Expr::Mul(vec![
+                    Expr::Primary(Primary::Number(float(-1))),
+                    Expr::Primary(Primary::Symbol(String::from("pi"))),
+                ]),
+                Expr::Primary(Primary::Number(float(3))),
+            ),
         ]));
     }
 
@@ -396,13 +391,10 @@ mod tests {
         let math_expr = Expr::from(expr);
         let (simplified_expr, steps) = simplify_with_steps(&math_expr);
         assert_eq!(simplified_expr, Expr::Add(vec![
-            Expr::Mul(vec![
+            make_fraction(
                 Expr::Primary(Primary::Symbol("y".to_string())),
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Symbol("x".to_string()))),
-                    Box::new(Expr::Primary(Primary::Number(float(-1)))),
-                ),
-            ]),
+                Expr::Primary(Primary::Symbol("x".to_string())),
+            ),
             Expr::Primary(Primary::Number(float(2))),
         ]));
         assert!(steps.contains(&Step::DistributiveProperty));

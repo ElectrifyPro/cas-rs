@@ -1,8 +1,11 @@
 //! Simplification rules for expressions involving addition, including combining like terms.
 
-use cas_eval::consts::{ONE, float};
+use cas_eval::consts::ONE;
 use crate::{
-    algebra::{expr::{Expr, Primary}, simplify::{fraction::extract_explicit_frac, rules::do_add, step::Step}},
+    algebra::{
+        expr::{Expr, Primary},
+        simplify::{fraction::{extract_explicit_frac, make_fraction}, rules::do_add, step::Step},
+    },
     step::StepCollector,
 };
 
@@ -16,13 +19,10 @@ fn add_assign(lhs: &mut Expr, mut rhs: Expr) {
             if denominator == 1 {
                 *lhs = Expr::Primary(Primary::Number(numerator));
             } else {
-                *lhs = Expr::Mul(vec![
+                *lhs = make_fraction(
                     Expr::Primary(Primary::Number(numerator)),
-                    Expr::Exp(
-                        Box::new(Expr::Primary(Primary::Number(denominator))),
-                        Box::new(Expr::Primary(Primary::Number(float(-1)))),
-                    ),
-                ]);
+                    Expr::Primary(Primary::Number(denominator)),
+                );
             }
         },
         _ => *lhs += rhs,

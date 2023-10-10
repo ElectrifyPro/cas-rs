@@ -59,6 +59,7 @@ use cas_parser::parser::{
 use iter::ExprIter;
 use rug::Float;
 use std::ops::{Add, AddAssign, Mul, MulAssign};
+use super::simplify::fraction::make_fraction;
 
 /// A single term / factor, such as a number, variable, or function call.
 #[derive(Debug, Clone, PartialEq)]
@@ -335,11 +336,10 @@ impl From<AstExpr> for Expr {
                     BinOpKind::Div => {
                         // treat this as lhs*rhs^-1
                         // add lhs factors, flattening `MathExpr::Mul`s if necessary
-                        Self::from(*bin.lhs) *
-                            Self::Exp(
-                                Box::new(Expr::from(*bin.rhs)),
-                                Box::new(Self::Primary(Primary::Number(float(-1))))
-                            )
+                        make_fraction(
+                            Self::from(*bin.lhs),
+                            Self::from(*bin.rhs),
+                        )
                     },
                     BinOpKind::Mod => todo!(),
                     BinOpKind::Add => {

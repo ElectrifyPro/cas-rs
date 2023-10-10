@@ -239,6 +239,15 @@ impl Expr {
         }
     }
 
+    /// Multiplies this expression by -1. No simplification is done, except for the case where the
+    /// expression is a [`Primary::Number`], in which case the number is negated.
+    pub fn neg(self) -> Self {
+        match self {
+            Self::Primary(Primary::Number(num)) => Self::Primary(Primary::Number(-num)),
+            expr => Self::Primary(Primary::Number(float(-1))) * expr,
+        }
+    }
+
     /// Returns an iterator that traverses the tree of expressions in left-to-right post-order
     /// (i.e. depth-first).
     pub fn post_order_iter(&self) -> ExprIter {
@@ -295,8 +304,7 @@ impl From<AstExpr> for Expr {
                 match unary.op.kind {
                     UnaryOpKind::Neg => {
                         // treat this as -1 * rhs
-                        Self::Primary(Primary::Number(float(-1)))
-                            * Self::from(*unary.operand)
+                        Self::from(*unary.operand).neg()
                     },
                     _ => todo!(),
                 }
@@ -373,7 +381,7 @@ impl From<AstExpr> for Expr {
                         // treat this as lhs + -1 * rhs
                         // add lhs and rhs terms, flattening `MathExpr::Add`s if necessary
                         Self::from(*bin.lhs) +
-                            Self::Primary(Primary::Number(float(-1))) * Self::from(*bin.rhs)
+                            Self::from(*bin.rhs).neg()
                     },
                     BinOpKind::BitRight => todo!(),
                     BinOpKind::BitLeft => todo!(),

@@ -192,10 +192,7 @@ mod tests {
                 Expr::Primary(Primary::Number(float(3))),
             ),
             make_fraction(
-                Expr::Mul(vec![
-                    Expr::Primary(Primary::Number(float(-1))),
-                    Expr::Primary(Primary::Symbol(String::from("pi"))),
-                ]),
+                Expr::Primary(Primary::Symbol(String::from("pi"))).neg(),
                 Expr::Primary(Primary::Number(float(3))),
             ),
         ]));

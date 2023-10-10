@@ -70,7 +70,7 @@ pub fn multiply_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) 
 /// `a*1 = a`
 pub fn multiply_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_multiply(expr, |factors| {
-        let mut new_factors = factors.iter()
+        let new_factors = factors.iter()
             .filter(|factor| {
                 // keep all non-one factors
                 factor.as_number()
@@ -82,12 +82,8 @@ pub fn multiply_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -
 
         if new_factors.len() == factors.len() {
             None
-        } else if new_factors.is_empty() {
-            Some(Expr::Primary(Primary::Number(ONE.clone())))
-        } else if new_factors.len() == 1 {
-            Some(new_factors.remove(0))
         } else {
-            Some(Expr::Mul(new_factors))
+            Some(Expr::Mul(new_factors).downgrade())
         }
     })?;
 
@@ -191,10 +187,8 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
 
         if new_factors.len() == factors.len() {
             None
-        } else if new_factors.len() == 1 {
-            Some(new_factors.remove(0))
         } else {
-            Some(Expr::Mul(new_factors))
+            Some(Expr::Mul(new_factors).downgrade())
         }
     })?;
 

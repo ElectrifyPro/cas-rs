@@ -1,6 +1,6 @@
 //! Simplification rules for expressions involving addition, including combining like terms.
 
-use cas_eval::consts::{ZERO, ONE};
+use cas_eval::consts::ONE;
 use crate::{
     algebra::{expr::{Expr, Primary}, simplify::{rules::do_add, step::Step}},
     step::StepCollector,
@@ -10,7 +10,7 @@ use crate::{
 /// `a+0 = a`
 pub fn add_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_add(expr, |terms| {
-        let mut new_terms = terms.iter()
+        let new_terms = terms.iter()
             .filter(|term| {
                 // keep all non-zero terms
                 term.as_number()
@@ -22,12 +22,8 @@ pub fn add_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Op
 
         if new_terms.len() == terms.len() {
             None
-        } else if new_terms.is_empty() {
-            Some(Expr::Primary(Primary::Number(ZERO.clone())))
-        } else if new_terms.len() == 1 {
-            Some(new_terms.remove(0))
         } else {
-            Some(Expr::Add(new_terms))
+            Some(Expr::Add(new_terms).downgrade())
         }
     })?;
 
@@ -79,11 +75,7 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
 
                     (
                         coeff.unwrap_or_else(|| Expr::Primary(Primary::Number(ONE.clone()))),
-                        if factors.len() == 1 {
-                            factors.remove(0)
-                        } else {
-                            Expr::Mul(factors)
-                        },
+                        Expr::Mul(factors).downgrade(),
                     )
                 },
                 _ => (Expr::Primary(Primary::Number(ONE.clone())), expr.clone()),
@@ -122,10 +114,8 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
 
         if new_terms.len() == terms.len() {
             None
-        } else if new_terms.len() == 1 {
-            Some(new_terms.remove(0))
         } else {
-            Some(Expr::Add(new_terms))
+            Some(Expr::Add(new_terms).downgrade())
         }
     })?;
 

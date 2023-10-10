@@ -172,6 +172,35 @@ impl Expr {
         false
     }
 
+    /// Trivially downgrades the expression into a simpler form.
+    ///
+    /// Some operations may result in an [`Expr::Add`] with zero / one term, or an [`Expr::Mul`]
+    /// with zero / one factor. This function checks for these cases and simplifies the expression
+    /// into the single term / factor, or an [`Expr::Primary`] containing the number 0 or 1.
+    pub(crate) fn downgrade(self) -> Self {
+        match self {
+            Self::Add(mut terms) => {
+                if terms.is_empty() {
+                    Self::Primary(Primary::Number(float(0)))
+                } else if terms.len() == 1 {
+                    terms.remove(0)
+                } else {
+                    Self::Add(terms)
+                }
+            },
+            Self::Mul(mut factors) => {
+                if factors.is_empty() {
+                    Self::Primary(Primary::Number(float(1)))
+                } else if factors.len() == 1 {
+                    factors.remove(0)
+                } else {
+                    Self::Mul(factors)
+                }
+            },
+            _ => self,
+        }
+    }
+
     /// Returns an iterator that traverses the tree of expressions in left-to-right post-order
     /// (i.e. depth-first).
     pub fn post_order_iter(&self) -> ExprIter {

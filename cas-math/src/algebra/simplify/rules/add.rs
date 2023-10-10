@@ -79,7 +79,11 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
 
                     (
                         coeff.unwrap_or_else(|| Expr::Primary(Primary::Number(ONE.clone()))),
-                        Expr::Mul(factors),
+                        if factors.len() == 1 {
+                            factors.remove(0)
+                        } else {
+                            Expr::Mul(factors)
+                        },
                     )
                 },
                 _ => (Expr::Primary(Primary::Number(ONE.clone())), expr.clone()),

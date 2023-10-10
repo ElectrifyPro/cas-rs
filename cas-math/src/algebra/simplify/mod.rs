@@ -215,6 +215,19 @@ mod tests {
     }
 
     #[test]
+    fn combine_like_terms_3() {
+        let input = String::from("x + 2x");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let (simplified_expr, steps) = simplify_with_steps(&math_expr);
+
+        assert_eq!(simplified_expr, Expr::Mul(vec![
+            Expr::Primary(Primary::Number(float(3))),
+            Expr::Primary(Primary::Symbol(String::from("x"))),
+        ]));
+    }
+
+    #[test]
     fn multiply_rules() {
         let input = String::from("0*(3x+5b^2i)*1*(3a)");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();

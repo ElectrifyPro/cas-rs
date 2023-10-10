@@ -477,4 +477,19 @@ mod tests {
             Step::PowerOneLeft,
         ]);
     }
+
+    #[test]
+    fn imaginary_num() {
+        let input = String::from("i^372 + i^145 - i^215 - i^807");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Add(vec![
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Number(float(3))),
+                Expr::Primary(Primary::Symbol("i".to_string())),
+            ]),
+            Expr::Primary(Primary::Number(float(1))),
+        ]));
+    }
 }

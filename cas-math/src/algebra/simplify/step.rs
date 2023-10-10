@@ -43,4 +43,16 @@ pub enum Step {
 
     /// `(a*b)^c = a^c*b^c`
     DistributePower,
+
+    /// `i^(4n) = 1`
+    I0,
+
+    /// `i^(4n+1) = i`
+    I1,
+
+    /// `i^(4n+2) = -1`
+    I2,
+
+    /// `i^(4n+3) = -i`
+    I3,
 }

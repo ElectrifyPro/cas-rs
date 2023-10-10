@@ -201,6 +201,14 @@ impl Expr {
         None
     }
 
+    /// If the expression is a [`Primary::Symbol`], returns a reference to the contained symbol.
+    pub fn as_symbol(&self) -> Option<&str> {
+        match self {
+            Self::Primary(Primary::Symbol(sym)) => Some(sym),
+            _ => None,
+        }
+    }
+
     /// Trivially downgrades the expression into a simpler form.
     ///
     /// Some operations may result in an [`Expr::Add`] with zero / one term, or an [`Expr::Mul`]

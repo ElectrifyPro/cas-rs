@@ -21,21 +21,17 @@ fn extract_numerical_fraction(factors: &mut Vec<Expr>) -> Option<(Float, Float)>
     let mut numerator = None;
     let mut denominator = None;
     while idx < factors.len() {
-        if numerator.is_none() {
-            if factors[idx].is_number() {
-                numerator = Some(factors.swap_remove(idx).into_number().unwrap());
-                continue;
-            }
+        if numerator.is_none() && factors[idx].is_number() {
+            numerator = Some(factors.swap_remove(idx).into_number().unwrap());
+            continue;
         }
 
-        if denominator.is_none() {
-            if factors[idx].is_number_recip() {
-                let denominator_expr = factors.swap_remove(idx);
-                if let Expr::Exp(lhs, _) = denominator_expr {
-                    if let Expr::Primary(Primary::Number(num)) = *lhs {
-                        denominator = Some(num);
-                        continue;
-                    }
+        if denominator.is_none() && factors[idx].is_number_recip() {
+            let denominator_expr = factors.swap_remove(idx);
+            if let Expr::Exp(lhs, _) = denominator_expr {
+                if let Expr::Primary(Primary::Number(num)) = *lhs {
+                    denominator = Some(num);
+                    continue;
                 }
             }
         }

@@ -13,6 +13,7 @@
 //! [`simplify_with_steps`]. This is useful for debugging, and also for displaying the steps taken
 //! to the user.
 
+pub mod fraction;
 pub mod rules;
 pub mod step;
 
@@ -164,6 +165,48 @@ mod tests {
     }
 
     #[test]
+    fn add_fractions() {
+        let input = String::from("1/2 + 1/3 - 2 + 5/6");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+
+        assert_eq!(simplified_expr, Expr::Mul(vec![
+            Expr::Primary(Primary::Number(float(-1))),
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Number(float(3)))),
+                Box::new(Expr::Primary(Primary::Number(float(-1)))),
+            ),
+        ]));
+    }
+
+    #[test]
+    fn add_fractions_with_factors() {
+        let input = String::from("pi/2 + 2 - 1/3 - 5pi/6");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+
+        assert_eq!(simplified_expr, Expr::Add(vec![
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Number(float(5))),
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Number(float(3)))),
+                    Box::new(Expr::Primary(Primary::Number(float(-1)))),
+                ),
+            ]),
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Number(float(-1))),
+                Expr::Primary(Primary::Symbol(String::from("pi"))),
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Number(float(3)))),
+                    Box::new(Expr::Primary(Primary::Number(float(-1)))),
+                ),
+            ]),
+        ]));
+    }
+
+    #[test]
     fn combine_like_terms() {
         let input = String::from("-9(6m-3) + 6(1+4m)");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
@@ -223,7 +266,7 @@ mod tests {
         let input = String::from("x + 2x");
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
-        let (simplified_expr, steps) = simplify_with_steps(&math_expr);
+        let simplified_expr = simplify(&math_expr);
 
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Primary(Primary::Number(float(3))),

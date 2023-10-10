@@ -3,52 +3,12 @@
 
 use cas_eval::consts::{ZERO, ONE, float, int_from_float};
 use crate::{
-    algebra::{expr::{Expr, Primary}, simplify::{rules::do_multiply, step::Step}},
+    algebra::{
+        expr::{Expr, Primary},
+        simplify::{fraction::extract_numerical_fraction, rules::do_multiply, step::Step},
+    },
     step::StepCollector,
 };
-use rug::Float;
-
-/// Extracts a numerical fraction from the factors of a [`Expr::Mul`].
-///
-/// Because all expressions are in a canonical form, a fraction is represented as a [`Expr::Mul`]
-/// containing a [`Primary::Number`], and a [`Expr::Exp`], where the base is a [`Primary::Number`]
-/// and the exponent is `-1`.
-///
-/// This function finds two factors that match this pattern, removes them, and returns the
-/// numerator and denominator as floats.
-fn extract_numerical_fraction(factors: &mut Vec<Expr>) -> Option<(Float, Float)> {
-    let mut idx = 0;
-    let mut numerator = None;
-    let mut denominator = None;
-    while idx < factors.len() {
-        if numerator.is_none() && factors[idx].is_number() {
-            numerator = Some(factors.swap_remove(idx).into_number().unwrap());
-            continue;
-        }
-
-        if denominator.is_none() && factors[idx].is_number_recip() {
-            let denominator_expr = factors.swap_remove(idx);
-            if let Expr::Exp(lhs, _) = denominator_expr {
-                if let Expr::Primary(Primary::Number(num)) = *lhs {
-                    denominator = Some(num);
-                    continue;
-                }
-            }
-        }
-
-        if numerator.is_some() && denominator.is_some() {
-            break;
-        }
-
-        idx += 1;
-    }
-
-    if let (Some(numerator), Some(denominator)) = (numerator, denominator) {
-        Some((numerator, denominator))
-    } else {
-        None
-    }
-}
 
 /// `0*a = 0`
 /// `a*0 = 0`
@@ -100,7 +60,7 @@ pub fn reduce_numerical_fraction(expr: &Expr, step_collector: &mut dyn StepColle
         let mut new_factors = factors.to_vec();
 
         // extract a fraction, a Number and a Number^-1
-        let (numerator, denominator) = extract_numerical_fraction(&mut new_factors)?;
+        let (numerator, denominator) = extract_numerical_fraction(&mut new_factors, false)?;
 
         // reduce the fraction
         let gcd = int_from_float(numerator.clone())

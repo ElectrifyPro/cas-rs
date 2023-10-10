@@ -138,6 +138,19 @@ pub enum Expr {
 }
 
 impl Expr {
+    /// Returns true if the expression only contains [`Primary::Number`]s (no other [`Primary`]s).
+    pub fn is_constant(&self) -> bool {
+        self.post_order_iter()
+            .all(|expr| {
+                matches!(expr,
+                    Self::Primary(Primary::Number(_))
+                    | Self::Add(_)
+                    | Self::Mul(_)
+                    | Self::Exp(_, _)
+                )
+            })
+    }
+
     /// If the expression is a [`Primary::Number`], returns a reference to the contained number.
     pub fn as_number(&self) -> Option<&Float> {
         match self {
@@ -170,6 +183,22 @@ impl Expr {
         }
 
         false
+    }
+
+    /// If the expression is a [`Primary::Number`] raised to the power of -1, returns a reference to
+    /// the contained number (the left-hand side of the fraction).
+    pub fn as_number_recip(&self) -> Option<&Float> {
+        if let Self::Exp(base, exp) = self {
+            if matches!(&**base, Self::Primary(Primary::Number(_))) {
+                if let Self::Primary(Primary::Number(exp)) = &**exp {
+                    if exp == &-1 {
+                        return base.as_number();
+                    }
+                }
+            }
+        }
+
+        None
     }
 
     /// Trivially downgrades the expression into a simpler form.

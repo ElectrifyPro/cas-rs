@@ -1,10 +1,33 @@
 //! Simplification rules for expressions involving addition, including combining like terms.
 
-use cas_eval::consts::ONE;
+use cas_eval::consts::{ONE, float};
 use crate::{
-    algebra::{expr::{Expr, Primary}, simplify::{rules::do_add, step::Step}},
+    algebra::{expr::{Expr, Primary}, simplify::{fraction::extract_explicit_frac, rules::do_add, step::Step}},
     step::StepCollector,
 };
+
+/// Extension of the `+=` implementation for [`Expr`] to also support adding fractions.
+fn add_assign(lhs: &mut Expr, mut rhs: Expr) {
+    match (extract_explicit_frac(lhs), extract_explicit_frac(&mut rhs)) {
+        (Some((num1, den1)), Some((num2, den2))) => {
+            // (a / b) + (c / d) = (a*d + b*c) / (b*d)
+            let numerator = num1 * &den2 + num2 * &den1;
+            let denominator = den1 * den2;
+            if denominator == 1 {
+                *lhs = Expr::Primary(Primary::Number(numerator));
+            } else {
+                *lhs = Expr::Mul(vec![
+                    Expr::Primary(Primary::Number(numerator)),
+                    Expr::Exp(
+                        Box::new(Expr::Primary(Primary::Number(denominator))),
+                        Box::new(Expr::Primary(Primary::Number(float(-1)))),
+                    ),
+                ]);
+            }
+        },
+        _ => *lhs += rhs,
+    }
+}
 
 /// `0+a = a`
 /// `a+0 = a`
@@ -60,7 +83,7 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
 
                     let mut idx = 0;
                     while idx < factors.len() {
-                        if factors[idx].is_number() {
+                        if factors[idx].is_constant() {
                             let n = factors.swap_remove(idx);
                             // NOTE: coeff.map() doesn't work because `n` is moved into the map
                             // closure
@@ -77,6 +100,13 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
                         coeff.unwrap_or_else(|| Expr::Primary(Primary::Number(ONE.clone()))),
                         Expr::Mul(factors).downgrade(),
                     )
+                },
+                Expr::Exp(..) => {
+                    if expr.is_number_recip() {
+                        (expr.clone(), Expr::Primary(Primary::Number(ONE.clone())))
+                    } else {
+                        (Expr::Primary(Primary::Number(ONE.clone())), expr.clone())
+                    }
                 },
                 _ => (Expr::Primary(Primary::Number(ONE.clone())), expr.clone()),
             }
@@ -95,7 +125,7 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
                 // factors must be strictly equal
                 if current_term_factors == next_term_factors {
                     // if so, apply a*n + a*m = (n+m)*a
-                    current_term_coeff += next_term_coeff;
+                    add_assign(&mut current_term_coeff, next_term_coeff);
                     new_terms.swap_remove(next_term_idx);
                 } else {
                     next_term_idx += 1;

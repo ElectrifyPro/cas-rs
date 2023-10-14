@@ -24,10 +24,11 @@ pub(crate) fn make_fraction(numerator: Expr, denominator: Expr) -> Expr {
 ///
 /// This function finds two factors that match this pattern, removes them, and returns the
 /// numerator and denominator as floats. This is a very specific definition of a fraction; this
-/// function **will not** return a single [`Primary::Number`] factor as a fraction, unless if the
-/// `denominator_optional` parameter is `true`.
+/// function **will not** return 1 if it does not find any of those patterns, unless the
+/// `numerator_optional` and / or `denominator_optional` arguments are set to `true`.
 pub(crate) fn extract_numerical_fraction(
     factors: &mut Vec<Expr>,
+    numerator_optional: bool,
     denominator_optional: bool,
 ) -> Option<(Float, Float)> {
     let mut idx = 0;
@@ -56,14 +57,12 @@ pub(crate) fn extract_numerical_fraction(
         idx += 1;
     }
 
-    if let Some(numerator) = numerator {
-        match denominator {
-            Some(denominator) => Some((numerator, denominator)),
-            None if denominator_optional => Some((numerator, float(1))),
-            _ => None,
-        }
-    } else {
-        None
+    match (numerator, denominator) {
+        (Some(numerator), Some(denominator)) => Some((numerator, denominator)),
+        (Some(numerator), None) if denominator_optional => Some((numerator, float(1))),
+        (None, Some(denominator)) if numerator_optional => Some((float(1), denominator)),
+        (None, None) if numerator_optional && denominator_optional => Some((float(1), float(1))),
+        _ => None,
     }
 }
 
@@ -88,7 +87,7 @@ pub(crate) fn extract_explicit_frac(expr: &mut Expr) -> Option<(Float, Float)> {
             *num = float(1);
             Some((clone, float(1)))
         },
-        Expr::Mul(factors) => extract_numerical_fraction(factors, true),
+        Expr::Mul(factors) => extract_numerical_fraction(factors, false, true),
         Expr::Exp(..) => {
             if let Some(num) = expr.as_number_recip().cloned() {
                 *expr = Expr::Primary(Primary::Number(float(1)));

@@ -139,19 +139,6 @@ pub enum Expr {
 }
 
 impl Expr {
-    /// Returns true if the expression only contains [`Primary::Number`]s (no other [`Primary`]s).
-    pub fn is_constant(&self) -> bool {
-        self.post_order_iter()
-            .all(|expr| {
-                matches!(expr,
-                    Self::Primary(Primary::Number(_))
-                    | Self::Add(_)
-                    | Self::Mul(_)
-                    | Self::Exp(_, _)
-                )
-            })
-    }
-
     /// If the expression is a [`Primary::Number`], returns a reference to the contained number.
     pub fn as_number(&self) -> Option<&Float> {
         match self {

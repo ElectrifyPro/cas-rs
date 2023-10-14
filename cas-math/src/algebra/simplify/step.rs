@@ -17,6 +17,12 @@ pub enum Step {
     /// `12/3 = 4`
     ReduceFraction,
 
+    /// `a+a = 2a`
+    /// `a+a+a = 3a`
+    /// `2a+3a = 5a`
+    /// etc.
+    CombineLikeTerms,
+
     /// `a*a = a^2`
     /// `a*a*a = a^3`
     /// `a^2*a^3 = a^5`

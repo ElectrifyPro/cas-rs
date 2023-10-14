@@ -60,7 +60,7 @@ pub fn reduce_numerical_fraction(expr: &Expr, step_collector: &mut dyn StepColle
         let mut new_factors = factors.to_vec();
 
         // extract a fraction, a Number and a Number^-1
-        let (numerator, denominator) = extract_numerical_fraction(&mut new_factors, false)?;
+        let (numerator, denominator) = extract_numerical_fraction(&mut new_factors, false, false)?;
 
         // reduce the fraction
         let gcd = int_from_float(numerator.clone())

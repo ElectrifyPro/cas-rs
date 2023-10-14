@@ -381,6 +381,40 @@ mod tests {
     }
 
     #[test]
+    fn radicals() {
+        // sqrt(2)/2 * sqrt(3)/2 + sqrt(2)/2 * 1/2
+        let input = String::from("2^(1/2)/2*3^(1/2)/2 + 2^(1/2)/2*1/2");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify_with_steps(&math_expr);
+
+        // sqrt(2)/4 + sqrt(6)/4
+        assert_eq!(simplified_expr.0, Expr::Add(vec![
+            // sqrt(2)/4 = 2^(-3/2)
+            // the result is a denominator that is not rationalized
+            // TODO: rationalize the denominator
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Number(float(2)))),
+                Box::new(make_fraction(
+                    Expr::Primary(Primary::Number(float(-3))),
+                    Expr::Primary(Primary::Number(float(2))),
+                )),
+            ),
+            // sqrt(6)/4
+            make_fraction(
+                Expr::Exp(
+                    Box::new(Expr::Primary(Primary::Number(float(6)))),
+                    Box::new(Expr::Exp(
+                        Box::new(Expr::Primary(Primary::Number(float(2)))),
+                        Box::new(Expr::Primary(Primary::Number(float(-1)))),
+                    )),
+                ),
+                Expr::Primary(Primary::Number(float(4))),
+            ),
+        ]));
+    }
+
+    #[test]
     fn distribute() {
         // 1/x * (y+2x) = y/x + 2
         let input = String::from("1/x * (y+2x)");

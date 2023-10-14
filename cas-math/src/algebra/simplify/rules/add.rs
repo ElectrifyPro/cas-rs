@@ -4,14 +4,14 @@ use cas_eval::consts::ONE;
 use crate::{
     algebra::{
         expr::{Expr, Primary},
-        simplify::{fraction::{extract_explicit_frac, make_fraction}, rules::do_add, step::Step},
+        simplify::{fraction::{extract_explicit_frac, extract_numerical_fraction, make_fraction}, rules::do_add, step::Step},
     },
     step::StepCollector,
 };
 
 /// Extension of the `+=` implementation for [`Expr`] to also support adding fractions.
-fn add_assign(lhs: &mut Expr, mut rhs: Expr) {
-    match (extract_explicit_frac(lhs), extract_explicit_frac(&mut rhs)) {
+fn add_assign(lhs: &mut Expr, rhs: Expr) {
+    match (extract_explicit_frac(&mut lhs.clone()), extract_explicit_frac(&mut rhs.clone())) {
         (Some((num1, den1)), Some((num2, den2))) => {
             // (a / b) + (c / d) = (a*d + b*c) / (b*d)
             let numerator = num1 * &den2 + num2 * &den1;
@@ -66,11 +66,13 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
         let mut new_terms = terms.to_vec();
         let mut current_term_idx = 0;
 
-        /// Utility function to extract the numerical coefficient and factors of an expression. If
-        /// the expression is not [`Expr::Mul`], the coefficient is 1.
+        /// Utility function to extract the numerical fractional coefficient and factors of an
+        /// expression. If the expression is not [`Expr::Mul`], the coefficient is 1.
         ///
         /// - `5` -> `(5, 1)`
         /// - `3*a` -> `(3, a)`
+        /// - `1/4*a*b` -> `(1/4, a*b)`
+        /// - `sqrt(6)` -> `(1, sqrt(6))`
         /// - `a` -> `(1, a)`
         fn get_coeff(expr: &Expr) -> (Expr, Expr) {
             match expr {
@@ -79,25 +81,13 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
                 },
                 Expr::Mul(factors) => {
                     let mut factors = factors.clone();
-                    let mut coeff = None;
-
-                    let mut idx = 0;
-                    while idx < factors.len() {
-                        if factors[idx].is_constant() {
-                            let n = factors.swap_remove(idx);
-                            // NOTE: coeff.map() doesn't work because `n` is moved into the map
-                            // closure
-                            coeff = match coeff {
-                                Some(c) => Some(c * n),
-                                None => Some(n),
-                            };
-                        } else {
-                            idx += 1;
-                        }
-                    }
+                    let (numerator, denominator) = extract_numerical_fraction(&mut factors, true, true).unwrap();
 
                     (
-                        coeff.unwrap_or_else(|| Expr::Primary(Primary::Number(ONE.clone()))),
+                        make_fraction(
+                            Expr::Primary(Primary::Number(numerator)),
+                            Expr::Primary(Primary::Number(denominator)),
+                        ),
                         Expr::Mul(factors).downgrade(),
                     )
                 },
@@ -149,7 +139,7 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
         }
     })?;
 
-    step_collector.push(Step::CombineLikeFactors);
+    step_collector.push(Step::CombineLikeTerms);
     Some(opt)
 }
 

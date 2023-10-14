@@ -413,9 +413,40 @@ impl Add for Expr {
     }
 }
 
+/// Adds two [`Expr`]s together. The behavior is the same as [`Add`], except we can reuse the
+/// allocated memory of `self` if possible.
 impl AddAssign for Expr {
     fn add_assign(&mut self, rhs: Self) {
-        *self = self.clone() + rhs;
+        match (self, rhs) {
+            (Self::Primary(Primary::Number(lhs)), Self::Primary(Primary::Number(rhs))) => {
+                *lhs += rhs;
+            },
+            (Self::Add(terms), Self::Add(rhs_terms)) => {
+                terms.extend(rhs_terms);
+            },
+            (Self::Add(terms), other) => {
+                terms.push(other);
+            },
+            (other, Self::Add(mut terms)) => {
+                // SAFETY: same as (lhs, rhs) branch
+                unsafe {
+                    let owned = std::ptr::read(other);
+                    // TODO: doesn't this panic on oom? this could be unsound if it does
+                    terms.push(owned);
+                    std::ptr::write(other, Self::Add(terms));
+                }
+            },
+            (lhs, rhs) => {
+                // SAFETY: we're essentially moving `lhs` into a new `Self::Add` variant, and
+                // reassigning the new `Self::Add` to `lhs`. nothing is dropped, since `owned` and
+                // `rhs` are moved into `Self::Add`, and neither `write` nor `read` drop their
+                // arguments
+                unsafe {
+                    let owned = std::ptr::read(lhs);
+                    std::ptr::write(lhs, Self::Add(vec![owned, rhs]));
+                }
+            },
+        }
     }
 }
 
@@ -443,7 +474,32 @@ impl Mul for Expr {
 
 impl MulAssign for Expr {
     fn mul_assign(&mut self, rhs: Self) {
-        *self = self.clone() * rhs;
+        match (self, rhs) {
+            (Self::Primary(Primary::Number(lhs)), Self::Primary(Primary::Number(rhs))) => {
+                *lhs *= rhs;
+            },
+            (Self::Mul(factors), Self::Mul(rhs_factors)) => {
+                factors.extend(rhs_factors);
+            },
+            (Self::Mul(factors), other) => {
+                factors.push(other);
+            },
+            (other, Self::Mul(mut factors)) => {
+                // SAFETY: see [`AddAssign`] implementation
+                unsafe {
+                    let owned = std::ptr::read(other);
+                    factors.push(owned);
+                    std::ptr::write(other, Self::Mul(factors));
+                }
+            },
+            (lhs, rhs) => {
+                // SAFETY: see [`AddAssign`] implementation
+                unsafe {
+                    let owned = std::ptr::read(lhs);
+                    std::ptr::write(lhs, Self::Mul(vec![owned, rhs]));
+                }
+            },
+        }
     }
 }
 

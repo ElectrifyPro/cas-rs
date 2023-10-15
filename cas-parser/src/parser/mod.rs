@@ -9,14 +9,14 @@ pub mod token;
 use cas_error::ErrorKind;
 use error::{Error, kind};
 use super::tokenizer::{tokenize_complete, Token};
-use std::ops::Range;
+use std::{ops::Range, rc::Rc};
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
 /// code into an abstract syntax tree.
 #[derive(Debug, Clone)]
 pub struct Parser<'source> {
     /// The tokens that this parser is currently parsing.
-    tokens: Box<[Token<'source>]>,
+    tokens: Rc<[Token<'source>]>,
 
     /// The index of the **next** token to be parsed.
     cursor: usize,
@@ -26,7 +26,7 @@ impl<'source> Parser<'source> {
     /// Create a new parser for the given source.
     pub fn new(source: &'source str) -> Self {
         Self {
-            tokens: tokenize_complete(source),
+            tokens: tokenize_complete(source).into(),
             cursor: 0,
         }
     }

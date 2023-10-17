@@ -64,7 +64,7 @@ pub fn i_pow_2(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Opt
 pub fn i_pow_3(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, rhs| {
         if lhs.as_symbol()? == "i" && int(rhs.as_integer()? % 4) == 3 {
-            Some(Expr::Primary(Primary::Symbol("i".to_string())).neg())
+            Some(-Expr::Primary(Primary::Symbol("i".to_string())))
         } else {
             None
         }

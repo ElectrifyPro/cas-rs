@@ -202,7 +202,7 @@ mod tests {
                 Expr::Primary(Primary::Integer(int(3))),
             ),
             make_fraction(
-                Expr::Primary(Primary::Symbol(String::from("pi"))).neg(),
+                -Expr::Primary(Primary::Symbol(String::from("pi"))),
                 Expr::Primary(Primary::Integer(int(3))),
             ),
         ]));

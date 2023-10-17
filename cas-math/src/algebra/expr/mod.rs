@@ -58,7 +58,7 @@ use cas_parser::parser::{
 };
 use iter::ExprIter;
 use rug::{Float, Integer};
-use std::ops::{Add, AddAssign, Mul, MulAssign};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg};
 use super::simplify::fraction::make_fraction;
 
 /// A single term / factor, such as a number, variable, or function call.
@@ -258,16 +258,6 @@ impl Expr {
                 }
             },
             _ => self,
-        }
-    }
-
-    /// Multiplies this expression by -1. No simplification is done, except for the case where the
-    /// expression is a numeric [`Primary`], in which case the number is negated.
-    pub fn neg(self) -> Self {
-        match self {
-            Self::Primary(Primary::Integer(int)) => Self::Primary(Primary::Integer(-int)),
-            Self::Primary(Primary::Float(float)) => Self::Primary(Primary::Float(-float)),
-            expr => Self::Primary(Primary::Integer(int(-1))) * expr,
         }
     }
 
@@ -542,6 +532,20 @@ impl MulAssign for Expr {
                     std::ptr::write(lhs, Self::Mul(vec![owned, rhs]));
                 }
             },
+        }
+    }
+}
+
+/// Multiplies this expression by -1. No simplification is done, except for the case where the
+/// expression is a numeric [`Primary`], in which case the number is negated.
+impl Neg for Expr {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Self::Primary(Primary::Integer(int)) => Self::Primary(Primary::Integer(-int)),
+            Self::Primary(Primary::Float(float)) => Self::Primary(Primary::Float(-float)),
+            expr => Self::Primary(Primary::Integer(int(-1))) * expr,
         }
     }
 }

@@ -381,7 +381,7 @@ mod tests {
         let mut parser = Parser::new("16");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
-        assert_eq!(expr, Expr::Literal(Literal::Number(LitNum {
+        assert_eq!(expr, Expr::Literal(Literal::Integer(LitInt {
             value: "16".to_string(),
             span: 0..2,
         })));
@@ -392,7 +392,7 @@ mod tests {
         let mut parser = Parser::new("3.14");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
-        assert_eq!(expr, Expr::Literal(Literal::Number(LitNum {
+        assert_eq!(expr, Expr::Literal(Literal::Float(LitFloat {
             value: "3.14".to_string(),
             span: 0..4,
         })));
@@ -488,7 +488,7 @@ mod tests {
 
         assert_eq!(expr, Expr::Unary(Unary {
             operand: Box::new(Expr::Unary(Unary {
-                operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "3".to_string(),
                     span: 0..1,
                 }))),
@@ -515,7 +515,7 @@ mod tests {
             operand: Box::new(Expr::Unary(Unary {
                 operand: Box::new(Expr::Unary(Unary {
                     operand: Box::new(Expr::Unary(Unary {
-                        operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
                             value: "3".to_string(),
                             span: 10..11,
                         }))),
@@ -552,7 +552,7 @@ mod tests {
 
         assert_eq!(expr, Expr::Binary(Binary {
             lhs: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "3".to_string(),
                     span: 0..1,
                 }))),
@@ -572,7 +572,7 @@ mod tests {
                 implicit: false,
                 span: 6..7,
             },
-            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "5".to_string(),
                 span: 8..9,
             }))),
@@ -587,7 +587,7 @@ mod tests {
 
         assert_eq!(expr, Expr::Binary(Binary {
             lhs: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "3".to_string(),
                     span: 0..1,
                 }))),
@@ -597,7 +597,7 @@ mod tests {
                     span: 2..3,
                 },
                 rhs: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "4".to_string(),
                         span: 4..5,
                     }))),
@@ -633,7 +633,7 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Binary(Binary {
-            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "1".to_string(),
                 span: 0..1,
             }))),
@@ -643,7 +643,7 @@ mod tests {
                 span: 2..3,
             },
             rhs: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "2".to_string(),
                     span: 4..5,
                 }))),
@@ -652,7 +652,7 @@ mod tests {
                     implicit: false,
                     span: 6..7,
                 },
-                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "3".to_string(),
                     span: 8..9,
                 }))),
@@ -669,7 +669,7 @@ mod tests {
 
         // 2 * 3
         let mul = Expr::Binary(Binary {
-            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "2".to_string(),
                 span: 4..5,
             }))),
@@ -678,7 +678,7 @@ mod tests {
                 implicit: false,
                 span: 6..7,
             },
-            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "3".to_string(),
                 span: 8..9,
             }))),
@@ -687,7 +687,7 @@ mod tests {
 
         // 1 + 2 * 3
         let add = Expr::Binary(Binary {
-            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "1".to_string(),
                 span: 0..1,
             }))),
@@ -702,7 +702,7 @@ mod tests {
 
         // 5 ^ 6
         let exp = Expr::Binary(Binary {
-            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "5".to_string(),
                 span: 16..17,
             }))),
@@ -711,7 +711,7 @@ mod tests {
                 implicit: false,
                 span: 18..19,
             },
-            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "6".to_string(),
                 span: 20..21,
             }))),
@@ -720,7 +720,7 @@ mod tests {
 
         // 4 / 5 ^ 6
         let div = Expr::Binary(Binary {
-            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "4".to_string(),
                 span: 12..13,
             }))),
@@ -756,7 +756,7 @@ mod tests {
         assert_eq!(expr, Expr::Binary(Binary {
             lhs: Box::new(Expr::Unary(Unary {
                 operand: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "1".to_string(),
                         span: 1..2,
                     }))),
@@ -766,7 +766,7 @@ mod tests {
                         span: 3..4,
                     },
                     rhs: Box::new(Expr::Unary(Unary {
-                        operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
                             value: "2".to_string(),
                             span: 6..7,
                         }))),
@@ -789,7 +789,7 @@ mod tests {
                 implicit: false,
                 span: 8..9,
             },
-            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "3".to_string(),
                 span: 10..11,
             }))),
@@ -815,7 +815,7 @@ mod tests {
                             implicit: false,
                             span: 2..3,
                         },
-                        rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                             value: "2".to_string(),
                             span: 3..4,
                         }))),
@@ -827,7 +827,7 @@ mod tests {
                         span: 5..6,
                     },
                     rhs: Box::new(Expr::Unary(Unary {
-                        operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
                             value: "17".to_string(),
                             span: 7..9,
                         }))),
@@ -845,7 +845,7 @@ mod tests {
                     span: 11..12,
                 },
                 rhs: Box::new(Expr::Unary(Unary {
-                    operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    operand: Box::new(Expr::Literal(Literal::Float(LitFloat {
                         value: "4.9".to_string(),
                         span: 14..17,
                     }))),
@@ -876,7 +876,7 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Binary(Binary {
-            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "2".to_string(),
                 span: 0..1,
             }))),
@@ -887,7 +887,7 @@ mod tests {
             },
             rhs: Box::new(Expr::Paren(Paren {
                 expr: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "3".to_string(),
                         span: 2..3,
                     }))),
@@ -896,7 +896,7 @@ mod tests {
                         implicit: false,
                         span: 4..5,
                     },
-                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "4".to_string(),
                         span: 6..7,
                     }))),
@@ -914,7 +914,7 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Binary(Binary {
-            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "1".to_string(),
                 span: 0..1,
             }))),
@@ -924,7 +924,7 @@ mod tests {
                 span: 2..3,
             },
             rhs: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "2".to_string(),
                     span: 4..5,
                 }))),
@@ -951,7 +951,7 @@ mod tests {
         assert_eq!(expr, Expr::Binary(Binary {
             lhs: Box::new(Expr::Binary(Binary {
                 lhs: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "4".to_string(),
                         span: 0..1,
                     }))),
@@ -970,7 +970,7 @@ mod tests {
                             implicit: false,
                             span: 2..3,
                         },
-                        rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                             value: "2".to_string(),
                             span: 3..4,
                         }))),
@@ -984,7 +984,7 @@ mod tests {
                     span: 5..6,
                 },
                 rhs: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "5".to_string(),
                         span: 7..8,
                     }))),
@@ -1006,7 +1006,7 @@ mod tests {
                 implicit: false,
                 span: 10..11,
             },
-            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+            rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "1".to_string(),
                 span: 12..13,
             }))),
@@ -1021,7 +1021,7 @@ mod tests {
 
         assert_eq!(expr, Expr::Binary(Binary {
             lhs: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "3".to_string(),
                     span: 0..1,
                 }))),
@@ -1030,7 +1030,7 @@ mod tests {
                     implicit: false,
                     span: 1..2,
                 },
-                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                rhs: Box::new(Expr::Literal(Literal::Float(LitFloat {
                     value: "42.9".to_string(),
                     span: 2..6,
                 }))),
@@ -1057,7 +1057,7 @@ mod tests {
         assert_eq!(expr, Expr::Binary(Binary {
             lhs: Box::new(Expr::Unary(Unary {
                 operand: Box::new(Expr::Unary(Unary {
-                    operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "2".to_string(),
                         span: 0..1,
                     }))),
@@ -1080,7 +1080,7 @@ mod tests {
             },
             rhs: Box::new(Expr::Unary(Unary {
                 operand: Box::new(Expr::Unary(Unary {
-                    operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "3".to_string(),
                         span: 4..5,
                     }))),
@@ -1107,7 +1107,7 @@ mod tests {
 
         assert_eq!(expr, Expr::Binary(Binary {
             lhs: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "1".to_string(),
                     span: 0..1,
                 }))),
@@ -1116,7 +1116,7 @@ mod tests {
                     implicit: false,
                     span: 2..3,
                 },
-                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "2".to_string(),
                     span: 4..5,
                 }))),
@@ -1144,7 +1144,7 @@ mod tests {
         let lhs = Expr::Binary(Binary {
             lhs: Box::new(Expr::Binary(Binary {
                 lhs: Box::new(Expr::Unary(Unary {
-                    operand: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "16".to_string(),
                         span: 1..3,
                     }))),
@@ -1180,7 +1180,7 @@ mod tests {
         // 2x^2y
         let rhs = Expr::Binary(Binary {
             lhs: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "2".to_string(),
                     span: 9..10,
                 }))),
@@ -1199,7 +1199,7 @@ mod tests {
                         implicit: false,
                         span: 11..12,
                     },
-                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "2".to_string(),
                         span: 12..13,
                     }))),
@@ -1242,7 +1242,7 @@ mod tests {
         assert_eq!(expr, Expr::Binary(Binary {
             lhs: Box::new(Expr::Paren(Paren {
                 expr: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "1".to_string(),
                         span: 1..2,
                     }))),
@@ -1251,7 +1251,7 @@ mod tests {
                         implicit: false,
                         span: 3..4,
                     },
-                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "2".to_string(),
                         span: 5..6,
                     }))),
@@ -1280,7 +1280,7 @@ mod tests {
         assert_eq!(expr, Expr::Paren(Paren {
             expr: Box::new(Expr::Binary(Binary {
                 lhs: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "3".to_string(),
                         span: 1..2,
                     }))),
@@ -1289,7 +1289,7 @@ mod tests {
                         implicit: false,
                         span: 3..4,
                     },
-                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "9".to_string(),
                         span: 5..6,
                     }))),
@@ -1302,7 +1302,7 @@ mod tests {
                 },
                 rhs: Box::new(Expr::Binary(Binary {
                     lhs: Box::new(Expr::Binary(Binary {
-                        lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        lhs: Box::new(Expr::Literal(Literal::Float(LitFloat {
                             value: "4.0".to_string(),
                             span: 9..12,
                         }))),
@@ -1311,7 +1311,7 @@ mod tests {
                             implicit: false,
                             span: 13..14,
                         },
-                        rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        rhs: Box::new(Expr::Literal(Literal::Float(LitFloat {
                             value: "11.9".to_string(),
                             span: 15..19,
                         }))),
@@ -1324,7 +1324,7 @@ mod tests {
                     },
                     rhs: Box::new(Expr::Paren(Paren {
                         expr: Box::new(Expr::Binary(Binary {
-                            lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                                 value: "6".to_string(),
                                 span: 23..24,
                             }))),
@@ -1333,7 +1333,7 @@ mod tests {
                                 implicit: false,
                                 span: 25..26,
                             },
-                            rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                                 value: "3".to_string(),
                                 span: 27..28,
                             }))),
@@ -1366,7 +1366,7 @@ mod tests {
                             kind: AssignOpKind::Assign,
                             span: 4..5,
                         },
-                        value: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: Box::new(Expr::Literal(Literal::Integer(LitInt {
                             value: "5".to_string(),
                             span: 6..7,
                         }))),
@@ -1385,7 +1385,7 @@ mod tests {
                             kind: AssignOpKind::Assign,
                             span: 11..12,
                         },
-                        value: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        value: Box::new(Expr::Literal(Literal::Integer(LitInt {
                             value: "6".to_string(),
                             span: 13..14,
                         }))),
@@ -1465,7 +1465,7 @@ mod tests {
                                 kind: AssignOpKind::Assign,
                                 span: 32..33,
                             },
-                            value: Box::new(Expr::Literal(Literal::Number(LitNum {
+                            value: Box::new(Expr::Literal(Literal::Integer(LitInt {
                                 value: "1".to_string(),
                                 span: 34..35,
                             }))),
@@ -1507,7 +1507,7 @@ mod tests {
                 span: 3..5,
             },
             value: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "1".to_string(),
                     span: 6..7,
                 }))),
@@ -1560,7 +1560,7 @@ mod tests {
                         implicit: false,
                         span: 8..9,
                     },
-                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "2".to_string(),
                         span: 9..10,
                     }))),
@@ -1572,7 +1572,7 @@ mod tests {
                     span: 11..12,
                 },
                 rhs: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "5".to_string(),
                         span: 13..14,
                     }))),
@@ -1610,7 +1610,7 @@ mod tests {
                             name: "a".to_string(),
                             span: 8..9,
                         },
-                        Expr::Literal(Literal::Number(LitNum {
+                        Expr::Literal(Literal::Integer(LitInt {
                             value: "1".to_string(),
                             span: 12..13,
                         })),
@@ -1620,7 +1620,7 @@ mod tests {
                             name: "b".to_string(),
                             span: 15..16,
                         },
-                        Expr::Literal(Literal::Number(LitNum {
+                        Expr::Literal(Literal::Integer(LitInt {
                             value: "5".to_string(),
                             span: 19..20,
                         })),
@@ -1649,7 +1649,7 @@ mod tests {
                         implicit: false,
                         span: 28..29,
                     },
-                    rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                         value: "2".to_string(),
                         span: 29..30,
                     }))),
@@ -1662,7 +1662,7 @@ mod tests {
                 },
                 rhs: Box::new(Expr::Binary(Binary {
                     lhs: Box::new(Expr::Binary(Binary {
-                        lhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                        lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                             value: "4".to_string(),
                             span: 33..34,
                         }))),
@@ -1728,11 +1728,11 @@ mod tests {
             },
             derivatives: 6,
             args: vec![
-                Expr::Literal(Literal::Number(LitNum {
+                Expr::Literal(Literal::Integer(LitInt {
                     value: "8".to_string(),
                     span: 18..19,
                 })),
-                Expr::Literal(Literal::Number(LitNum {
+                Expr::Literal(Literal::Integer(LitInt {
                     value: "5".to_string(),
                     span: 22..23,
                 })),
@@ -1760,7 +1760,7 @@ mod tests {
                 kind: AssignOpKind::Assign,
                 span: 4..5,
             },
-            value: Box::new(Expr::Literal(Literal::Number(LitNum {
+            value: Box::new(Expr::Literal(Literal::Integer(LitInt {
                 value: "5".to_string(),
                 span: 6..7,
             }))),
@@ -1784,7 +1784,7 @@ mod tests {
                     implicit: false,
                     span: 8..9,
                 },
-                rhs: Box::new(Expr::Literal(Literal::Number(LitNum {
+                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "5".to_string(),
                     span: 10..11,
                 }))),
@@ -1799,7 +1799,7 @@ mod tests {
                     kind: AssignOpKind::Add,
                     span: 19..21,
                 },
-                value: Box::new(Expr::Literal(Literal::Number(LitNum {
+                value: Box::new(Expr::Literal(Literal::Integer(LitInt {
                     value: "1".to_string(),
                     span: 22..23,
                 }))),

@@ -192,47 +192,42 @@ fn format_scientific(f: &mut Formatter<'_>, n: &Float, separators: Separator) ->
     write!(f, "{}{} × 10 ^ {}", if sign { "-" } else { "" }, trim_trailing(&s), exponent)
 }
 
-/// Formats a float as a rational fraction.
-fn format_fraction(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::fmt::Result {
-    if !n.is_normal() {
-        return format_decimal(f, n, options.separators);
-    } else if n.is_integer() {
-        return format_float(f, n, FormatOptions {
-            number: NumberFormat::Auto,
-            ..options
-        });
-    }
-
-    /// Computes the [`Rational`] from the continued fraction form of a float.
-    fn rational_from_continued_fraction(continued_fraction_form: &[Integer]) -> Rational {
-        let mut rational = Rational::new();
-        for (i, integer) in continued_fraction_form.iter().rev().enumerate() {
-            if i == 0 {
-                if integer.cmp0() == Ordering::Equal {
-                    continue;
-                }
-                rational += Rational::from(Rational::ONE / integer);
-            } else {
-                rational = (rational + integer).recip();
+/// Computes the [`Rational`] from the continued fraction form of a float.
+fn rational_from_continued_fraction(continued_fraction_form: &[Integer]) -> Rational {
+    let mut rational = Rational::new();
+    for (i, integer) in continued_fraction_form.iter().rev().enumerate() {
+        if i == 0 {
+            if integer.cmp0() == Ordering::Equal {
+                continue;
             }
-        }
-
-        if rational.cmp0() == Ordering::Equal {
-            rational
+            rational += Rational::from(Rational::ONE / integer);
         } else {
-            rational.recip()
+            rational = (rational + integer).recip();
         }
     }
 
+    if rational.cmp0() == Ordering::Equal {
+        rational
+    } else {
+        rational.recip()
+    }
+}
+
+/// Approximates the given float as a rational fraction.
+///
+/// This function applies the continued fraction algorithm to the given float until the error is
+/// less than `1e-60`.
+///
+/// We don't use [`Float::to_rational`] because it can produce bad / useless results due to
+/// floating point arithmetic errors. Rather, we use the continued fraction algorithm to compute
+/// the rational approximation ourselves.
+///
+/// See
+/// [Wikipedia](https://en.wikipedia.org/wiki/Continued_fraction#Calculating_continued_fraction_representations)
+/// for more information.
+pub fn approximate_rational(n: &Float) -> Rational {
     let orig = n;
 
-    // we don't use n.to_rational() because it can produce bad results due to floating point
-    // arithmetic errors
-    //
-    // rather, we use the continued fraction algorithm to compute the rational approximation
-    // ourselves
-    //
-    // see https://en.wikipedia.org/wiki/Continued_fraction#Calculating_continued_fraction_representations
     let mut continued_fraction_form = Vec::new();
     let mut n = n.clone();
     loop {
@@ -250,7 +245,21 @@ fn format_fraction(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> 
         n = fractional.recip();
     }
 
-    let (numerator, denominator) = rational_from_continued_fraction(&continued_fraction_form).into_numer_denom();
+    rational_from_continued_fraction(&continued_fraction_form)
+}
+
+/// Formats a float as a rational fraction.
+fn format_fraction(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::fmt::Result {
+    if !n.is_normal() {
+        return format_decimal(f, n, options.separators);
+    } else if n.is_integer() {
+        return format_float(f, n, FormatOptions {
+            number: NumberFormat::Auto,
+            ..options
+        });
+    }
+
+    let (numerator, denominator) = approximate_rational(n).into_numer_denom();
 
     // write numerator
     format_float(f, &float(numerator), FormatOptions {

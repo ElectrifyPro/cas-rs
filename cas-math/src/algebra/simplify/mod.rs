@@ -12,13 +12,20 @@
 //! It is also possible to collect the simplification steps taken during simplification, using
 //! [`simplify_with_steps`]. This is useful for debugging, and also for displaying the steps taken
 //! to the user.
+//!
+//! # Integers and floating-point numbers
+//!
+//! Expressions are allowed to contain both integers and floating-point numbers. The simplifier
+//! will attempt to keep expressions in the same number type as the input expression, but in the
+//! case where two different numeric types are combined, the result will be represented as a
+//! rational number.
 
 pub mod fraction;
 pub mod rules;
 pub mod step;
 
 use crate::step::StepCollector;
-use cas_eval::consts::float;
+use cas_eval::consts::{float, int};
 use step::Step;
 use super::expr::{Expr, Primary};
 
@@ -37,7 +44,9 @@ pub fn default_complexity(expr: &Expr) -> usize {
         .map(|expr| match expr {
             Expr::Primary(primary) => {
                 match primary {
-                    Primary::Number(num) => float(num.abs_ref())
+                    Primary::Integer(num) => int(num.abs_ref())
+                        .to_usize().unwrap(),
+                    Primary::Float(num) => float(num.abs_ref())
                         .to_integer().unwrap()
                         .to_usize().unwrap(),
                     Primary::Symbol(sym) => sym.len(),
@@ -149,6 +158,7 @@ pub fn simplify_with_steps(expr: &Expr) -> (Expr, Vec<Step>) {
 mod tests {
     use super::*;
 
+    use cas_eval::consts::float_from_str;
     use cas_parser::parser::{ast::expr::Expr as AstExpr, Parser};
     use fraction::make_fraction;
     use pretty_assertions::assert_eq;
@@ -162,7 +172,7 @@ mod tests {
         let simplified_expr = simplify(&math_expr);
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Primary(Primary::Symbol(String::from("a"))),
-            Expr::Primary(Primary::Number(float(3))),
+            Expr::Primary(Primary::Integer(int(3))),
         ]));
     }
 
@@ -174,8 +184,8 @@ mod tests {
         let simplified_expr = simplify(&math_expr);
 
         assert_eq!(simplified_expr, make_fraction(
-            Expr::Primary(Primary::Number(float(-1))),
-            Expr::Primary(Primary::Number(float(3))),
+            Expr::Primary(Primary::Integer(int(-1))),
+            Expr::Primary(Primary::Integer(int(3))),
         ));
     }
 
@@ -188,12 +198,12 @@ mod tests {
 
         assert_eq!(simplified_expr, Expr::Add(vec![
             make_fraction(
-                Expr::Primary(Primary::Number(float(5))),
-                Expr::Primary(Primary::Number(float(3))),
+                Expr::Primary(Primary::Integer(int(5))),
+                Expr::Primary(Primary::Integer(int(3))),
             ),
             make_fraction(
                 Expr::Primary(Primary::Symbol(String::from("pi"))).neg(),
-                Expr::Primary(Primary::Number(float(3))),
+                Expr::Primary(Primary::Integer(int(3))),
             ),
         ]));
     }
@@ -207,9 +217,9 @@ mod tests {
         assert_eq!(simplified_expr, Expr::Add(vec![
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("m"))),
-                Expr::Primary(Primary::Number(float(-30))),
+                Expr::Primary(Primary::Integer(int(-30))),
             ]),
-            Expr::Primary(Primary::Number(float(33))),
+            Expr::Primary(Primary::Integer(int(33))),
         ]));
     }
 
@@ -225,28 +235,28 @@ mod tests {
             Expr::Mul(vec![
                 Expr::Exp(
                     Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                    Box::new(Expr::Primary(Primary::Number(float(3)))),
+                    Box::new(Expr::Primary(Primary::Integer(int(3)))),
                 ),
                 Expr::Primary(Primary::Symbol(String::from("y"))),
             ]),
             Expr::Mul(vec![
-                Expr::Primary(Primary::Number(float(20))),
+                Expr::Primary(Primary::Integer(int(20))),
                 Expr::Exp(
                     Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
-                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
                 ),
                 Expr::Primary(Primary::Symbol(String::from("x"))),
             ]),
             Expr::Mul(vec![
-                Expr::Primary(Primary::Number(float(5))),
+                Expr::Primary(Primary::Integer(int(5))),
                 Expr::Exp(
                     Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
                 ),
                 Expr::Primary(Primary::Symbol(String::from("y"))),
             ]),
             Expr::Mul(vec![
-                Expr::Primary(Primary::Number(float(-27))),
+                Expr::Primary(Primary::Integer(int(-27))),
                 Expr::Primary(Primary::Symbol(String::from("x"))),
                 Expr::Primary(Primary::Symbol(String::from("y"))),
             ]),
@@ -261,8 +271,66 @@ mod tests {
         let simplified_expr = simplify(&math_expr);
 
         assert_eq!(simplified_expr, Expr::Mul(vec![
-            Expr::Primary(Primary::Number(float(3))),
+            Expr::Primary(Primary::Integer(int(3))),
             Expr::Primary(Primary::Symbol(String::from("x"))),
+        ]));
+    }
+
+    #[test]
+    fn combine_like_terms_decimals() {
+        let input = String::from("3.75x + 1.4x - -0.13449 + 11.2x / x");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify_with_steps(&math_expr);
+
+        assert_eq!(simplified_expr.0, Expr::Add(vec![
+            Expr::Mul(vec![
+                Expr::Primary(Primary::Float(float_from_str("5.15"))),
+                Expr::Primary(Primary::Symbol(String::from("x"))),
+            ]),
+            Expr::Primary(Primary::Float(float_from_str("11.33449"))),
+        ]));
+    }
+
+    #[test]
+    fn combine_like_terms_mixed_number_types() {
+        let input = String::from("15x/4 + 1.4x - -0.13449 + 56x / (5x)");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+
+        assert_eq!(simplified_expr, Expr::Add(vec![
+            make_fraction(
+                Expr::Primary(Primary::Integer(int(103))),
+                Expr::Primary(Primary::Integer(int(20))),
+            ) * Expr::Primary(Primary::Symbol(String::from("x"))),
+            make_fraction(
+                Expr::Primary(Primary::Integer(int(1133449))),
+                Expr::Primary(Primary::Integer(int(100000))),
+            ),
+        ]));
+    }
+
+    #[test]
+    fn combine_like_terms_mixed_number_types_2() {
+        // has fractions on x terms, decimals on y terms
+        // decimals and fractions should be kept separate
+        let input = String::from("11.75y - x/2 * 14 + -6.24y + 37/6x");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+
+        assert_eq!(simplified_expr, Expr::Add(vec![
+            make_fraction(
+                Expr::Primary(Primary::Integer(int(-5))),
+                Expr::Primary(Primary::Integer(int(6))),
+            ) * Expr::Primary(Primary::Symbol(String::from("x"))),
+            Expr::Mul(vec![
+                // coefficients of y-terms were specially chosen to avoid floating-point errors
+                // :)
+                Expr::Primary(Primary::Float(float_from_str("5.51"))),
+                Expr::Primary(Primary::Symbol(String::from("y"))),
+            ]),
         ]));
     }
 
@@ -272,7 +340,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(0))));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(0))));
     }
 
     #[test]
@@ -282,7 +350,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(3))));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(3))));
     }
 
     #[test]
@@ -294,19 +362,19 @@ mod tests {
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("d".to_string()))),
-                Box::new(Expr::Primary(Primary::Number(float(4)))),
+                Box::new(Expr::Primary(Primary::Integer(int(4)))),
             ),
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("b".to_string()))),
-                Box::new(Expr::Primary(Primary::Number(float(5)))),
+                Box::new(Expr::Primary(Primary::Integer(int(5)))),
             ),
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("a".to_string()))),
-                Box::new(Expr::Primary(Primary::Number(float(6)))),
+                Box::new(Expr::Primary(Primary::Integer(int(6)))),
             ),
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("c".to_string()))),
-                Box::new(Expr::Primary(Primary::Number(float(2)))),
+                Box::new(Expr::Primary(Primary::Integer(int(2)))),
             ),
         ]));
     }
@@ -322,16 +390,16 @@ mod tests {
                 Box::new(Expr::Add(vec![
                     Expr::Primary(Primary::Symbol("a".to_string())),
                     Expr::Primary(Primary::Symbol("b".to_string())),
-                    Expr::Primary(Primary::Number(float(1))),
+                    Expr::Primary(Primary::Integer(int(1))),
                 ])),
-                Box::new(Expr::Primary(Primary::Number(float(2)))),
+                Box::new(Expr::Primary(Primary::Integer(int(2)))),
             ),
             Expr::Exp(
                 Box::new(Expr::Add(vec![
                     Expr::Primary(Primary::Symbol("a".to_string())),
                     Expr::Primary(Primary::Symbol("b".to_string())),
                 ])),
-                Box::new(Expr::Primary(Primary::Number(float(2)))),
+                Box::new(Expr::Primary(Primary::Integer(int(2)))),
             ),
         ]));
     }
@@ -342,7 +410,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
     }
 
     #[test]
@@ -351,7 +419,16 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(4))));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(4))));
+    }
+
+    #[test]
+    fn combine_like_factors_decimals() {
+        let input = String::from("4.125 * -1.99 * 2.57");
+        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
+        let math_expr = Expr::from(expr);
+        let simplified_expr = simplify(&math_expr);
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Float(float_from_str("-21.0964875"))));
     }
 
     #[test]
@@ -363,19 +440,19 @@ mod tests {
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("r".to_string()))),
-                Box::new(Expr::Primary(Primary::Number(float(5)))),
+                Box::new(Expr::Primary(Primary::Integer(int(5)))),
             ),
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("q".to_string()))),
-                Box::new(Expr::Primary(Primary::Number(float(8)))),
+                Box::new(Expr::Primary(Primary::Integer(int(8)))),
             ),
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("p".to_string()))),
-                Box::new(Expr::Primary(Primary::Number(float(-3)))),
+                Box::new(Expr::Primary(Primary::Integer(int(-3)))),
             ),
             Expr::Exp(
-                Box::new(Expr::Primary(Primary::Number(float(4)))),
-                Box::new(Expr::Primary(Primary::Number(float(-1)))),
+                Box::new(Expr::Primary(Primary::Integer(int(4)))),
+                Box::new(Expr::Primary(Primary::Integer(int(-1)))),
             ),
         ]));
     }
@@ -394,22 +471,22 @@ mod tests {
             // the result is a denominator that is not rationalized
             // TODO: rationalize the denominator
             Expr::Exp(
-                Box::new(Expr::Primary(Primary::Number(float(2)))),
+                Box::new(Expr::Primary(Primary::Integer(int(2)))),
                 Box::new(make_fraction(
-                    Expr::Primary(Primary::Number(float(-3))),
-                    Expr::Primary(Primary::Number(float(2))),
+                    Expr::Primary(Primary::Integer(int(-3))),
+                    Expr::Primary(Primary::Integer(int(2))),
                 )),
             ),
             // sqrt(6)/4
             make_fraction(
                 Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Number(float(6)))),
+                    Box::new(Expr::Primary(Primary::Integer(int(6)))),
                     Box::new(Expr::Exp(
-                        Box::new(Expr::Primary(Primary::Number(float(2)))),
-                        Box::new(Expr::Primary(Primary::Number(float(-1)))),
+                        Box::new(Expr::Primary(Primary::Integer(int(2)))),
+                        Box::new(Expr::Primary(Primary::Integer(int(-1)))),
                     )),
                 ),
-                Expr::Primary(Primary::Number(float(4))),
+                Expr::Primary(Primary::Integer(int(4))),
             ),
         ]));
     }
@@ -426,7 +503,7 @@ mod tests {
                 Expr::Primary(Primary::Symbol("y".to_string())),
                 Expr::Primary(Primary::Symbol("x".to_string())),
             ),
-            Expr::Primary(Primary::Number(float(2))),
+            Expr::Primary(Primary::Integer(int(2))),
         ]));
         assert!(steps.contains(&Step::DistributiveProperty));
     }
@@ -441,11 +518,11 @@ mod tests {
         assert_eq!(simplified_expr, Expr::Add(vec![
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("x".to_string()))),
-                Box::new(Expr::Primary(Primary::Number(float(2)))),
+                Box::new(Expr::Primary(Primary::Integer(int(2)))),
             ),
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("x".to_string()))),
-                Box::new(Expr::Primary(Primary::Number(float(3)))),
+                Box::new(Expr::Primary(Primary::Integer(int(3)))),
             ),
             Expr::Primary(Primary::Symbol("y".to_string())),
         ]));
@@ -458,7 +535,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
     }
 
     #[test]
@@ -467,7 +544,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let simplified_expr = simplify(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
     }
 
     #[test]
@@ -494,7 +571,7 @@ mod tests {
         let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
         let math_expr = Expr::from(expr);
         let (simplified_expr, steps) = simplify_with_steps(&math_expr);
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Number(float(1))));
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
         assert_eq!(steps, vec![
             Step::PowerPower,
             Step::PowerOneLeft,
@@ -509,10 +586,10 @@ mod tests {
         let simplified_expr = simplify(&math_expr);
         assert_eq!(simplified_expr, Expr::Add(vec![
             Expr::Mul(vec![
-                Expr::Primary(Primary::Number(float(3))),
+                Expr::Primary(Primary::Integer(int(3))),
                 Expr::Primary(Primary::Symbol("i".to_string())),
             ]),
-            Expr::Primary(Primary::Number(float(1))),
+            Expr::Primary(Primary::Integer(int(1))),
         ]));
     }
 }

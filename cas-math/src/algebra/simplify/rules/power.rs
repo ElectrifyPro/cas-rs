@@ -1,6 +1,6 @@
 //! Simplification rules for power expressions.
 
-use cas_eval::consts::{ZERO, ONE};
+use cas_eval::consts::int;
 use crate::{
     algebra::{expr::{Expr, Primary}, simplify::{rules::do_power, step::Step}},
     step::StepCollector,
@@ -12,8 +12,8 @@ use crate::{
 /// contexts.
 pub fn power_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |_, rhs| {
-        if rhs.as_number()?.is_zero() {
-            Some(Expr::Primary(Primary::Number(ONE.clone())))
+        if rhs.as_integer()?.is_zero() {
+            Some(Expr::Primary(Primary::Integer(int(1))))
         } else {
             None
         }
@@ -29,8 +29,8 @@ pub fn power_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> 
 /// `0^0` is handled by the [`power_zero`] rule.
 pub fn power_zero_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, _| {
-        if lhs.as_number()?.is_zero() {
-            Some(Expr::Primary(Primary::Number(ZERO.clone())))
+        if lhs.as_integer()?.is_zero() {
+            Some(Expr::Primary(Primary::Integer(int(0))))
         } else {
             None
         }
@@ -43,8 +43,8 @@ pub fn power_zero_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>
 /// `1^a = 1`
 pub fn power_one_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, _| {
-        if lhs.as_number()? == &1 {
-            Some(Expr::Primary(Primary::Number(ONE.clone())))
+        if lhs.as_integer()? == &1 {
+            Some(Expr::Primary(Primary::Integer(int(1))))
         } else {
             None
         }
@@ -57,7 +57,7 @@ pub fn power_one_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>)
 /// `a^1 = a`
 pub fn power_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, rhs| {
-        if rhs.as_number()? == &1 {
+        if rhs.as_integer()? == &1 {
             Some(lhs.clone())
         } else {
             None

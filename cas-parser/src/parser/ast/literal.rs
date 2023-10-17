@@ -15,36 +15,65 @@ use std::{collections::HashSet, fmt, ops::Range};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// A number literal. Integers and floating-point numbers are both supported and represented here
-/// as a [`String`].
+/// An integer literal, representing as a [`String`].
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct LitNum {
-    /// The value of the number literal as a string.
+pub struct LitInt {
+    /// The value of the integer literal as a string.
     pub value: String,
 
     /// The region of the source code that this literal was parsed from.
     pub span: Range<usize>,
 }
 
-impl<'source> Parse<'source> for LitNum {
+impl<'source> Parse<'source> for LitInt {
     fn std_parse(
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let (lexeme, span) = input
+        input
             .try_parse::<Int>()
-            .map(|num| (num.lexeme, num.span))
-            .or_else(|| input.try_parse::<Float>().map(|num| (num.lexeme, num.span)))
-            .forward_errors(recoverable_errors)?;
-        Ok(Self {
-            value: lexeme.to_owned(),
-            span,
-        })
+            .map(|int| Self {
+                value: int.lexeme.to_owned(),
+                span: int.span,
+            })
+            .forward_errors(recoverable_errors)
     }
 }
 
-impl Latex for LitNum {
+impl Latex for LitInt {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+/// A floating-point literal, represented as a [`String`].
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct LitFloat {
+    /// The value of the floating-point literal as a string.
+    pub value: String,
+
+    /// The region of the source code that this literal was parsed from.
+    pub span: Range<usize>,
+}
+
+impl<'source> Parse<'source> for LitFloat {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        input
+            .try_parse::<Float>()
+            .map(|float| Self {
+                value: float.lexeme.to_owned(),
+                span: float.span,
+            })
+            .forward_errors(recoverable_errors)
+    }
+}
+
+impl Latex for LitFloat {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value)
     }
@@ -248,9 +277,11 @@ impl Latex for LitSym {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Literal {
-    /// A number literal. Integers and floating-point numbers are both supported and represented
-    /// here as `f64`.
-    Number(LitNum),
+    /// An integer literal.
+    Integer(LitInt),
+
+    /// A floating-point literal.
+    Float(LitFloat),
 
     /// A number written in radix notation. Radix notation allows users to express integers in a
     /// base other than base 10.
@@ -264,7 +295,8 @@ impl Literal {
     /// Returns the span of the literal.
     pub fn span(&self) -> Range<usize> {
         match self {
-            Literal::Number(num) => num.span.clone(),
+            Literal::Integer(int) => int.span.clone(),
+            Literal::Float(float) => float.span.clone(),
             Literal::Radix(radix) => radix.span.clone(),
             Literal::Symbol(name) => name.span.clone(),
         }
@@ -277,7 +309,8 @@ impl<'source> Parse<'source> for Literal {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let _ = return_if_ok!(input.try_parse::<LitRadix>().map(Literal::Radix).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<LitNum>().map(Literal::Number).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse::<LitInt>().map(Literal::Integer).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse::<LitFloat>().map(Literal::Float).forward_errors(recoverable_errors));
         input.try_parse::<LitSym>().map(Literal::Symbol).forward_errors(recoverable_errors)
     }
 }
@@ -285,7 +318,8 @@ impl<'source> Parse<'source> for Literal {
 impl Latex for Literal {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Literal::Number(num) => num.fmt_latex(f),
+            Literal::Integer(int) => int.fmt_latex(f),
+            Literal::Float(float) => float.fmt_latex(f),
             Literal::Radix(radix) => radix.fmt_latex(f),
             Literal::Symbol(name) => name.fmt_latex(f),
         }

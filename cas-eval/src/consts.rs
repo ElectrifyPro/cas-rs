@@ -21,6 +21,11 @@ pub fn int_from_float(f: Float) -> Integer {
     f.trunc().to_integer().unwrap()
 }
 
+/// Creates an [`Integer`] from a string slice.
+pub fn int_from_str(s: &str) -> Integer {
+    Integer::from_str_radix(s, 10).unwrap()
+}
+
 /// Creates a [`Float`] with the given value.
 pub fn float<T>(n: T) -> Float
 where

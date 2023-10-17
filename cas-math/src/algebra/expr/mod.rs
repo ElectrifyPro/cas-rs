@@ -51,21 +51,24 @@
 
 mod iter;
 
-use cas_eval::{funcs::from_str_radix, consts::{float, float_from_str}};
+use cas_eval::{funcs::from_str_radix, consts::{float_from_str, int, int_from_str}};
 use cas_parser::parser::{
     ast::{expr::Expr as AstExpr, literal::Literal},
     token::op::{BinOpKind, UnaryOpKind},
 };
 use iter::ExprIter;
-use rug::Float;
+use rug::{Float, Integer};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 use super::simplify::fraction::make_fraction;
 
 /// A single term / factor, such as a number, variable, or function call.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Primary {
-    /// A numerical literal, such as `2` or `3.14`.
-    Number(Float),
+    /// An integer, such as `2` or `144`.
+    Integer(Integer),
+
+    /// A floating-point number, such as `3.14` or `0.5`.
+    Float(Float),
 
     /// A variable, such as `x` or `y`.
     Symbol(String),
@@ -74,20 +77,25 @@ pub enum Primary {
     Call(String, Vec<Expr>),
 }
 
-/// [`Eq`] is implemented manually to allow comparing [`Primary::Number`]s. This module **must
-/// never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report any bugs that cause
-/// this to happen.
+/// [`Eq`] is implemented manually to allow comparing [`Primary::Integer`] and [`Primary::Float`]s.
+/// This module **must never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report
+/// any bugs that cause this to happen.
 impl Eq for Primary {}
 
-/// Adds two [`Primary`]s together. If both are [`Primary::Number`]s, the numbers are added
+/// Adds two [`Primary`]s together. If both are the **same numeric type**, the numbers are added
 /// together. Otherwise, the two [`Primary`]s are wrapped in an [`Expr::Add`].
+///
+/// Note this means that adding an [`Integer`] and a [`Float`] will result in an **[`Expr::Add`]**.
 impl Add<Primary> for Primary {
     type Output = Expr;
 
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Primary::Number(lhs), Primary::Number(rhs)) => {
-                Expr::Primary(Primary::Number(lhs + rhs))
+            (Primary::Integer(lhs), Primary::Integer(rhs)) => {
+                Expr::Primary(Primary::Integer(lhs + rhs))
+            },
+            (Primary::Float(lhs), Primary::Float(rhs)) => {
+                Expr::Primary(Primary::Float(lhs + rhs))
             },
             (lhs, rhs) => Expr::Add(vec![
                 Expr::Primary(lhs),
@@ -97,15 +105,21 @@ impl Add<Primary> for Primary {
     }
 }
 
-/// Multiplies two [`Primary`]s together. If both are [`Primary::Number`]s, the numbers are
+/// Multiplies two [`Primary`]s together. If both are the **same numeric type**, the numbers are
 /// multiplied together. Otherwise, the two [`Primary`]s are wrapped in an [`Expr::Mul`].
+///
+/// Note this means that multiplying an [`Integer`] and a [`Float`] will result in an
+/// **[`Expr::Mul`]**.
 impl Mul<Primary> for Primary {
     type Output = Expr;
 
     fn mul(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Primary::Number(lhs), Primary::Number(rhs)) => {
-                Expr::Primary(Primary::Number(lhs * rhs))
+            (Primary::Integer(lhs), Primary::Integer(rhs)) => {
+                Expr::Primary(Primary::Integer(lhs * rhs))
+            },
+            (Primary::Float(lhs), Primary::Float(rhs)) => {
+                Expr::Primary(Primary::Float(lhs * rhs))
             },
             (lhs, rhs) => Expr::Mul(vec![
                 Expr::Primary(lhs),
@@ -139,32 +153,32 @@ pub enum Expr {
 }
 
 impl Expr {
-    /// If the expression is a [`Primary::Number`], returns a reference to the contained number.
-    pub fn as_number(&self) -> Option<&Float> {
+    /// If the expression is a [`Primary::Integer`], returns a reference to the contained integer.
+    pub fn as_integer(&self) -> Option<&Integer> {
         match self {
-            Self::Primary(Primary::Number(num)) => Some(num),
+            Self::Primary(Primary::Integer(int)) => Some(int),
             _ => None,
         }
     }
 
-    /// If the expression is a [`Primary::Number`], returns the contained number.
-    pub fn into_number(self) -> Option<Float> {
+    /// If the expression is a [`Primary::Integer`], returns the contained integer.
+    pub fn into_integer(self) -> Option<Integer> {
         match self {
-            Self::Primary(Primary::Number(num)) => Some(num),
+            Self::Primary(Primary::Integer(int)) => Some(int),
             _ => None,
         }
     }
 
-    /// Returns true if the expression is a [`Primary::Number`].
-    pub fn is_number(&self) -> bool {
-        matches!(self, Self::Primary(Primary::Number(_)))
+    /// Returns true if the expression is a [`Primary::Integer`].
+    pub fn is_integer(&self) -> bool {
+        matches!(self, Self::Primary(Primary::Integer(_)))
     }
 
-    /// Returns true if the expression is a [`Primary::Number`] raised to the power of -1.
-    pub fn is_number_recip(&self) -> bool {
+    /// Returns true if the expression is a [`Primary::Integer`] raised to the power of -1.
+    pub fn is_integer_recip(&self) -> bool {
         if let Self::Exp(base, exp) = self {
-            if matches!(&**base, Self::Primary(Primary::Number(_))) {
-                if let Self::Primary(Primary::Number(exp)) = &**exp {
+            if matches!(&**base, Self::Primary(Primary::Integer(_))) {
+                if let Self::Primary(Primary::Integer(exp)) = &**exp {
                     return exp == &-1;
                 }
             }
@@ -173,20 +187,41 @@ impl Expr {
         false
     }
 
-    /// If the expression is a [`Primary::Number`] raised to the power of -1, returns a reference to
-    /// the contained number (the left-hand side of the fraction).
-    pub fn as_number_recip(&self) -> Option<&Float> {
+    /// If the expression is a [`Primary::Integer`] raised to the power of -1, returns a reference to
+    /// the contained integer (the denominator of the fraction).
+    pub fn as_integer_recip(&self) -> Option<&Integer> {
         if let Self::Exp(base, exp) = self {
-            if matches!(&**base, Self::Primary(Primary::Number(_))) {
-                if let Self::Primary(Primary::Number(exp)) = &**exp {
+            if matches!(&**base, Self::Primary(Primary::Integer(_))) {
+                if let Self::Primary(Primary::Integer(exp)) = &**exp {
                     if exp == &-1 {
-                        return base.as_number();
+                        return base.as_integer();
                     }
                 }
             }
         }
 
         None
+    }
+
+    /// If the expression is a [`Primary::Integer`] raised to the power of -1, returns the contained
+    /// integer (the denominator of the fraction).
+    pub fn into_integer_recip(self) -> Option<Integer> {
+        if let Self::Exp(base, exp) = self {
+            if matches!(*base, Self::Primary(Primary::Integer(_))) {
+                if let Self::Primary(Primary::Integer(exp)) = *exp {
+                    if exp == -1 {
+                        return base.into_integer();
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Returns true if the expression is a [`Primary::Float`].
+    pub fn is_float(&self) -> bool {
+        matches!(self, Self::Primary(Primary::Float(_)))
     }
 
     /// If the expression is a [`Primary::Symbol`], returns a reference to the contained symbol.
@@ -201,12 +236,12 @@ impl Expr {
     ///
     /// Some operations may result in an [`Expr::Add`] with zero / one term, or an [`Expr::Mul`]
     /// with zero / one factor. This function checks for these cases and simplifies the expression
-    /// into the single term / factor, or an [`Expr::Primary`] containing the number 0 or 1.
+    /// into the single term / factor, or an [`Expr::Primary`] containing the integer 0 or 1.
     pub(crate) fn downgrade(self) -> Self {
         match self {
             Self::Add(mut terms) => {
                 if terms.is_empty() {
-                    Self::Primary(Primary::Number(float(0)))
+                    Self::Primary(Primary::Integer(int(0)))
                 } else if terms.len() == 1 {
                     terms.remove(0)
                 } else {
@@ -215,7 +250,7 @@ impl Expr {
             },
             Self::Mul(mut factors) => {
                 if factors.is_empty() {
-                    Self::Primary(Primary::Number(float(1)))
+                    Self::Primary(Primary::Integer(int(1)))
                 } else if factors.len() == 1 {
                     factors.remove(0)
                 } else {
@@ -227,11 +262,12 @@ impl Expr {
     }
 
     /// Multiplies this expression by -1. No simplification is done, except for the case where the
-    /// expression is a [`Primary::Number`], in which case the number is negated.
+    /// expression is a numeric [`Primary`], in which case the number is negated.
     pub fn neg(self) -> Self {
         match self {
-            Self::Primary(Primary::Number(num)) => Self::Primary(Primary::Number(-num)),
-            expr => Self::Primary(Primary::Number(float(-1))) * expr,
+            Self::Primary(Primary::Integer(int)) => Self::Primary(Primary::Integer(-int)),
+            Self::Primary(Primary::Float(float)) => Self::Primary(Primary::Float(-float)),
+            expr => Self::Primary(Primary::Integer(int(-1))) * expr,
         }
     }
 
@@ -272,8 +308,9 @@ impl From<AstExpr> for Expr {
     fn from(expr: AstExpr) -> Self {
         match expr {
             AstExpr::Literal(literal) => match literal {
-                Literal::Number(num) => Self::Primary(Primary::Number(float_from_str(&num.value))),
-                Literal::Radix(radix) => Self::Primary(Primary::Number(float(from_str_radix(&radix.value, radix.base)))),
+                Literal::Integer(int) => Self::Primary(Primary::Integer(int_from_str(&int.value))),
+                Literal::Float(float) => Self::Primary(Primary::Float(float_from_str(&float.value))),
+                Literal::Radix(radix) => Self::Primary(Primary::Integer(from_str_radix(&radix.value, radix.base))),
                 Literal::Symbol(sym) => Self::Primary(Primary::Symbol(sym.name)),
             },
             AstExpr::Paren(paren) => Self::from(paren.into_innermost()),
@@ -418,7 +455,10 @@ impl Add for Expr {
 impl AddAssign for Expr {
     fn add_assign(&mut self, rhs: Self) {
         match (self, rhs) {
-            (Self::Primary(Primary::Number(lhs)), Self::Primary(Primary::Number(rhs))) => {
+            (Self::Primary(Primary::Integer(lhs)), Self::Primary(Primary::Integer(rhs))) => {
+                *lhs += rhs;
+            },
+            (Self::Primary(Primary::Float(lhs)), Self::Primary(Primary::Float(rhs))) => {
                 *lhs += rhs;
             },
             (Self::Add(terms), Self::Add(rhs_terms)) => {
@@ -475,7 +515,10 @@ impl Mul for Expr {
 impl MulAssign for Expr {
     fn mul_assign(&mut self, rhs: Self) {
         match (self, rhs) {
-            (Self::Primary(Primary::Number(lhs)), Self::Primary(Primary::Number(rhs))) => {
+            (Self::Primary(Primary::Integer(lhs)), Self::Primary(Primary::Integer(rhs))) => {
+                *lhs *= rhs;
+            },
+            (Self::Primary(Primary::Float(lhs)), Self::Primary(Primary::Float(rhs))) => {
                 *lhs *= rhs;
             },
             (Self::Mul(factors), Self::Mul(rhs_factors)) => {
@@ -548,16 +591,16 @@ mod tests {
         // semantically correct
         assert_eq!(math_expr, Expr::Add(vec![
             // 6
-            Expr::Primary(Primary::Number(float(6))),
+            Expr::Primary(Primary::Integer(int(6))),
             // + 5x
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Number(float(5))),
+                Expr::Primary(Primary::Integer(int(5))),
             ]),
             // + x^2
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                Box::new(Expr::Primary(Primary::Number(float(2)))),
+                Box::new(Expr::Primary(Primary::Integer(int(2)))),
             ),
         ]));
     }
@@ -572,19 +615,19 @@ mod tests {
             // y^-3
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
-                Box::new(Expr::Primary(Primary::Number(float(-3)))),
+                Box::new(Expr::Primary(Primary::Integer(int(-3)))),
             ),
             // * x^2
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                Box::new(Expr::Primary(Primary::Number(float(2)))),
+                Box::new(Expr::Primary(Primary::Integer(int(2)))),
             ),
             // * -2
-            Expr::Primary(Primary::Number(float(-2))),
+            Expr::Primary(Primary::Integer(int(-2))),
             // / 5
             Expr::Exp(
-                Box::new(Expr::Primary(Primary::Number(float(5)))),
-                Box::new(Expr::Primary(Primary::Number(float(-1)))),
+                Box::new(Expr::Primary(Primary::Integer(int(5)))),
+                Box::new(Expr::Primary(Primary::Integer(int(-1)))),
             ),
         ]));
     }
@@ -599,7 +642,7 @@ mod tests {
             // 3 * x
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Number(float(3))),
+                Expr::Primary(Primary::Integer(int(3))),
             ]),
             // + -1 * (x + t) * y
             Expr::Mul(vec![
@@ -608,7 +651,7 @@ mod tests {
                     Expr::Primary(Primary::Symbol(String::from("t"))),
                     Expr::Primary(Primary::Symbol(String::from("x"))),
                 ]),
-                Expr::Primary(Primary::Number(float(-1))),
+                Expr::Primary(Primary::Integer(int(-1))),
             ]),
             // + -1 * z * a^(1/5/6) * b
             Expr::Mul(vec![
@@ -616,19 +659,19 @@ mod tests {
                 Expr::Exp(
                     Box::new(Expr::Primary(Primary::Symbol(String::from("a")))),
                     Box::new(Expr::Mul(vec![
-                        Expr::Primary(Primary::Number(float(1))),
+                        Expr::Primary(Primary::Integer(int(1))),
                         Expr::Exp(
-                            Box::new(Expr::Primary(Primary::Number(float(5)))),
-                            Box::new(Expr::Primary(Primary::Number(float(-1)))),
+                            Box::new(Expr::Primary(Primary::Integer(int(5)))),
+                            Box::new(Expr::Primary(Primary::Integer(int(-1)))),
                         ),
                         Expr::Exp(
-                            Box::new(Expr::Primary(Primary::Number(float(6)))),
-                            Box::new(Expr::Primary(Primary::Number(float(-1)))),
+                            Box::new(Expr::Primary(Primary::Integer(int(6)))),
+                            Box::new(Expr::Primary(Primary::Integer(int(-1)))),
                         ),
                     ])),
                 ),
                 Expr::Primary(Primary::Symbol(String::from("z"))),
-                Expr::Primary(Primary::Number(float(-1))),
+                Expr::Primary(Primary::Integer(int(-1))),
             ]),
         ]));
     }
@@ -644,52 +687,52 @@ mod tests {
             Expr::Mul(vec![
                 Expr::Exp(
                     Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
-                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
                 ),
                 Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Number(float(4))),
+                Expr::Primary(Primary::Integer(int(4))),
             ]),
             // + 2 * x^2 * y
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("y"))),
                 Expr::Exp(
                     Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
                 ),
-                Expr::Primary(Primary::Number(float(2))),
+                Expr::Primary(Primary::Integer(int(2))),
             ]),
             // + 3 * x^2 * y
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("y"))),
                 Expr::Exp(
                     Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
                 ),
-                Expr::Primary(Primary::Number(float(3))),
+                Expr::Primary(Primary::Integer(int(3))),
             ]),
             // + -1 * 16 * x * y
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("y"))),
                 Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Number(float(16))),
-                Expr::Primary(Primary::Number(float(-1))),
+                Expr::Primary(Primary::Integer(int(16))),
+                Expr::Primary(Primary::Integer(int(-1))),
             ]),
             // + -1 * 13 * x * y
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("y"))),
                 Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Number(float(13))),
-                Expr::Primary(Primary::Number(float(-1))),
+                Expr::Primary(Primary::Integer(int(13))),
+                Expr::Primary(Primary::Integer(int(-1))),
             ]),
             // + -1 * 11 * x * y^2
             Expr::Mul(vec![
                 Expr::Exp(
                     Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
-                    Box::new(Expr::Primary(Primary::Number(float(2)))),
+                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
                 ),
                 Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Number(float(11))),
-                Expr::Primary(Primary::Number(float(-1))),
+                Expr::Primary(Primary::Integer(int(11))),
+                Expr::Primary(Primary::Integer(int(-1))),
             ]),
         ]));
     }

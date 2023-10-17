@@ -18,7 +18,7 @@ pub use block::Block;
 pub use call::Call;
 pub use expr::{Expr, Primary};
 pub use if_expr::If;
-pub use literal::{Literal, LitNum, LitRadix, LitSym};
+pub use literal::{Literal, LitFloat, LitInt, LitRadix, LitSym};
 pub use loop_expr::Loop;
 pub use paren::Paren;
 pub use stmt::Stmt;

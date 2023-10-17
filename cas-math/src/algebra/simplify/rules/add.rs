@@ -1,27 +1,34 @@
 //! Simplification rules for expressions involving addition, including combining like terms.
 
-use cas_eval::consts::ONE;
+use cas_eval::consts::int;
 use crate::{
     algebra::{
         expr::{Expr, Primary},
-        simplify::{fraction::{extract_explicit_frac, extract_numerical_fraction, make_fraction}, rules::do_add, step::Step},
+        simplify::{fraction::{extract_explicit_frac, make_fraction, extract_fractional}, rules::do_add, step::Step},
     },
     step::StepCollector,
 };
 
 /// Extension of the `+=` implementation for [`Expr`] to also support adding fractions.
 fn add_assign(lhs: &mut Expr, rhs: Expr) {
+    // special case to use the `+=` implementation if both are floats, and don't try
+    // `extract_explicit_frac`
+    if lhs.is_float() && rhs.is_float() {
+        *lhs += rhs;
+        return;
+    }
+
     match (extract_explicit_frac(&mut lhs.clone()), extract_explicit_frac(&mut rhs.clone())) {
         (Some((num1, den1)), Some((num2, den2))) => {
             // (a / b) + (c / d) = (a*d + b*c) / (b*d)
             let numerator = num1 * &den2 + num2 * &den1;
             let denominator = den1 * den2;
             if denominator == 1 {
-                *lhs = Expr::Primary(Primary::Number(numerator));
+                *lhs = Expr::Primary(Primary::Integer(numerator));
             } else {
                 *lhs = make_fraction(
-                    Expr::Primary(Primary::Number(numerator)),
-                    Expr::Primary(Primary::Number(denominator)),
+                    Expr::Primary(Primary::Integer(numerator)),
+                    Expr::Primary(Primary::Integer(denominator)),
                 );
             }
         },
@@ -36,7 +43,7 @@ pub fn add_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Op
         let new_terms = terms.iter()
             .filter(|term| {
                 // keep all non-zero terms
-                term.as_number()
+                term.as_integer()
                     .map(|n| !n.is_zero())
                     .unwrap_or(true)
             })
@@ -66,8 +73,8 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
         let mut new_terms = terms.to_vec();
         let mut current_term_idx = 0;
 
-        /// Utility function to extract the numerical fractional coefficient and factors of an
-        /// expression. If the expression is not [`Expr::Mul`], the coefficient is 1.
+        /// Utility function to extract the rational coefficient and factors of an expression. If
+        /// the expression is not [`Expr::Mul`], the coefficient is 1.
         ///
         /// - `5` -> `(5, 1)`
         /// - `3*a` -> `(3, a)`
@@ -76,29 +83,27 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
         /// - `a` -> `(1, a)`
         fn get_coeff(expr: &Expr) -> (Expr, Expr) {
             match expr {
-                Expr::Primary(Primary::Number(_)) => {
-                    (expr.clone(), Expr::Primary(Primary::Number(ONE.clone())))
+                Expr::Primary(Primary::Integer(_)) | Expr::Primary(Primary::Float(_)) => {
+                    (expr.clone(), Expr::Primary(Primary::Integer(int(1))))
                 },
                 Expr::Mul(factors) => {
                     let mut factors = factors.clone();
-                    let (numerator, denominator) = extract_numerical_fraction(&mut factors, true, true).unwrap();
+                    let fraction = extract_fractional(&mut factors)
+                        .unwrap_or(Expr::Primary(Primary::Integer(int(1))));
 
                     (
-                        make_fraction(
-                            Expr::Primary(Primary::Number(numerator)),
-                            Expr::Primary(Primary::Number(denominator)),
-                        ),
+                        fraction,
                         Expr::Mul(factors).downgrade(),
                     )
                 },
                 Expr::Exp(..) => {
-                    if expr.is_number_recip() {
-                        (expr.clone(), Expr::Primary(Primary::Number(ONE.clone())))
+                    if expr.is_integer_recip() {
+                        (expr.clone(), Expr::Primary(Primary::Integer(int(1))))
                     } else {
-                        (Expr::Primary(Primary::Number(ONE.clone())), expr.clone())
+                        (Expr::Primary(Primary::Integer(int(1))), expr.clone())
                     }
                 },
-                _ => (Expr::Primary(Primary::Number(ONE.clone())), expr.clone()),
+                _ => (Expr::Primary(Primary::Integer(int(1))), expr.clone()),
             }
         }
 
@@ -122,7 +127,7 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
                 }
             }
 
-            if current_term_coeff.as_number() == Some(&ONE) {
+            if current_term_coeff.as_integer().map(|n| n == &1).unwrap_or(false) {
                 new_terms[current_term_idx] = current_term_factors;
             } else {
                 new_terms[current_term_idx] =

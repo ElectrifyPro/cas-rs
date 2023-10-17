@@ -56,7 +56,7 @@
 //! like terms / factors, distributing multiplication over addition, basic power rules, and more.
 //!
 //! ```
-//! use cas_eval::consts::float;
+//! use cas_eval::consts::int;
 //! use cas_parser::parser::{ast::Expr as AstExpr, Parser};
 //! use cas_math::algebra::{expr::{Expr, Primary}, simplify};
 //!
@@ -66,10 +66,12 @@
 //!
 //! // `x + x + x = 3x`
 //! assert_eq!(simplified, Expr::Mul(vec![
-//!     Expr::Primary(Primary::Number(float(3))),
+//!     Expr::Primary(Primary::Integer(int(3))),
 //!     Expr::Primary(Primary::Symbol("x".to_string())),
 //! ]));
 //! ```
+//!
+//! For more information, see the [`simplify`] module.
 
 pub mod expr;
 pub mod simplify;

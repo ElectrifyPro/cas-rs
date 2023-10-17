@@ -1,11 +1,11 @@
 //! Simplification rules for expressions involving multiplication, including combining like
 //! factors.
 
-use cas_eval::consts::{ZERO, ONE, int_from_float};
+use cas_eval::consts::int;
 use crate::{
     algebra::{
         expr::{Expr, Primary},
-        simplify::{fraction::{extract_numerical_fraction, make_fraction}, rules::do_multiply, step::Step},
+        simplify::{fraction::{extract_integer_fraction, make_fraction}, rules::do_multiply, step::Step},
     },
     step::StepCollector,
 };
@@ -14,8 +14,8 @@ use crate::{
 /// `a*0 = 0`
 pub fn multiply_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_multiply(expr, |factors| {
-        if factors.iter().any(|factor| factor.as_number() == Some(&ZERO)) {
-            Some(Expr::Primary(Primary::Number(ZERO.clone())))
+        if factors.iter().any(|factor| factor.as_integer().map(|n| n.is_zero()).unwrap_or(false)) {
+            Some(Expr::Primary(Primary::Integer(int(0))))
         } else {
             None
         }
@@ -33,7 +33,7 @@ pub fn multiply_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -
         let new_factors = factors.iter()
             .filter(|factor| {
                 // keep all non-one factors
-                factor.as_number()
+                factor.as_integer()
                     .map(|n| n != &1)
                     .unwrap_or(true)
             })
@@ -59,20 +59,19 @@ pub fn reduce_numerical_fraction(expr: &Expr, step_collector: &mut dyn StepColle
     let opt = do_multiply(expr, |factors| {
         let mut new_factors = factors.to_vec();
 
-        // extract a fraction, a Number and a Number^-1
-        let (numerator, denominator) = extract_numerical_fraction(&mut new_factors, false, false)?;
+        // extract a fraction, a Integer and a Integer^-1
+        let (numerator, denominator) = extract_integer_fraction(&mut new_factors, false, false)?;
 
         // reduce the fraction
-        let gcd = int_from_float(numerator.clone())
-            .gcd(&int_from_float(denominator.clone()));
+        let gcd = numerator.clone().gcd(&denominator.clone());
         if gcd == 1 {
             return None;
         }
 
         // insert the reduced fraction back into the factors
         Some(Expr::Mul(new_factors) * make_fraction(
-            Expr::Primary(Primary::Number(numerator / &gcd)),
-            Expr::Primary(Primary::Number(denominator / &gcd)),
+            Expr::Primary(Primary::Integer(numerator / &gcd)),
+            Expr::Primary(Primary::Integer(denominator / &gcd)),
         ))
     })?;
 
@@ -98,7 +97,7 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
         fn get_exp(expr: &Expr) -> (Expr, Expr) {
             match expr {
                 Expr::Exp(lhs, rhs) => (*lhs.clone(), *rhs.clone()),
-                expr => (expr.clone(), Expr::Primary(Primary::Number(ONE.clone()))),
+                expr => (expr.clone(), Expr::Primary(Primary::Integer(int(1)))),
             }
         }
 
@@ -113,7 +112,8 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
                 let (next_factor, next_factor_exp) = get_exp(&new_factors[next_factor_idx]);
 
                 if current_factor_exp == next_factor_exp
-                    && current_factor.is_number() && next_factor.is_number() {
+                    && (current_factor.is_integer() && next_factor.is_integer()
+                        || current_factor.is_float() && next_factor.is_float()) {
                     // degrees must be strictly equal
                     // if they are, apply a^c*b^c = (a*b)^c
                     current_factor *= next_factor;
@@ -129,7 +129,7 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
             }
 
             // after all combining, update the current factor
-            if current_factor_exp.as_number() == Some(&ONE) {
+            if current_factor_exp.as_integer().map(|n| n == &1).unwrap_or(false) {
                 new_factors[current_factor_idx] = current_factor;
             } else {
                 new_factors[current_factor_idx] = Expr::Exp(

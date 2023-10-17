@@ -1,6 +1,6 @@
 //! Simplification rules for expressions involving the imaginary unit.
 
-use cas_eval::consts::float;
+use cas_eval::consts::int;
 use crate::{
     algebra::{
         expr::{Expr, Primary},
@@ -21,8 +21,8 @@ use crate::{
 /// `i^0` can be handled by `power_zero`, but this rule is more general.
 pub fn i_pow_0(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, rhs| {
-        if lhs.as_symbol()? == "i" && float(rhs.as_number()? % 4).is_zero() {
-            Some(Expr::Primary(Primary::Number(float(1))))
+        if lhs.as_symbol()? == "i" && int(rhs.as_integer()? % 4).is_zero() {
+            Some(Expr::Primary(Primary::Integer(int(1))))
         } else {
             None
         }
@@ -35,7 +35,7 @@ pub fn i_pow_0(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Opt
 /// `i^(4n+1) = i`
 pub fn i_pow_1(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, rhs| {
-        if lhs.as_symbol()? == "i" && float(rhs.as_number()? % 4) == 1 {
+        if lhs.as_symbol()? == "i" && int(rhs.as_integer()? % 4) == 1 {
             Some(Expr::Primary(Primary::Symbol("i".to_string())))
         } else {
             None
@@ -49,8 +49,8 @@ pub fn i_pow_1(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Opt
 /// `i^(4n+2) = -1`
 pub fn i_pow_2(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, rhs| {
-        if lhs.as_symbol()? == "i" && float(rhs.as_number()? % 4) == 2 {
-            Some(Expr::Primary(Primary::Number(float(-1))))
+        if lhs.as_symbol()? == "i" && int(rhs.as_integer()? % 4) == 2 {
+            Some(Expr::Primary(Primary::Integer(int(-1))))
         } else {
             None
         }
@@ -63,7 +63,7 @@ pub fn i_pow_2(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Opt
 /// `i^(4n+3) = -i`
 pub fn i_pow_3(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_power(expr, |lhs, rhs| {
-        if lhs.as_symbol()? == "i" && float(rhs.as_number()? % 4) == 3 {
+        if lhs.as_symbol()? == "i" && int(rhs.as_integer()? % 4) == 3 {
             Some(Expr::Primary(Primary::Symbol("i".to_string())).neg())
         } else {
             None

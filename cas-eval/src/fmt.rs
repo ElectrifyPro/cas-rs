@@ -8,6 +8,13 @@ pub struct FormatOptions {
     /// How to format a number.
     pub number: NumberFormat,
 
+    /// Which suffix notation to use for scientific notation.
+    ///
+    /// This option is ignored if [`number`] is not [`NumberFormat::Scientific`].
+    ///
+    /// [`number`]: FormatOptions::number
+    pub scientific: Scientific,
+
     /// Whether to display separators for large numbers.
     pub separators: Separator,
 }
@@ -29,6 +36,11 @@ pub enum NumberFormat {
     Decimal,
 
     /// Formats the number in scientific notation.
+    ///
+    /// The formatting of this option can be further customized using the [`scientific`] option in
+    /// the [`FormatOptions`] struct.
+    ///
+    /// [`scientific`]: FormatOptions::scientific
     Scientific,
 
     /// Formats the number as a fraction.
@@ -39,6 +51,24 @@ pub enum NumberFormat {
 
     /// Formats the number in word form (e.g. "one", "two", "three").
     Word,
+}
+
+/// The different ways to format the suffix of scientific notation.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub enum Scientific {
+    /// Formats the number in scientific notation, using the suffix `× 10^` to denote the exponent.
+    ///
+    /// This formatting option includes a non-ASCII `×` character. Use the [`Scientific::E`] option
+    /// to format the number in the popular `E` notation, which can be more easily parseable.
+    ///
+    /// This is the default option.
+    #[default]
+    Times,
+
+    /// Formats the number in scientific notation, using `E` notation to denote the exponent.
+    ///
+    /// `E` is used instead of `e` to avoid ambiguity with Euler's number.
+    E,
 }
 
 /// Whether to display separators for large numbers.
@@ -168,9 +198,10 @@ fn format_decimal<F: std::fmt::Write>(f: &mut F, n: &Float, separators: Separato
 }
 
 /// Formats a float in scientific notation.
-fn format_scientific(f: &mut Formatter<'_>, n: &Float, separators: Separator) -> std::fmt::Result {
+fn format_scientific(f: &mut Formatter<'_>, n: &Float, scientific_suffix: Scientific) -> std::fmt::Result {
     if !n.is_normal() {
-        return format_decimal(f, n, separators);
+        // separator doesn't matter here because the number is not normal
+        return format_decimal(f, n, Separator::Never);
     }
 
     let (sign, mut s, exponent) = n.to_sign_string_exp_round(10, Some(145), Round::Nearest);
@@ -185,7 +216,15 @@ fn format_scientific(f: &mut Formatter<'_>, n: &Float, separators: Separator) ->
     // there should be no need to add separators here, because the number is already in scientific
     // notation
 
-    write!(f, "{}{} × 10 ^ {}", if sign { "-" } else { "" }, trim_trailing(&s), exponent)
+    write!(f, "{}{}{}{}",
+        if sign { "-" } else { "" },
+        trim_trailing(&s),
+        match scientific_suffix {
+            Scientific::Times => " × 10 ^ ",
+            Scientific::E => "E",
+        },
+        exponent,
+    )
 }
 
 /// Computes the [`Rational`] from the continued fraction form of a float.
@@ -276,7 +315,7 @@ fn format_fraction(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> 
     if expected_format == NumberFormat::Scientific {
         // put the denominator in parentheses to avoid ambiguity
         write!(f, "(")?;
-        format_scientific(f, &float(denominator), options.separators)?;
+        format_scientific(f, &float(denominator), options.scientific)?;
         write!(f, ")")?;
     } else {
         format_decimal(f, &float(denominator), options.separators)?;
@@ -429,13 +468,13 @@ fn format_float(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std
     match options.number {
         NumberFormat::Auto => {
             if should_use_scientific(n.abs_ref()) {
-                format_scientific(f, n, options.separators)
+                format_scientific(f, n, options.scientific)
             } else {
                 format_decimal(f, n, options.separators)
             }
         }
         NumberFormat::Decimal => format_decimal(f, n, options.separators),
-        NumberFormat::Scientific => format_scientific(f, n, options.separators),
+        NumberFormat::Scientific => format_scientific(f, n, options.scientific),
         NumberFormat::Fraction => format_fraction(f, n, options),
         NumberFormat::Word => format_word(f, n, options),
     }
@@ -463,7 +502,7 @@ fn format_complex(f: &mut Formatter<'_>, c: &Complex, options: FormatOptions) ->
             || options.number == NumberFormat::Auto && should_use_scientific(im.abs_ref())
         {
             write!(f, "(")?;
-            format_scientific(f, im, options.separators)?;
+            format_scientific(f, im, options.scientific)?;
             write!(f, ")")?;
         } else {
             format_float(f, im, options)?;
@@ -508,7 +547,7 @@ mod tests {
         let float = eval("2.1 ^ 100");
         let formatted = format!("{}", float.fmt(FormatOptions {
             number: NumberFormat::Decimal,
-            separators: Separator::Never,
+            ..Default::default()
         }));
 
         // this is the exact value
@@ -523,7 +562,7 @@ mod tests {
         let float = eval("2^457 / 10^50");
         let formatted = format!("{}", float.fmt(FormatOptions {
             number: NumberFormat::Decimal,
-            separators: Separator::Never,
+            ..Default::default()
         }));
 
         // this is the exact value
@@ -534,11 +573,26 @@ mod tests {
     }
 
     #[test]
+    fn scientific_e() {
+        let float = eval("1/256!");
+        let formatted = format!("{}", float.fmt(FormatOptions {
+            number: NumberFormat::Scientific,
+            scientific: Scientific::E,
+            ..Default::default()
+        }));
+
+        assert_eq!(
+            formatted,
+            "1.165748750776738805916790773964369524917922798218268987729711508111370170944086870143930638517645160936489928830921910872892159328905556849837005E-507",
+        );
+    }
+
+    #[test]
     fn highly_precise_scientific() {
         let float = eval("124!");
         let formatted = format!("{}", float.fmt(FormatOptions {
             number: NumberFormat::Scientific,
-            separators: Separator::Never,
+            ..Default::default()
         }));
 
         assert_eq!(
@@ -552,7 +606,7 @@ mod tests {
         let float = eval("3^1100 / 12^740");
         let formatted = format!("{}", float.fmt(FormatOptions {
             number: NumberFormat::Scientific,
-            separators: Separator::Never,
+            ..Default::default()
         }));
 
         assert_eq!(

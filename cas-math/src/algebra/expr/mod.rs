@@ -561,39 +561,35 @@ mod tests {
     use pretty_assertions::assert_eq;
     use super::*;
 
+    /// Parse the given expression and return the [`Expr`] representation.
+    fn parse_expr(input: &str) -> Expr {
+        let expr = Parser::new(input).try_parse_full::<AstExpr>().unwrap();
+        Expr::from(expr)
+    }
+
     #[test]
     fn strict_equality() {
-        let a = String::from("2(x + (y - 5))");
-        let b = String::from("(y - 5 + x) * 2");
-        let a_expr = Parser::new(&a).try_parse_full::<AstExpr>().unwrap();
-        let b_expr = Parser::new(&b).try_parse_full::<AstExpr>().unwrap();
-        let a_math_expr = Expr::from(a_expr);
-        let b_math_expr = Expr::from(b_expr);
-        assert_eq!(a_math_expr, b_math_expr);
+        let a = parse_expr("2(x + (y - 5))");
+        let b = parse_expr("(y - 5 + x) * 2");
+        assert_eq!(a, b);
     }
 
     #[test]
     fn strict_equality_2() {
-        // these is NOT strictly equal (but are semantically equal)
+        // these are NOT strictly equal (but are semantically equal)
         // `b` is a simplified version of `a`
-        let a = String::from("2(x + (y - 5))");
-        let b = String::from("2x + 2y - 10");
-        let a_expr = Parser::new(&a).try_parse_full::<AstExpr>().unwrap();
-        let b_expr = Parser::new(&b).try_parse_full::<AstExpr>().unwrap();
-        let a_math_expr = Expr::from(a_expr);
-        let b_math_expr = Expr::from(b_expr);
-        assert_ne!(a_math_expr, b_math_expr);
+        let a = parse_expr("2(x + (y - 5))");
+        let b = parse_expr("2x + 2y - 10");
+        assert_ne!(a, b);
     }
 
     #[test]
     fn simple_expr() {
-        let input = String::from("x^2 + 5x + 6");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
+        let expr = parse_expr("x^2 + 5x + 6");
 
         // NOTE: the order of the terms and factors is not guaranteed, but the output is still
         // semantically correct
-        assert_eq!(math_expr, Expr::Add(vec![
+        assert_eq!(expr, Expr::Add(vec![
             // 6
             Expr::Primary(Primary::Integer(int(6))),
             // + 5x
@@ -611,11 +607,8 @@ mod tests {
 
     #[test]
     fn factors_only() {
-        let input = String::from("-2x^2y^-3/5");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-
-        assert_eq!(math_expr, Expr::Mul(vec![
+        let expr = parse_expr("-2x^2y^-3/5");
+        assert_eq!(expr, Expr::Mul(vec![
             // y^-3
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
@@ -638,11 +631,8 @@ mod tests {
 
     #[test]
     fn complicated_expr() {
-        let input = String::from("3x - (x+t)y - z*a^(1/5/6)*b");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-
-        assert_eq!(math_expr, Expr::Add(vec![
+        let expr = parse_expr("3x - (x+t)y - z*a^(1/5/6)*b");
+        assert_eq!(expr, Expr::Add(vec![
             // 3 * x
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("x"))),
@@ -682,11 +672,8 @@ mod tests {
 
     #[test]
     fn complicated_expr_2() {
-        let input = String::from("3x^2y - 16x y + 2x^2y - 13x y + 4x y^2 - 11x y^2");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-
-        assert_eq!(math_expr, Expr::Add(vec![
+        let expr = parse_expr("3x^2y - 16x y + 2x^2y - 13x y + 4x y^2 - 11x y^2");
+        assert_eq!(expr, Expr::Add(vec![
             // 4 * x * y^2
             Expr::Mul(vec![
                 Expr::Exp(

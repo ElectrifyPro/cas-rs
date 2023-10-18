@@ -163,13 +163,22 @@ mod tests {
     use fraction::make_fraction;
     use pretty_assertions::assert_eq;
 
+    /// Simplifies the given expression, returning the result as a [`Expr`].
+    fn simplify_str(input: &str) -> Expr {
+        let expr = Parser::new(input).try_parse_full::<AstExpr>().unwrap();
+        simplify(&Expr::from(expr))
+    }
+
+    /// Simplifies the given expression, returning the result and steps taken.
+    fn simplify_str_steps(input: &str) -> (Expr, Vec<Step>) {
+        let expr = Parser::new(input).try_parse_full::<AstExpr>().unwrap();
+        simplify_with_steps(&Expr::from(expr))
+    }
+
     #[test]
     fn add_rules() {
         // also tests multiply_zero
-        let input = String::from("0+0*(3x+5b^2i)+0+(3a)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("0+0*(3x+5b^2i)+0+(3a)");
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Primary(Primary::Symbol(String::from("a"))),
             Expr::Primary(Primary::Integer(int(3))),
@@ -178,11 +187,7 @@ mod tests {
 
     #[test]
     fn add_fractions() {
-        let input = String::from("1/2 + 1/3 - 2 + 5/6");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
-
+        let simplified_expr = simplify_str("1/2 + 1/3 - 2 + 5/6");
         assert_eq!(simplified_expr, make_fraction(
             Expr::Primary(Primary::Integer(int(-1))),
             Expr::Primary(Primary::Integer(int(3))),
@@ -191,11 +196,7 @@ mod tests {
 
     #[test]
     fn add_fractions_with_factors() {
-        let input = String::from("pi/2 + 2 - 1/3 - 5pi/6");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
-
+        let simplified_expr = simplify_str("pi/2 + 2 - 1/3 - 5pi/6");
         assert_eq!(simplified_expr, Expr::Add(vec![
             make_fraction(
                 Expr::Primary(Primary::Integer(int(5))),
@@ -210,10 +211,7 @@ mod tests {
 
     #[test]
     fn combine_like_terms() {
-        let input = String::from("-9(6m-3) + 6(1+4m)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("-9(6m-3) + 6(1+4m)");
         assert_eq!(simplified_expr, Expr::Add(vec![
             Expr::Mul(vec![
                 Expr::Primary(Primary::Symbol(String::from("m"))),
@@ -225,10 +223,7 @@ mod tests {
 
     #[test]
     fn combine_like_terms_2() {
-        let input = String::from("3x^2y - 16x y + 5x y^2 + 2x^2y - 13x y + 4x y^2 + 2x y + 11x y^2 + x^3y");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("3x^2y - 16x y + 5x y^2 + 2x^2y - 13x y + 4x y^2 + 2x y + 11x y^2 + x^3y");
 
         // x^3y + 20y^2x + 5x^2y - 27xy
         assert_eq!(simplified_expr, Expr::Add(vec![
@@ -265,11 +260,7 @@ mod tests {
 
     #[test]
     fn combine_like_terms_3() {
-        let input = String::from("x + 2x");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
-
+        let simplified_expr = simplify_str("x + 2x");
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Primary(Primary::Integer(int(3))),
             Expr::Primary(Primary::Symbol(String::from("x"))),
@@ -278,12 +269,8 @@ mod tests {
 
     #[test]
     fn combine_like_terms_decimals() {
-        let input = String::from("3.75x + 1.4x - -0.13449 + 11.2x / x");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify_with_steps(&math_expr);
-
-        assert_eq!(simplified_expr.0, Expr::Add(vec![
+        let simplified_expr = simplify_str("3.75x + 1.4x - -0.13449 + 11.2x / x");
+        assert_eq!(simplified_expr, Expr::Add(vec![
             Expr::Mul(vec![
                 Expr::Primary(Primary::Float(float_from_str("5.15"))),
                 Expr::Primary(Primary::Symbol(String::from("x"))),
@@ -294,11 +281,7 @@ mod tests {
 
     #[test]
     fn combine_like_terms_mixed_number_types() {
-        let input = String::from("15x/4 + 1.4x - -0.13449 + 56x / (5x)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
-
+        let simplified_expr = simplify_str("15x/4 + 1.4x - -0.13449 + 56x / (5x)");
         assert_eq!(simplified_expr, Expr::Add(vec![
             make_fraction(
                 Expr::Primary(Primary::Integer(int(103))),
@@ -315,11 +298,7 @@ mod tests {
     fn combine_like_terms_mixed_number_types_2() {
         // has fractions on x terms, decimals on y terms
         // decimals and fractions should be kept separate
-        let input = String::from("11.75y - x/2 * 14 + -6.24y + 37/6x");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
-
+        let simplified_expr = simplify_str("11.75y - x/2 * 14 + -6.24y + 37/6x");
         assert_eq!(simplified_expr, Expr::Add(vec![
             make_fraction(
                 Expr::Primary(Primary::Integer(int(-5))),
@@ -336,29 +315,20 @@ mod tests {
 
     #[test]
     fn multiply_rules() {
-        let input = String::from("0*(3x+5b^2i)*1*(3a)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("0*(3x+5b^2i)*1*(3a)");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(0))));
     }
 
     #[test]
     fn multiply_rules_2() {
         // also tests add_zero
-        let input = String::from("1*3*1*1*1*(1+(x^2+5x+6)*0)*1*1");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("1*3*1*1*1*(1+(x^2+5x+6)*0)*1*1");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(3))));
     }
 
     #[test]
     fn combine_like_factors() {
-        let input = String::from("a * b * a^3 * c^2 * d^2 * a^2 * b^4 * d^2");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("a * b * a^3 * c^2 * d^2 * a^2 * b^4 * d^2");
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("d".to_string()))),
@@ -381,10 +351,7 @@ mod tests {
 
     #[test]
     fn combine_like_factors_strict_eq() {
-        let input = String::from("(a + 1 + b) * (b + a) * (b + a + 1) * (a + b)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("(a + 1 + b) * (b + a) * (b + a + 1) * (a + b)");
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Exp(
                 Box::new(Expr::Add(vec![
@@ -406,37 +373,25 @@ mod tests {
 
     #[test]
     fn simple_combine_like_factors() {
-        let input = String::from("(a+b)/(a+b)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("(a+b)/(a+b)");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
     }
 
     #[test]
     fn combine_like_factors_mul_numbers() {
-        let input = String::from("-1 * -1 * 2 * 2");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("-1 * -1 * 2 * 2");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(4))));
     }
 
     #[test]
     fn combine_like_factors_decimals() {
-        let input = String::from("4.125 * -1.99 * 2.57");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("4.125 * -1.99 * 2.57");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Float(float_from_str("-21.0964875"))));
     }
 
     #[test]
     fn complicated_combine_like_factors() {
-        let input = String::from("3p^-5q^9r^7/(12p^-2q*r^2)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("3p^-5q^9r^7/(12p^-2q*r^2)");
         assert_eq!(simplified_expr, Expr::Mul(vec![
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("r".to_string()))),
@@ -460,13 +415,10 @@ mod tests {
     #[test]
     fn radicals() {
         // sqrt(2)/2 * sqrt(3)/2 + sqrt(2)/2 * 1/2
-        let input = String::from("2^(1/2)/2*3^(1/2)/2 + 2^(1/2)/2*1/2");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify_with_steps(&math_expr);
+        let simplified_expr = simplify_str("2^(1/2)/2*3^(1/2)/2 + 2^(1/2)/2*1/2");
 
         // sqrt(2)/4 + sqrt(6)/4
-        assert_eq!(simplified_expr.0, Expr::Add(vec![
+        assert_eq!(simplified_expr, Expr::Add(vec![
             // sqrt(2)/4 = 2^(-3/2)
             // the result is a denominator that is not rationalized
             // TODO: rationalize the denominator
@@ -494,10 +446,7 @@ mod tests {
     #[test]
     fn distribute() {
         // 1/x * (y+2x) = y/x + 2
-        let input = String::from("1/x * (y+2x)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let (simplified_expr, steps) = simplify_with_steps(&math_expr);
+        let (simplified_expr, steps) = simplify_str_steps("1/x * (y+2x)");
         assert_eq!(simplified_expr, Expr::Add(vec![
             make_fraction(
                 Expr::Primary(Primary::Symbol("y".to_string())),
@@ -511,10 +460,7 @@ mod tests {
     #[test]
     fn distribute_2() {
         // x^2 * (1 + x + y/x^2) = x^2 + x^3 + y
-        let input = String::from("x^2 * (1 + x + y/x^2)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let (simplified_expr, steps) = simplify_with_steps(&math_expr);
+        let (simplified_expr, steps) = simplify_str_steps("x^2 * (1 + x + y/x^2)");
         assert_eq!(simplified_expr, Expr::Add(vec![
             Expr::Exp(
                 Box::new(Expr::Primary(Primary::Symbol("x".to_string()))),
@@ -531,46 +477,31 @@ mod tests {
 
     #[test]
     fn power_rules() {
-        let input = String::from("(1^0)^(3x+5b^2i)^1^(3a)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("(1^0)^(3x+5b^2i)^1^(3a)");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
     }
 
     #[test]
     fn power_rules_2() {
-        let input = String::from("(0^1)^0");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("(0^1)^0");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
     }
 
     #[test]
     fn power_rules_3a() {
-        let input = String::from("x^3 * x^-2");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("x^3 * x^-2");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Symbol("x".to_string())));
     }
 
     #[test]
     fn power_rules_3b() {
-        let input = String::from("x^3 / x^2");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("x^3 / x^2");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Symbol("x".to_string())));
     }
 
     #[test]
     fn power_rule_steps() {
-        let input = String::from("(1^0)^(3x+5b^2i)^1^(3a)");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let (simplified_expr, steps) = simplify_with_steps(&math_expr);
+        let (simplified_expr, steps) = simplify_str_steps("(1^0)^(3x+5b^2i)^1^(3a)");
         assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
         assert_eq!(steps, vec![
             Step::PowerPower,
@@ -580,10 +511,7 @@ mod tests {
 
     #[test]
     fn imaginary_num() {
-        let input = String::from("i^372 + i^145 - i^215 - i^807");
-        let expr = Parser::new(&input).try_parse_full::<AstExpr>().unwrap();
-        let math_expr = Expr::from(expr);
-        let simplified_expr = simplify(&math_expr);
+        let simplified_expr = simplify_str("i^372 + i^145 - i^215 - i^807");
         assert_eq!(simplified_expr, Expr::Add(vec![
             Expr::Mul(vec![
                 Expr::Primary(Primary::Integer(int(3))),

@@ -1,4 +1,4 @@
-use rug::{Assign, Complex, Float, Integer, Rational};
+use rug::{Assign, Complex, Float, Integer, Rational, float::Round};
 use std::{cmp::Ordering, fmt::{Display, Formatter, Write}};
 use super::{consts::float, value::Value};
 
@@ -106,14 +106,14 @@ fn trim_trailing(s: &str) -> &str {
     // input: 19829.98
     // output: 19829.98000000000000000000000000000000000000000000000000000000000000000000000001
     //
-    // this is a slightly hacky way to fix this, by using only the first 50 fractional digits, and
-    // trimming trailing zeros
+    // this is a slightly hacky way to fix this, by using only the first several fractional digits,
+    // and trimming trailing zeros
     if let Some(index) = s.find('.') {
         // find out how long the fractional part is
         let fractional_part = s[index + 1..].len();
 
-        // only use the first 50 digits of the fractional part, then trim trailing zeros
-        s[..index + 1 + fractional_part.min(50)].trim_end_matches('0').trim_end_matches('.')
+        // only use the first 145 digits of the fractional part, then trim trailing zeros
+        s[..index + 1 + fractional_part.min(145)].trim_end_matches('0').trim_end_matches('.')
     } else {
         s
     }
@@ -139,30 +139,26 @@ fn format_decimal<F: std::fmt::Write>(f: &mut F, n: &Float, separators: Separato
         }
     }
 
-    // estimate of an upper limit on the number of digits needed to represent the number in the
-    // output
-    //
-    // floating point numbers are represented in binary as a sign bit, an exponent, and a mantissa
-    // we can extract the exponent, and compute 2^exponent to give us an integer representing the
-    // approximate magnitude of the number; finally log10 of that gives us the number of digits
-    // in that representation
-    //
-    // the same thing is done with the mantissa
-    // in mpfr, prec() is the number of bits in the mantissa
-    let digits_needed = 2.0f64.powi(n.get_exp().unwrap()).log10()
-        + 2.0f64.powi(n.prec() as i32).log10();
-    if !digits_needed.is_normal() {
-        panic!("digits_needed is not normal: {}", digits_needed);
-    }
-
-    let (sign, mut s, exponent) = n.to_sign_string_exp(10, Some(digits_needed as usize));
+    let (sign, mut s, exponent) = n.to_sign_string_exp_round(10, Some(145), Round::Nearest);
     let exponent = exponent.unwrap(); // exponent is Some() if the number is normal
 
     // add decimal point
     match exponent.cmp(&0) {
         Ordering::Less => s.insert_str(0, &format!("0.{}", "0".repeat(-exponent as usize))),
         Ordering::Equal => s.insert_str(0, "0."),
-        Ordering::Greater => s.insert(exponent as usize, '.'),
+        Ordering::Greater => {
+            let exponent = exponent as usize;
+            if s.len() < exponent {
+                // if there are not enough digits before the decimal point, add zeros
+                s.push_str(&format!("{}", "0".repeat(exponent - s.len())));
+            } else if s.len() > exponent {
+                // place the decimal point in the correct place
+                s.insert(exponent, '.');
+            }
+
+            // if len == exponent, the decimal point would be at the end of the string, so we don't
+            // add anything
+        },
     }
 
     if separators == Separator::Always {
@@ -177,7 +173,7 @@ fn format_scientific(f: &mut Formatter<'_>, n: &Float, separators: Separator) ->
         return format_decimal(f, n, separators);
     }
 
-    let (sign, mut s, exponent) = n.to_sign_string_exp(10, None);
+    let (sign, mut s, exponent) = n.to_sign_string_exp_round(10, Some(145), Round::Nearest);
     let mut exponent = exponent.unwrap(); // exponent is Some() if the number is normal
 
     // add decimal point
@@ -492,4 +488,76 @@ fn format_complex(f: &mut Formatter<'_>, c: &Complex, options: FormatOptions) ->
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use cas_parser::parser::{ast::Expr, Parser};
+    use crate::eval::Eval;
+
+    use super::*;
+
+    /// Evaluate the given expression and return the result.
+    fn eval(expr: &str) -> Value {
+        let expr = Parser::new(expr).try_parse_full::<Expr>().unwrap();
+        expr.eval(&mut Default::default()).unwrap()
+    }
+
+    #[test]
+    fn highly_precise_decimal() {
+        let float = eval("2.1 ^ 100");
+        let formatted = format!("{}", float.fmt(FormatOptions {
+            number: NumberFormat::Decimal,
+            separators: Separator::Never,
+        }));
+
+        // this is the exact value
+        assert_eq!(
+            formatted,
+            "166697648439633735919597210805076.6529167300667828951014331365469362133029070327866633033064632426906380900918045096212631206355582001",
+        );
+    }
+
+    #[test]
+    fn highly_precise_decimal_2() {
+        let float = eval("2^457 / 10^50");
+        let formatted = format!("{}", float.fmt(FormatOptions {
+            number: NumberFormat::Decimal,
+            separators: Separator::Never,
+        }));
+
+        // this is the exact value
+        assert_eq!(
+            formatted,
+            "3721414268393507279612537896386583215890643766719068468641229819804873155140597367430098.17965446945567110411062408283101969716033850703872",
+        );
+    }
+
+    #[test]
+    fn highly_precise_scientific() {
+        let float = eval("124!");
+        let formatted = format!("{}", float.fmt(FormatOptions {
+            number: NumberFormat::Scientific,
+            separators: Separator::Never,
+        }));
+
+        assert_eq!(
+            formatted,
+            "1.506141741511140879795014161993280686076322918971939407100785852066825250652908790935063463115967385069171243567440461925041295354731044782551068 × 10 ^ 207",
+        );
+    }
+
+    #[test]
+    fn highly_precise_scientific_2() {
+        let float = eval("3^1100 / 12^740");
+        let formatted = format!("{}", float.fmt(FormatOptions {
+            number: NumberFormat::Scientific,
+            separators: Separator::Never,
+        }));
+
+        assert_eq!(
+            formatted,
+            "1.734834764334917269540871863578823394365606310443812968931288568335237781473370327926955739134428816797925333326360742727045058167413970732732131 × 10 ^ -274",
+        );
+    }
 }

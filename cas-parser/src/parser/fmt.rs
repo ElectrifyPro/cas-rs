@@ -53,3 +53,55 @@ pub fn fmt_pow(f: &mut Formatter, left: Option<&Expr>, right: Option<&Expr>) -> 
     }
     write!(f, "}}")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::parser::Parser;
+
+    #[test]
+    fn fmt_display() {
+        let mut parser = Parser::new("3x + 6");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+        let fmt = format!("{}", expr);
+
+        assert_eq!(fmt, "3x+6");
+    }
+
+    #[test]
+    fn fmt_display_2() {
+        let mut parser = Parser::new("f(x) = x^2 + 5x + 6");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+        let fmt = format!("{}", expr);
+
+        assert_eq!(fmt, "f(x) = x^2+5x+6");
+    }
+
+    #[test]
+    fn fmt_display_3() {
+        let mut parser = Parser::new("x^(3(x + 6))^9");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+        let fmt = format!("{}", expr);
+
+        assert_eq!(fmt, "x^(3(x+6))^9");
+    }
+
+    #[test]
+    fn fmt_latex() {
+        let mut parser = Parser::new("sqrt(3x)^2");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+        let fmt = format!("{}", expr.as_display());
+
+        assert_eq!(fmt, "\\sqrt{3x}^{2}");
+    }
+
+    #[test]
+    fn fmt_latex_2() {
+        let mut parser = Parser::new("f(x) = 1/x + 5/x^2 + 6/x^3");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+        let fmt = format!("{}", expr.as_display());
+
+        assert_eq!(fmt, "\\mathrm{ f } \\left(x\\right) = \\frac{1}{x}+\\frac{5}{x^{2}}+\\frac{6}{x^{3}}");
+    }
+}

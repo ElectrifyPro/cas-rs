@@ -288,6 +288,14 @@ impl<'source> Parse<'source> for Binary {
     }
 }
 
+impl std::fmt::Display for Binary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.lhs.fmt(f)?;
+        self.op.fmt(f)?;
+        self.rhs.fmt(f)
+    }
+}
+
 impl Latex for Binary {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.op.kind {

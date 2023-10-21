@@ -172,6 +172,17 @@ impl<'source> Parse<'source> for UnaryOp {
     }
 }
 
+impl std::fmt::Display for UnaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.kind {
+            UnaryOpKind::Not => write!(f, "not"),
+            UnaryOpKind::BitNot => write!(f, "~"),
+            UnaryOpKind::Factorial => write!(f, "!"),
+            UnaryOpKind::Neg => write!(f, "-"),
+        }
+    }
+}
+
 impl Latex for UnaryOp {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
@@ -317,6 +328,37 @@ impl<'source> Parse<'source> for BinOp {
     }
 }
 
+impl std::fmt::Display for BinOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if self.implicit {
+            return Ok(());
+        }
+
+        match self.kind {
+            BinOpKind::Exp => write!(f, "^"),
+            BinOpKind::Mul => write!(f, "*"),
+            BinOpKind::Div => write!(f, "/"),
+            BinOpKind::Mod => write!(f, "%"),
+            BinOpKind::Add => write!(f, "+"),
+            BinOpKind::Sub => write!(f, "-"),
+            BinOpKind::BitRight => write!(f, ">>"),
+            BinOpKind::BitLeft => write!(f, "<<"),
+            BinOpKind::BitAnd => write!(f, "&"),
+            BinOpKind::BitOr => write!(f, "|"),
+            BinOpKind::Greater => write!(f, ">"),
+            BinOpKind::GreaterEq => write!(f, ">="),
+            BinOpKind::Less => write!(f, "<"),
+            BinOpKind::LessEq => write!(f, "<="),
+            BinOpKind::Eq => write!(f, "=="),
+            BinOpKind::NotEq => write!(f, "!="),
+            BinOpKind::ApproxEq => write!(f, "~=="),
+            BinOpKind::ApproxNotEq => write!(f, "~!="),
+            BinOpKind::And => write!(f, "&&"),
+            BinOpKind::Or => write!(f, "||"),
+        }
+    }
+}
+
 impl Latex for BinOp {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.implicit {
@@ -458,6 +500,26 @@ impl<'source> Parse<'source> for AssignOp {
             kind,
             span: token.span,
         })
+    }
+}
+
+impl std::fmt::Display for AssignOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.kind {
+            AssignOpKind::Assign => write!(f, "="),
+            AssignOpKind::Add => write!(f, "+="),
+            AssignOpKind::Sub => write!(f, "-="),
+            AssignOpKind::Mul => write!(f, "*="),
+            AssignOpKind::Div => write!(f, "/="),
+            AssignOpKind::Mod => write!(f, "%="),
+            AssignOpKind::Exp => write!(f, "^="),
+            AssignOpKind::And => write!(f, "&&="),
+            AssignOpKind::Or => write!(f, "||="),
+            AssignOpKind::BitAnd => write!(f, "&="),
+            AssignOpKind::BitOr => write!(f, "|="),
+            AssignOpKind::BitRight => write!(f, ">>="),
+            AssignOpKind::BitLeft => write!(f, "<<="),
+        }
     }
 }
 

@@ -90,6 +90,14 @@ impl<'source> Parse<'source> for Paren {
     }
 }
 
+impl std::fmt::Display for Paren {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "(")?;
+        self.expr.fmt(f)?;
+        write!(f, ")")
+    }
+}
+
 impl Latex for Paren {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\\left(")?;

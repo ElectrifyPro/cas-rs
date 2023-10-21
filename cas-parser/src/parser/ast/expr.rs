@@ -123,6 +123,25 @@ impl<'source> Parse<'source> for Expr {
     }
 }
 
+impl std::fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expr::Literal(literal) => literal.fmt(f),
+            Expr::Paren(paren) => paren.fmt(f),
+            Expr::Block(block) => block.fmt(f),
+            Expr::If(if_expr) => if_expr.fmt(f),
+            Expr::Loop(loop_expr) => loop_expr.fmt(f),
+            Expr::While(while_expr) => while_expr.fmt(f),
+            Expr::Break(break_expr) => break_expr.fmt(f),
+            Expr::Continue(continue_expr) => continue_expr.fmt(f),
+            Expr::Call(call) => call.fmt(f),
+            Expr::Unary(unary) => unary.fmt(f),
+            Expr::Binary(binary) => binary.fmt(f),
+            Expr::Assign(assign) => assign.fmt(f),
+        }
+    }
+}
+
 impl Latex for Expr {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

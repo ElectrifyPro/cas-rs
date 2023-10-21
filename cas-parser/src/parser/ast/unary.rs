@@ -124,6 +124,21 @@ impl<'source> Parse<'source> for Unary {
     }
 }
 
+impl std::fmt::Display for Unary {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.op.associativity() {
+            Associativity::Left => {
+                self.operand.fmt(f)?;
+                self.op.fmt(f)
+            },
+            Associativity::Right => {
+                self.op.fmt(f)?;
+                self.operand.fmt(f)
+            },
+        }
+    }
+}
+
 impl Latex for Unary {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.op.associativity() {

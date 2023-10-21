@@ -418,6 +418,83 @@ impl From<AstExpr> for Expr {
     }
 }
 
+impl From<Expr> for AstExpr {
+    fn from(expr: Expr) -> Self {
+        use cas_parser::parser::{
+            ast::{Binary, Call, LitFloat, LitInt, LitSym},
+            token::op::BinOp,
+        };
+
+        match expr {
+            Expr::Primary(primary) => match primary {
+                Primary::Integer(int) => AstExpr::Literal(Literal::Integer(LitInt {
+                    value: int.to_string(),
+                    span: 0..0, // TODO: what to do about this?
+                })),
+                Primary::Float(float) => AstExpr::Literal(Literal::Float(LitFloat {
+                    value: float.to_string(),
+                    span: 0..0,
+                })),
+                Primary::Symbol(sym) => AstExpr::Literal(Literal::Symbol(LitSym {
+                    name: sym,
+                    span: 0..0,
+                })),
+                Primary::Call(name, args) => AstExpr::Call(Call {
+                    name: LitSym { name, span: 0..0 },
+                    derivatives: 0,
+                    args: args.into_iter().map(Self::from).collect(),
+                    span: 0..0,
+                    paren_span: 0..0,
+                }),
+            },
+            Expr::Add(terms) => {
+                let mut iter = terms.into_iter();
+                let mut expr = Self::from(iter.next().unwrap());
+                for term in iter {
+                    expr = AstExpr::Binary(Binary {
+                        lhs: Box::new(expr),
+                        op: BinOp {
+                            kind: BinOpKind::Add,
+                            implicit: false,
+                            span: 0..0,
+                        },
+                        rhs: Box::new(Self::from(term)),
+                        span: 0..0,
+                    });
+                }
+                expr
+            },
+            Expr::Mul(factors) => {
+                let mut iter = factors.into_iter();
+                let mut expr = Self::from(iter.next().unwrap());
+                for factor in iter {
+                    expr = AstExpr::Binary(Binary {
+                        lhs: Box::new(expr),
+                        op: BinOp {
+                            kind: BinOpKind::Mul,
+                            implicit: false,
+                            span: 0..0,
+                        },
+                        rhs: Box::new(Self::from(factor)),
+                        span: 0..0,
+                    });
+                }
+                expr
+            },
+            Expr::Exp(lhs, rhs) => AstExpr::Binary(Binary {
+                lhs: Box::new(Self::from(*lhs)),
+                op: BinOp {
+                    kind: BinOpKind::Exp,
+                    implicit: false,
+                    span: 0..0,
+                },
+                rhs: Box::new(Self::from(*rhs)),
+                span: 0..0,
+            }),
+        }
+    }
+}
+
 /// Adds two [`Expr`]s together. No simplification is done, except for the case where the operands
 /// are a mix of [`Primary`] and / or [`Expr::Add`], in which case both are combined in one list
 /// of terms (flattening).

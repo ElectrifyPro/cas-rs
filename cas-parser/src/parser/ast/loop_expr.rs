@@ -50,6 +50,12 @@ impl<'source> Parse<'source> for Loop {
     }
 }
 
+impl std::fmt::Display for Loop {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "loop {}", self.body)
+    }
+}
+
 impl Latex for Loop {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\\text{{loop }}")?;
@@ -104,6 +110,16 @@ impl<'source> Parse<'source> for Break {
     }
 }
 
+impl std::fmt::Display for Break {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "break")?;
+        if let Some(value) = &self.value {
+            write!(f, " {}", value)?;
+        }
+        Ok(())
+    }
+}
+
 impl Latex for Break {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\\text{{break }}")?;
@@ -134,16 +150,17 @@ impl<'source> Parse<'source> for Continue {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        // let continue_token = input.try_parse::<ContinueToken>().forward_errors(recoverable_errors)?;
-
-        // Ok(Self {
-        //     span: continue_token.span,
-        // })
         input.try_parse::<ContinueToken>()
             .forward_errors(recoverable_errors)
             .map(|continue_token| Self {
                 span: continue_token.span,
             })
+    }
+}
+
+impl std::fmt::Display for Continue {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "continue")
     }
 }
 

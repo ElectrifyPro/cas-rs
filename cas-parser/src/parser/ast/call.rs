@@ -89,6 +89,24 @@ impl<'source> Parse<'source> for Call {
     }
 }
 
+impl std::fmt::Display for Call {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.name.fmt(f)?;
+        for _ in 0..self.derivatives {
+            write!(f, "'")?;
+        }
+        write!(f, "(")?;
+        if let Some((last, args)) = self.args.split_last() {
+            for arg in args {
+                arg.fmt(f)?;
+                write!(f, ", ")?;
+            }
+            last.fmt(f)?;
+        }
+        write!(f, ")")
+    }
+}
+
 impl Latex for Call {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         enum SpecialFunc {
@@ -152,11 +170,12 @@ impl Latex for Call {
                         }
                     },
                     Self::Cbrt | Self::Sqrt | Self::Abs | Self::Other => {
-                        for (i, arg) in call.args.iter().enumerate() {
-                            if i != 0 {
+                        if let Some((last, args)) = call.args.split_last() {
+                            for arg in args {
+                                arg.fmt_latex(f)?;
                                 write!(f, ", ")?;
                             }
-                            arg.fmt_latex(f)?;
+                            last.fmt_latex(f)?;
                         }
                     },
                 }

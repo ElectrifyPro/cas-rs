@@ -59,6 +59,16 @@ impl<'source> Parse<'source> for Block {
     }
 }
 
+impl std::fmt::Display for Block {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{{")?;
+        for stmt in &self.stmts {
+            stmt.fmt(f)?;
+        }
+        write!(f, "}}")
+    }
+}
+
 impl Latex for Block {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{{")?;

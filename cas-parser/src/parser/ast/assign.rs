@@ -60,6 +60,15 @@ impl<'source> Parse<'source> for Param {
     }
 }
 
+impl std::fmt::Display for Param {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Param::Symbol(symbol) => write!(f, "{}", symbol),
+            Param::Default(symbol, default) => write!(f, "{} = {}", symbol, default),
+        }
+    }
+}
+
 impl Latex for Param {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -106,14 +115,28 @@ impl<'source> Parse<'source> for FuncHeader {
     }
 }
 
+impl std::fmt::Display for FuncHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}(", self.name)?;
+        if let Some((last, rest)) = self.params.split_last() {
+            for param in rest {
+                write!(f, "{}, ", param)?;
+            }
+            write!(f, "{}", last)?;
+        }
+        write!(f, ")")
+    }
+}
+
 impl Latex for FuncHeader {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\\mathrm{{ {} }} \\left(", self.name.as_display())?;
-        for (i, param) in self.params.iter().enumerate() {
-            if i != 0 {
+        if let Some((last, rest)) = self.params.split_last() {
+            for param in rest {
+                param.fmt_latex(f)?;
                 write!(f, ", ")?;
             }
-            param.fmt_latex(f)?;
+            last.fmt_latex(f)?;
         }
         write!(f, "\\right)")
     }
@@ -179,6 +202,15 @@ impl<'source> Parse<'source> for AssignTarget {
     ) -> Result<Self, Vec<Error>> {
         let _ = return_if_ok!(input.try_parse::<FuncHeader>().map(AssignTarget::Func).forward_errors(recoverable_errors));
         input.try_parse::<LitSym>().map(AssignTarget::Symbol).forward_errors(recoverable_errors)
+    }
+}
+
+impl std::fmt::Display for AssignTarget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AssignTarget::Symbol(symbol) => write!(f, "{}", symbol),
+            AssignTarget::Func(func) => write!(f, "{}", func),
+        }
     }
 }
 
@@ -254,6 +286,18 @@ impl<'source> Parse<'source> for Assign {
             value: Box::new(value),
             span,
         })
+    }
+}
+
+impl std::fmt::Display for Assign {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} {} {}",
+            self.target,
+            self.op,
+            self.value,
+        )
     }
 }
 

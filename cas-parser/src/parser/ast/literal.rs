@@ -41,6 +41,12 @@ impl<'source> Parse<'source> for LitInt {
     }
 }
 
+impl std::fmt::Display for LitInt {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
 impl Latex for LitInt {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value)
@@ -70,6 +76,12 @@ impl<'source> Parse<'source> for LitFloat {
                 span: float.span,
             })
             .forward_errors(recoverable_errors)
+    }
+}
+
+impl std::fmt::Display for LitFloat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
@@ -223,6 +235,12 @@ impl<'source> Parse<'source> for LitRadix {
     }
 }
 
+impl std::fmt::Display for LitRadix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}'{}", self.base, self.value)
+    }
+}
+
 impl Latex for LitRadix {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}'{}", self.base, self.value)
@@ -258,6 +276,12 @@ impl<'source> Parse<'source> for LitSym {
                 }
             })
             .forward_errors(recoverable_errors)
+    }
+}
+
+impl std::fmt::Display for LitSym {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 
@@ -312,6 +336,17 @@ impl<'source> Parse<'source> for Literal {
         let _ = return_if_ok!(input.try_parse::<LitInt>().map(Literal::Integer).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse::<LitFloat>().map(Literal::Float).forward_errors(recoverable_errors));
         input.try_parse::<LitSym>().map(Literal::Symbol).forward_errors(recoverable_errors)
+    }
+}
+
+impl std::fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Literal::Integer(int) => int.fmt(f),
+            Literal::Float(float) => float.fmt(f),
+            Literal::Radix(radix) => radix.fmt(f),
+            Literal::Symbol(name) => name.fmt(f),
+        }
     }
 }
 

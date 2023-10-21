@@ -113,6 +113,20 @@ impl<'source> Parse<'source> for If {
     }
 }
 
+impl std::fmt::Display for If {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "if ")?;
+        self.condition.fmt(f)?;
+        write!(f, " then ")?;
+        self.then_expr.fmt(f)?;
+        if let Some(else_expr) = &self.else_expr {
+            write!(f, " else ")?;
+            else_expr.fmt(f)?;
+        }
+        Ok(())
+    }
+}
+
 impl Latex for If {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\\text{{if }}")?;

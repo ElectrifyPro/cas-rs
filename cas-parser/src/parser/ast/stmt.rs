@@ -61,6 +61,16 @@ impl<'source> Parse<'source> for Stmt {
     }
 }
 
+impl std::fmt::Display for Stmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.expr)?;
+        if self.semicolon.is_some() {
+            write!(f, ";")?;
+        }
+        Ok(())
+    }
+}
+
 impl Latex for Stmt {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.expr.fmt_latex(f)?;

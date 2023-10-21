@@ -86,6 +86,12 @@ impl<'source> Parse<'source> for While {
     }
 }
 
+impl std::fmt::Display for While {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "while {} then {}", self.condition, self.body)
+    }
+}
+
 impl Latex for While {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\\text{{while }}")?;

@@ -482,48 +482,57 @@ fn format_float(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std
 
 /// Formats a complex number.
 fn format_complex(f: &mut Formatter<'_>, c: &Complex, options: FormatOptions) -> std::fmt::Result {
-    if c.is_zero() {
-        return write!(f, "0");
-    }
-
     let (re, im) = (c.real(), c.imag());
 
-    // write the imaginary part first
-    if im.is_zero() {
-        return format_float(f, re, options);
-    } else if im.eq(&1.0) {
-        write!(f, "i")?;
-    } else if im.eq(&-1.0) {
-        write!(f, "-i")?;
-    } else {
+    /// Helper function to format the imaginary part of the complex number, with or without
+    /// parentheses.
+    fn fmt_helper(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::fmt::Result {
+        if n == &1 {
+            return write!(f, "i");
+        } else if n == &-1 {
+            return write!(f, "-i");
+        }
+
         // if we need to format this part in scientific notation, we need to add parentheses
         // around it to avoid ambiguity
+        // we need parentheses if the user specifies scientific notation, or if
+        // `NumberFormat::Auto` decides it's time
         if options.number == NumberFormat::Scientific
-            || options.number == NumberFormat::Auto && should_use_scientific(im.abs_ref())
+            || options.number == NumberFormat::Auto && should_use_scientific(n.abs_ref())
         {
             write!(f, "(")?;
-            format_scientific(f, im, options.scientific)?;
+            format_scientific(f, n, options.scientific)?;
             write!(f, ")")?;
         } else {
-            format_float(f, im, options)?;
+            format_float(f, n, options)?;
         }
-        write!(f, "i")?;
+
+        write!(f, "i")
     }
 
-    // write the real part
-    if re.is_zero() {
-        // the imaginary part was the only part and has already been written
-        return Ok(());
-    } else {
-        // even if scientific notation is used here, it will be unambiguous, as the real part is not
-        // multiplied by an imaginary unit
-        if re.is_sign_positive() {
-            write!(f, " + ")?;
+    // for the standard notation, real part comes first, then imaginary
+    // four possible combinations:
+    // 1. real and imaginary exist (i.e. are non-zero)
+    // 2. only real exists
+    // 3. only imaginary exists
+    // 4. neither real nor imaginary exist (i.e. zero)
+    match (re.is_zero(), im.is_zero()) {
+        (false, false) => {
+            // write real part
             format_float(f, re, options)?;
-        } else {
-            write!(f, " - ")?;
-            format_float(f, &re.as_neg(), options)?;
-        }
+
+            // write imaginary part
+            if im.is_sign_positive() {
+                write!(f, " + ")?;
+                fmt_helper(f, im, options)?;
+            } else {
+                write!(f, " - ")?;
+                fmt_helper(f, &im.as_neg(), options)?;
+            }
+        },
+        (false, true) => return format_float(f, re, options),
+        (true, false) => return fmt_helper(f, im, options),
+        (true, true) => return write!(f, "0"),
     }
 
     Ok(())
@@ -613,5 +622,59 @@ mod tests {
             formatted,
             "1.734834764334917269540871863578823394365606310443812968931288568335237781473370327926955739134428816797925333326360742727045058167413970732732131 × 10 ^ -274",
         );
+    }
+
+    #[test]
+    fn highly_precise_complex() {
+        let complex = eval("1/128! - 1/256! * i");
+        let formatted = format!("{}", complex.fmt(FormatOptions {
+            number: NumberFormat::Scientific,
+            ..Default::default()
+        }));
+
+        assert_eq!(
+            formatted,
+            "2.593223248602619662891504891873020665912946504368101020675336527439552653035301608523337205118122116061736472259581293840191752984828642088111493 × 10 ^ -216 - (1.165748750776738805916790773964369524917922798218268987729711508111370170944086870143930638517645160936489928830921910872892159328905556849837005 × 10 ^ -507)i",
+        );
+    }
+
+    #[test]
+    fn complex_imaginary_part() {
+        let complex = eval("sqrt(-4)");
+        let formatted = format!("{}", complex.fmt(FormatOptions {
+            number: NumberFormat::Decimal,
+            ..Default::default()
+        }));
+
+        assert_eq!(formatted, "2i");
+    }
+
+    #[test]
+    fn complex_imaginary_edge() {
+        let complexes = [
+            eval("1 + 0i"),
+            eval("3 - i"),
+            eval("1 - 2i"),
+            eval("i + i - i + 6"),
+            eval("i"),
+            eval("-i"),
+        ];
+        let outputs = [
+            "1",
+            "3 - i",
+            "1 - 2i",
+            "6 + i",
+            "i",
+            "-i",
+        ];
+
+        for (complex, output) in complexes.iter().zip(outputs.iter()) {
+            let formatted = format!("{}", complex.fmt(FormatOptions {
+                number: NumberFormat::Decimal,
+                ..Default::default()
+            }));
+
+            assert_eq!(formatted, *output);
+        }
     }
 }

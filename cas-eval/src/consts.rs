@@ -63,17 +63,13 @@ pub static I: Lazy<Complex> = Lazy::new(|| complex((0, 1)));
 /// Euler's number.
 pub static E: Lazy<Float> = Lazy::new(|| {
     float_from_str(
-        "2.71828182845904523536028747135266249775724709369995957496696762772407663035354",
+        "2.71828182845904523536028747135266249775724709369995957496696762772407663035354759457138217852516642742746639193200305992181741359662904357290033429526059563",
     )
 });
 
 /// The golden ratio.
 pub static PHI: Lazy<Float> = Lazy::new(|| (float(1) + float(5).sqrt()) / float(2));
 
-pub static PI: Lazy<Float> = Lazy::new(|| {
-    float_from_str(
-        "3.141592653589793238462643383279502884197169399375105820974944592307816406286",
-    )
-});
+pub static PI: Lazy<Float> = Lazy::new(|| float(-1).acos());
 
 pub static TAU: Lazy<Float> = Lazy::new(|| float(2) * &*PI);

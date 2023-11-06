@@ -36,6 +36,13 @@ pub trait Builtin {
     fn eval(&self, ctxt: &Ctxt, args: &[Value]) -> Result;
 }
 
+/// Prints the given value to stdout with a trailing newline.
+#[args(s: Any)]
+pub fn print(_: &Ctxt, args: &[Value]) -> Result {
+    println!("{}", s);
+    Ok(Unit)
+}
+
 /// Generates builtin implementations for simple one-argument functions that take a complex number.
 macro_rules! generate_complex_builtin {
     ($($name:ident)+) => {
@@ -538,6 +545,8 @@ pub fn get_builtin(name: &str) -> Option<Box<dyn Builtin>> {
     }
 
     match_builtin!(
+        print
+
         // trigonometric functions
         sin cos tan csc sec cot
         asin acos atan atan2 acsc asec acot

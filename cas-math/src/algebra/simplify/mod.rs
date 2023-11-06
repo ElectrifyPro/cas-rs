@@ -61,7 +61,7 @@ pub fn default_complexity(expr: &Expr) -> usize {
 }
 
 /// Base implementation of the simplification algorithm.
-fn inner_simplify_with<F>(
+pub(crate) fn inner_simplify_with<F>(
     expr: &Expr,
     complexity: F,
     step_collector: &mut dyn StepCollector<Step>,
@@ -519,5 +519,25 @@ mod tests {
             ]),
             Expr::Primary(Primary::Integer(int(1))),
         ]));
+    }
+
+    #[test]
+    fn trigonometric_sine() {
+        let simplified_expr = simplify_str("sin(pi/6 + pi/4 + pi/2 + pi/12)");
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(0))));
+    }
+
+    #[test]
+    fn trigonometric_sine_2() {
+        let simplified_expr = simplify_str("sin(47pi/4 + 31pi/2)");
+
+        // -sqrt(2)/2 = -2^(1/2)/2 = -2^(-1/2)
+        assert_eq!(simplified_expr, -Expr::Exp(
+            Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            Box::new(make_fraction(
+                Expr::Primary(Primary::Integer(int(-1))),
+                Expr::Primary(Primary::Integer(int(2))),
+            )),
+        ));
     }
 }

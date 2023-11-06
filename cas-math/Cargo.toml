@@ -16,4 +16,5 @@ path = "../cas-eval"
 path = "../cas-parser"
 
 [dependencies]
+once_cell = "1.18.0"
 rug = "1.22.0"

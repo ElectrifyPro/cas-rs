@@ -77,9 +77,27 @@ pub enum Primary {
     Call(String, Vec<Expr>),
 }
 
-/// [`Eq`] is implemented manually to allow comparing [`Primary::Integer`] and [`Primary::Float`]s.
-/// This module **must never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report
-/// any bugs that cause this to happen.
+/// [`Hash`] is implemented manually to allow hashing [`Primary::Float`]s. This module **must
+/// never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report any bugs that cause
+/// this to happen.
+impl std::hash::Hash for Primary {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Integer(int) => int.hash(state),
+            // this must be safe for the `Hash` impl to be valid
+            Self::Float(float) => float.get_significand().unwrap().hash(state),
+            Self::Symbol(sym) => sym.hash(state),
+            Self::Call(name, args) => {
+                name.hash(state);
+                args.hash(state);
+            },
+        }
+    }
+}
+
+/// [`Eq`] is implemented manually to allow comparing [`Primary::Float`]s. This module **must
+/// never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report any bugs that cause
+/// this to happen.
 impl Eq for Primary {}
 
 /// Adds two [`Primary`]s together. If both are the **same numeric type**, the numbers are added
@@ -137,7 +155,7 @@ impl Mul<Primary> for Primary {
 /// single [`Expr::Add`] node with _three_ children, `x`, `y`, and `z`.
 ///
 /// For more information about this type, see the [module-level documentation](crate::algebra).
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub enum Expr {
     /// A single term or factor.
     Primary(Primary),
@@ -259,6 +277,17 @@ impl Expr {
             },
             _ => self,
         }
+    }
+
+    /// Returns the square root of this expression. No simplification is done.
+    pub fn sqrt(self) -> Self {
+        Self::Exp(
+            Box::new(self),
+            Box::new(make_fraction(
+                Self::Primary(Primary::Integer(int(1))),
+                Self::Primary(Primary::Integer(int(2))),
+            )),
+        )
     }
 
     /// Returns an iterator that traverses the tree of expressions in left-to-right post-order

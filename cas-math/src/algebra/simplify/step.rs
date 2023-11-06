@@ -61,4 +61,7 @@ pub enum Step {
 
     /// `i^(4n+3) = -i`
     I3,
+
+    /// `sin(x)` identity
+    Sin,
 }

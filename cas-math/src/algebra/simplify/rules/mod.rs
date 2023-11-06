@@ -9,9 +9,28 @@ pub mod distribute;
 pub mod imaginary;
 pub mod multiply;
 pub mod power;
+pub mod trigonometry;
 
-use crate::step::StepCollector;
+use crate::{algebra::expr::Primary, step::StepCollector};
 use super::{Expr, step::Step};
+
+/// If the expression is a function call with the given function name, calls the given
+/// transformation function with the arguments.
+///
+/// Returns `Some(expr)` with the transformed expression if a transformation was applied.
+pub(crate) fn do_call(
+    expr: &Expr,
+    name: &str,
+    f: impl Copy + Fn(&[Expr]) -> Option<Expr>,
+) -> Option<Expr> {
+    if let Expr::Primary(Primary::Call(target_name, args)) = expr {
+        if target_name == name {
+            return f(args);
+        }
+    }
+
+    None
+}
 
 /// If the expression is an add expression, calls the given transformation function with the terms.
 ///
@@ -55,4 +74,5 @@ pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<
         .or_else(|| power::all(expr, step_collector))
         .or_else(|| distribute::all(expr, step_collector))
         .or_else(|| imaginary::all(expr, step_collector))
+        .or_else(|| trigonometry::all(expr, step_collector))
 }

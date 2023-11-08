@@ -178,16 +178,17 @@ fn format_decimal<F: std::fmt::Write>(f: &mut F, n: &Float, separators: Separato
         Ordering::Equal => s.insert_str(0, "0."),
         Ordering::Greater => {
             let exponent = exponent as usize;
-            if s.len() < exponent {
+            match s.len().cmp(&exponent) {
                 // if there are not enough digits before the decimal point, add zeros
-                s.push_str(&format!("{}", "0".repeat(exponent - s.len())));
-            } else if s.len() > exponent {
-                // place the decimal point in the correct place
-                s.insert(exponent, '.');
-            }
+                Ordering::Less => s.push_str(&"0".repeat(exponent - s.len())),
 
-            // if len == exponent, the decimal point would be at the end of the string, so we don't
-            // add anything
+                // place the decimal point in the correct place
+                Ordering::Greater => s.insert(exponent , '.'),
+
+                // if len == exponent, the decimal point would be at the end of the string, so we
+                // don't add anything
+                Ordering::Equal => {},
+            }
         },
     }
 
@@ -529,13 +530,13 @@ fn format_complex(f: &mut Formatter<'_>, c: &Complex, options: FormatOptions) ->
                 write!(f, " - ")?;
                 fmt_helper(f, &im.as_neg(), options)?;
             }
-        },
-        (false, true) => return format_float(f, re, options),
-        (true, false) => return fmt_helper(f, im, options),
-        (true, true) => return write!(f, "0"),
-    }
 
-    Ok(())
+            Ok(())
+        },
+        (false, true) => format_float(f, re, options),
+        (true, false) => fmt_helper(f, im, options),
+        (true, true) => write!(f, "0"),
+    }
 }
 
 #[cfg(test)]
@@ -578,6 +579,20 @@ mod tests {
         assert_eq!(
             formatted,
             "3721414268393507279612537896386583215890643766719068468641229819804873155140597367430098.17965446945567110411062408283101969716033850703872",
+        );
+    }
+
+    #[test]
+    fn highly_precise_decimal_3() {
+        let float = eval("1/sqrt(2)");
+        let formatted = format!("{}", float.fmt(FormatOptions {
+            number: NumberFormat::Decimal,
+            ..Default::default()
+        }));
+
+        assert_eq!(
+            formatted,
+            "0.7071067811865475244008443621048490392848359376884740365883398689953662392310535194251937671638207863675069231154561485124624180279253686063220607",
         );
     }
 

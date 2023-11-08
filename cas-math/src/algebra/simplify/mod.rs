@@ -540,4 +540,100 @@ mod tests {
             )),
         ));
     }
+
+    #[test]
+    fn trigonometric_sine_table() {
+        let inputs = [
+            "sin(0) + 1",
+            "sin(pi/6) / (1/2)",
+            "sin(pi/4) / (2^(1/2)/2)",
+            "sin(pi/3) / (3^(1/2)/2)",
+            "sin(pi/2)",
+            "sin(2pi/3) / (3^(1/2)/2)",
+            "sin(3pi/4) / (2^(1/2)/2)",
+            "sin(5pi/6) / (1/2)",
+            "sin(pi) + 1",
+            "sin(7pi/6) / (-1/2)",
+            "sin(5pi/4) / (-2^(1/2)/2)",
+            "sin(4pi/3) / (-3^(1/2)/2)",
+            "-sin(3pi/2)",
+            "sin(5pi/3) / (-3^(1/2)/2)",
+            "sin(7pi/4) / (-2^(1/2)/2)",
+            "sin(11pi/6) / (-1/2)",
+            "sin(2pi) + 1",
+        ];
+
+        for (i, input) in inputs.into_iter().enumerate() {
+            assert_eq!(
+                simplify_str(input),
+                Expr::Primary(Primary::Integer(int(1))),
+                "failed on input #{}",
+                i,
+            );
+        }
+    }
+
+    #[test]
+    fn trigonometric_cosine_table() {
+        let inputs = [
+            "cos(0)",
+            "cos(pi/6) / (3^(1/2)/2)",
+            "cos(pi/4) / (2^(1/2)/2)",
+            "cos(pi/3) / (1/2)",
+            "cos(pi/2) + 1",
+            "cos(2pi/3) / (-1/2)",
+            "cos(3pi/4) / (-2^(1/2)/2)",
+            "cos(5pi/6) / (-3^(1/2)/2)",
+            "-cos(pi)",
+            "cos(7pi/6) / (-3^(1/2)/2)",
+            "cos(5pi/4) / (-2^(1/2)/2)",
+            "cos(4pi/3) / (-1/2)",
+            "cos(3pi/2) + 1",
+            "cos(5pi/3) / (1/2)",
+            "cos(7pi/4) / (2^(1/2)/2)",
+            "cos(11pi/6) / (3^(1/2)/2)",
+            "cos(2pi)",
+        ];
+
+        for (i, input) in inputs.into_iter().enumerate() {
+            assert_eq!(
+                simplify_str(input),
+                Expr::Primary(Primary::Integer(int(1))),
+                "failed on input #{}",
+                i,
+            );
+        }
+    }
+
+    #[test]
+    fn trigonometric_tangent_table() {
+        let inputs = [
+            "tan(0) + 1",
+            "tan(pi/6) / (3^(1/2)/3)",
+            "tan(pi/4)",
+            "tan(pi/3) / 3^(1/2)",
+            // "tan(pi/2)", // undefined
+            "tan(2pi/3) / (-3^(1/2))",
+            "-tan(3pi/4)",
+            "tan(5pi/6) / (-3^(1/2)/3)",
+            "tan(pi) + 1",
+            "tan(7pi/6) / (3^(1/2)/3)",
+            "tan(5pi/4)",
+            "tan(4pi/3) / (3^(1/2))",
+            // "tan(3pi/2)", // undefined
+            "tan(5pi/3) / (-3^(1/2))",
+            "-tan(7pi/4)",
+            "tan(11pi/6) / (-3^(1/2)/3)",
+            "tan(2pi) + 1",
+        ];
+
+        for (i, input) in inputs.into_iter().enumerate() {
+            assert_eq!(
+                simplify_str(input),
+                Expr::Primary(Primary::Integer(int(1))),
+                "failed on input #{}",
+                i,
+            );
+        }
+    }
 }

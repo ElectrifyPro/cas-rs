@@ -64,4 +64,10 @@ pub enum Step {
 
     /// `sin(x)` identity
     Sin,
+
+    /// `cos(x)` identity
+    Cos,
+
+    /// `tan(x)` identity
+    Tan,
 }

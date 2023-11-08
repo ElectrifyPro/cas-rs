@@ -140,4 +140,13 @@ pub mod output {
         Expr::Primary(Primary::Integer(int(3))).sqrt(),
         Expr::Primary(Primary::Integer(int(2))),
     ));
+
+    /// sqrt(3)/3
+    pub static SQRT_THREE_THIRD: Lazy<Expr> = Lazy::new(|| make_fraction(
+        Expr::Primary(Primary::Integer(int(3))).sqrt(),
+        Expr::Primary(Primary::Integer(int(3))),
+    ));
+
+    /// sqrt(3)
+    pub static SQRT_THREE: Lazy<Expr> = Lazy::new(|| Expr::Primary(Primary::Integer(int(3))).sqrt());
 }

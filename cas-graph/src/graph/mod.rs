@@ -60,12 +60,25 @@ impl Graph {
     }
 
     /// Add an expression to the graph.
-    pub fn add(&mut self, expr: Expr) {
+    ///
+    /// Returns a mutable reference to the graph to allow chaining.
+    pub fn add_expr(&mut self, expr: Expr) -> &mut Self {
         self.expressions.push(AnalyzedExpr::new(expr));
+        self
     }
 
-    /// Center the graph on the points in the graph.
-    pub fn center_on_points(&mut self) {
+    /// Add a point to the graph.
+    ///
+    /// Returns a mutable reference to the graph to allow chaining.
+    pub fn add_point(&mut self, point: GraphPoint<f64>) -> &mut Self {
+        self.points.push(point);
+        self
+    }
+
+    /// Center the graph on the points in the graph and scale it so that all points are visible.
+    ///
+    /// Returns a mutable reference to the graph to allow chaining.
+    pub fn center_on_points(&mut self) -> &mut Self {
         let mut sum = GraphPoint(0.0, 0.0);
 
         // find the average of the points and center on that
@@ -91,6 +104,8 @@ impl Graph {
             max_dist * 1.5,
             max_dist * 1.5,
         );
+
+        self
     }
 
     /// Creates an [`ImageSurface`] with the graph's canvas size and draws the graph to it.

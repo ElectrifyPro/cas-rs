@@ -5,7 +5,7 @@ pub mod point;
 
 use analyzed::AnalyzedExpr;
 use cairo::{Context, Error, FontSlant, Format, ImageSurface, FontWeight, TextExtents};
-use cas_parser::parser::ast::expr::Expr;
+use cas_parser::parser::{ast::expr::Expr, Parser};
 use eval::evaluate_expr;
 pub use point::{CanvasPoint, GraphPoint};
 use rayon::prelude::*;
@@ -65,6 +65,14 @@ impl Graph {
     pub fn add_expr(&mut self, expr: Expr) -> &mut Self {
         self.expressions.push(AnalyzedExpr::new(expr));
         self
+    }
+
+    /// Tries to parse the given expression and add it to the graph.
+    ///
+    /// Returns a mutable reference to the graph to allow chaining.
+    pub fn try_add_expr(&mut self, expr: &str) -> Result<&mut Self, Vec<cas_parser::parser::error::Error>> {
+        self.expressions.push(AnalyzedExpr::new(Parser::new(expr).try_parse_full()?));
+        Ok(self)
     }
 
     /// Add a point to the graph.

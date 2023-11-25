@@ -4,7 +4,7 @@ pub mod opts;
 pub mod point;
 
 use analyzed::AnalyzedExpr;
-use cairo::{Context, Error, FontSlant, FontWeight, TextExtents};
+use cairo::{Context, Error, FontSlant, Format, ImageSurface, FontWeight, TextExtents};
 use cas_parser::parser::ast::expr::Expr;
 use eval::evaluate_expr;
 pub use point::{CanvasPoint, GraphPoint};
@@ -93,24 +93,33 @@ impl Graph {
         );
     }
 
-    /// Draw the graph to the given context.
-    pub fn draw(&self, context: &Context) -> Result<(), Error> {
+    /// Creates an [`ImageSurface`] with the graph's canvas size and draws the graph to it.
+    ///
+    /// The resulting [`ImageSurface`] can be written to a file or manipulated further.
+    pub fn draw(&self) -> Result<ImageSurface, Error> {
+        let surface = ImageSurface::create(
+            Format::ARgb32,
+            self.options.canvas_size.0 as i32,
+            self.options.canvas_size.1 as i32,
+        )?;
+        let context = Context::new(&surface)?;
+
         context.set_source_rgb(0.0, 0.0, 0.0);
         context.paint()?;
 
         context.select_font_face("sans-serif", FontSlant::Oblique, FontWeight::Normal);
 
         let origin_canvas = self.options.to_canvas(GraphPoint(0.0, 0.0));
-        self.draw_grid_lines(context)?;
-        self.draw_origin_axes(context, origin_canvas)?;
+        self.draw_grid_lines(&context)?;
+        self.draw_origin_axes(&context, origin_canvas)?;
 
-        let edges = self.draw_edge_labels(context, origin_canvas)?;
-        self.draw_grid_line_numbers(context, origin_canvas, edges)?;
+        let edges = self.draw_edge_labels(&context, origin_canvas)?;
+        self.draw_grid_line_numbers(&context, origin_canvas, edges)?;
 
-        self.draw_expressions(context)?;
-        self.draw_points(context)?;
+        self.draw_expressions(&context)?;
+        self.draw_points(&context)?;
 
-        Ok(())
+        Ok(surface)
     }
 
     /// Draw minor grid lines.

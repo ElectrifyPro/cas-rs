@@ -8,8 +8,6 @@ use std::fs::File;
 
 pub fn draw() {
     // draw a test graph
-    let surface = ImageSurface::create(Format::ARgb32, 1000, 1000).unwrap();
-    let context = Context::new(&surface).unwrap();
     let mut graph = Graph::with_opts(GraphOptions {
         canvas_size: CanvasPoint(1000, 1000),
         center: GraphPoint(-3.0, 2.41),
@@ -25,7 +23,7 @@ pub fn draw() {
     graph.points.push((3.4, 2.4).into());
     graph.points.push((4.5, 0.5).into());
     graph.center_on_points();
-    graph.draw(&context).unwrap();
+    let surface = graph.draw().unwrap();
 
     let mut file = File::create("output.png").unwrap();
     surface.write_to_png(&mut file).unwrap();

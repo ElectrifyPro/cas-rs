@@ -3,6 +3,7 @@ members = [
 	"cas-attrs",
 	"cas-error",
 	"cas-eval",
+	"cas-graph",
 	"cas-math",
 	"cas-parser",
 	"cas-repl",

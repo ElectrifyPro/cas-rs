@@ -1,3 +1,62 @@
+//! Basic graphing calculator.
+//!
+//! This module provides basic graphing functionality, such as plotting expressions and points,
+//! then rendering the result to an image.
+//!
+//! To build an image of a graph, create a [`Graph`] and add expressions and / or points to it.
+//! Then, call [`Graph::draw()`] to render the graph to an image. This crate uses the [`cairo`]
+//! crate to render the graph, and thus can render to any format supported by [`cairo`], including
+//! PNG and SVG.
+//!
+//! # Adding expressions
+//!
+//! The argument to [`Graph::try_add_expr()`] is any expression that can be parsed by
+//! [`cas-parser`] as an [`Expr`].
+//!
+//! The given expression should be one defined in terms of the variables `x` (horizontal axis), `y`
+//! (vertical axis), or both, with an optional `y ==` or `x ==` prefix / suffix to clearly indicate
+//! the dependent variable. For example, the following are all valid expressions:
+//!
+//! - `y == 0.8214285714x^2 + 4.3785714286x + 7`
+//! - `0.8214285714x^2 + 4.3785714286x + 7`
+//! - `sin(x) == y`
+//! - `sin(y)`
+//! - `x == sin(y)`
+//! - `x^2 + y^2 == 1` TODO: relations are not yet supported
+//! - etc.
+//!
+//! # Example
+//!
+//! The following example creates a graph with the expression `y == 0.8214285714x^2 + 4.3785714286x
+//! + 7` and a few points with the viewport centered on the added points. The graph is then
+//! rendered to a PNG file.
+//!
+//! ```no_run
+//! use cas_graph::Graph;
+//! use std::fs::File;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let surface = Graph::default()
+//!     .try_add_expr("y == 0.8214285714x^2 + 4.3785714286x + 7").unwrap()
+//! //  .try_add_expr("0.8214285714x^2 + 4.3785714286x + 7").unwrap() // "y==" can be omitted
+//!     .add_point((-5.0, 5.0).into())
+//!     .add_point((-4.0, 4.0).into())
+//!     .add_point((-3.0, 1.0).into())
+//!     .add_point((-2.0, 0.5).into())
+//!     .add_point((-1.0, 4.0).into())
+//!     .center_on_points()
+//!     .draw()?;
+//!
+//! let mut file = File::create("output.png")?;
+//! surface.write_to_png(&mut file)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! Output:
+//!
+//! <img src="https://raw.githubusercontent.com/ElectrifyPro/cas-rs/dev/cas-graph/img/output.png" width="500" height="500"/>
+
 pub mod analyzed;
 mod eval;
 pub mod opts;
@@ -32,7 +91,9 @@ fn round_to(n: f64, k: f64) -> f64 {
     (n / k).round() * k
 }
 
-/// A graph containing expressions to draw.
+/// A graph containing expressions and points to draw.
+///
+/// See the [module-level documentation](self) for more information.
 #[derive(Clone, Debug, Default)]
 pub struct Graph {
     /// The expressions to draw.

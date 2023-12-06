@@ -4,27 +4,43 @@ use super::point::{CanvasPoint, GraphPoint};
 #[derive(Clone, Copy, Debug)]
 pub struct GraphOptions {
     /// The width and height of the canvas, in pixels.
+    ///
+    /// The default value is `(1000, 1000)`.
     pub canvas_size: CanvasPoint<u16>,
 
     /// The `(x, y)` point at which to center the graph.
     ///
-    /// For example, to place the origin at the center of the graph, set this to `(0.0, 0.0)`.
+    /// For example, to place the origin at the center of the output image, set this to `(0.0,
+    /// 0.0)`.
+    ///
+    /// The default value is `(0.0, 0.0)`.
     pub center: GraphPoint<f64>,
 
     /// The `(x, y)` scale of the graph.
     ///
     /// The scale indicates the distance, in graph units, from the center of the canvas to the edge
     /// of the canvas. For example, when the graph is centered at `(0.0, 0.0)` with a scale of
-    /// `(10.0, 10.0)`, the visible graph will be from `(-10.0, -10.0)` to `(10.0, 10.0)`.
+    /// `(10.0, 10.0)`, the visible graph will be from `(x, y): (-10.0, -10.0)` to `(x, y): (10.0,
+    /// 10.0)`.
+    ///
+    /// The default value is `(10.0, 10.0)`.
     pub scale: GraphPoint<f64>,
 
     /// The number of graph units between each minor grid line, given as a pair of `(x, y)` units.
     ///
     /// For example, to have a minor grid line every `3.0` units on the x-axis and every `2.0` units
     /// on the y-axis, set this to `(3.0, 2.0)`.
+    ///
+    /// The default value is `(2.0, 2.0)`.
     pub minor_grid_spacing: GraphPoint<f64>,
 }
 
+/// The default options for a graph. Returns a [`GraphOptions`] with the following values:
+///
+/// - [`canvas_size`](GraphOptions::canvas_size): `(1000, 1000)`
+/// - [`center`](GraphOptions::center): `(0.0, 0.0)`
+/// - [`scale`](GraphOptions::scale): `(10.0, 10.0)`
+/// - [`minor_grid_spacing`](GraphOptions::minor_grid_spacing): `(2.0, 2.0)`
 impl Default for GraphOptions {
     fn default() -> GraphOptions {
         GraphOptions {

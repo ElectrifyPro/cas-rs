@@ -103,3 +103,66 @@ impl GraphOptions {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::graph::round_to;
+    use super::*;
+
+    /// Test the conversion functions from canvas to graph space.
+    #[test]
+    fn canvas_to_graph() {
+        let options = GraphOptions {
+            canvas_size: CanvasPoint(465, 917),
+            center: GraphPoint(-3.0, 2.41),
+            scale: GraphPoint(3.59, 5.69),
+            minor_grid_spacing: GraphPoint(2.0, 2.0),
+        };
+
+        assert_eq!(
+            options.x_to_graph(0.0),
+            options.center.0 - options.scale.0,
+        );
+        assert_eq!(
+            options.x_to_graph(options.canvas_size.0 as f64),
+            options.center.0 + options.scale.0,
+        );
+        assert_eq!(
+            options.y_to_graph(0.0),
+            options.center.1 + options.scale.1,
+        );
+        assert_eq!(
+            options.y_to_graph(options.canvas_size.1 as f64),
+            options.center.1 - options.scale.1,
+        );
+    }
+
+    /// Test the conversion functions from graph to canvas space.
+    #[test]
+    fn graph_to_canvas() {
+        let options = GraphOptions {
+            canvas_size: CanvasPoint(465, 917),
+            center: GraphPoint(-3.0, 2.41),
+            scale: GraphPoint(3.59, 5.69),
+            minor_grid_spacing: GraphPoint(2.0, 2.0),
+        };
+
+        assert_eq!(
+            options.x_to_canvas(options.center.0 - options.scale.0),
+            0.0,
+        );
+        assert_eq!(
+            options.x_to_canvas(options.center.0 + options.scale.0),
+            options.canvas_size.0 as f64,
+        );
+        // precision is wonky with this one
+        assert_eq!(
+            round_to(options.y_to_canvas(options.center.1 + options.scale.1), 1e-6),
+            0.0,
+        );
+        assert_eq!(
+            options.y_to_canvas(options.center.1 - options.scale.1),
+            options.canvas_size.1 as f64,
+        );
+    }
+}

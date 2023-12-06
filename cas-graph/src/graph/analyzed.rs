@@ -1,37 +1,50 @@
 use cas_parser::parser::{ast::{binary::Binary, expr::Expr, literal::Literal}, token::op::{BinOp, BinOpKind}};
 use std::collections::HashSet;
 
-/// Predicts the independent variable of the given expression.
-pub fn predict_independent(expr: &Expr) -> Variable {
-    if let Expr::Binary(Binary {
+/// Predicts and extracts the independent variable from the given expression.
+pub fn predict_independent(expr: Expr) -> (Variable, Expr) {
+    let expr = if let Expr::Binary(Binary {
         lhs,
         op: BinOp {
             kind: BinOpKind::Eq,
-            ..
+            implicit,
+            span: op_span,
         },
         rhs,
-        ..
+        span,
     }) = expr {
         // variable by itself on left-hand-side: y=..., x=..., etc.
         // could indicate: y=x^2, x=y^2, etc.
         if let Expr::Literal(Literal::Symbol(sym)) = lhs.as_ref() {
             return match sym.name.as_str() {
-                "x" => Variable::Y,
-                "y" => Variable::X,
+                "x" => (Variable::Y, *rhs),
+                "y" => (Variable::X, *rhs),
                 "theta" => todo!("polar coordinates"),
                 _ => todo!("unknown special variable"),
             };
-        } else if let Expr::Literal(Literal::Symbol(sym)) = rhs.as_ref() { // TODO: please stablize let chains!
+        } else if let Expr::Literal(Literal::Symbol(sym)) = rhs.as_ref() {
             return match sym.name.as_str() {
-                "x" => Variable::Y,
-                "y" => Variable::X,
+                "x" => (Variable::Y, *lhs),
+                "y" => (Variable::X, *lhs),
                 "theta" => todo!("polar coordinates"),
                 _ => todo!("unknown special variable"),
             };
         }
 
-        // fall back to basic symbol counting
-    }
+        // recreate the binary to allow fallling back to basic symbol counting
+        Expr::Binary(Binary {
+            lhs,
+            op: BinOp {
+                kind: BinOpKind::Eq,
+                implicit,
+                span: op_span,
+            },
+            rhs,
+            span,
+        })
+    } else {
+        expr
+    };
 
     let vars = expr.post_order_iter()
         .filter_map(|node| match node {
@@ -46,7 +59,7 @@ pub fn predict_independent(expr: &Expr) -> Variable {
         .collect::<HashSet<_>>();
 
     if vars.len() == 1 {
-        vars.into_iter().next().unwrap()
+        (vars.into_iter().next().unwrap(), expr)
     } else {
         todo!("multiple special variables")
     }
@@ -84,10 +97,7 @@ pub struct AnalyzedExpr {
 impl AnalyzedExpr {
     /// Analyze the given expression and return a new [`AnalyzedExpr`].
     pub fn new(expr: Expr) -> Self {
-        let independent = predict_independent(&expr);
-        Self {
-            expr,
-            independent,
-        }
+        let (independent, expr) = predict_independent(expr);
+        Self { expr, independent }
     }
 }

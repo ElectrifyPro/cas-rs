@@ -49,14 +49,10 @@ impl ToTokens for Type {
     }
 }
 
-/// The trigonometric unit that a parameter should be in, in order to work with the `rug` crate's
-/// built-in trigonometric functions.
+/// A trigonometric unit.
 #[derive(Clone, Copy, Debug)]
 pub enum Unit {
-    /// The parameter should be in radians.
     Radians,
-
-    /// The parameter should be in degrees.
     Degrees,
 }
 
@@ -305,7 +301,7 @@ impl Parse for Args {
             }
         }
 
-        if input.parse::<Token![;]>().is_ok() {
+        if input.parse::<Token![->]>().is_ok() {
             args.unit = input.parse::<Unit>().ok();
         }
 

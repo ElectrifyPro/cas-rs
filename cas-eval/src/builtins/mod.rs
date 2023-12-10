@@ -101,37 +101,37 @@ pub fn cot(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.tan().recip()))
 }
 
-#[args(n: Complex; radians)]
+#[args(n: Complex -> radians)]
 pub fn asin(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.asin()))
 }
 
-#[args(n: Complex; radians)]
+#[args(n: Complex -> radians)]
 pub fn acos(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.acos()))
 }
 
-#[args(n: Complex; radians)]
+#[args(n: Complex -> radians)]
 pub fn atan(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.atan()))
 }
 
-#[args(n: Complex; radians)]
+#[args(n: Complex -> radians)]
 pub fn acsc(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().asin()))
 }
 
-#[args(n: Complex; radians)]
+#[args(n: Complex -> radians)]
 pub fn asec(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().acos()))
 }
 
-#[args(n: Complex; radians)]
+#[args(n: Complex -> radians)]
 pub fn acot(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().atan()))
 }
 
-#[args(y: Number, x: Number; radians)]
+#[args(y: Number, x: Number -> radians)]
 pub fn atan2(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Number(y.atan2(&x)))
 }

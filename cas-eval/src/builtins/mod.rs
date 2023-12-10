@@ -447,7 +447,7 @@ pub fn gamma(_: &Ctxt, args: &[Value]) -> Result {
 
 #[args(v1: Complex, v2: Complex, t: Number)]
 pub fn lerp(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Complex(&v1 + complex(&v2 - &v1) * t))
+    Ok(Complex(&v1 + (v2 - &v1) * t))
 }
 
 #[args(v1: Number, v2: Number, v: Number)]

@@ -132,6 +132,11 @@ impl Ctxt {
         self.vars.get(name).cloned()
     }
 
+    /// Returns the variables in the context.
+    pub fn get_vars(&self) -> &HashMap<String, Value> {
+        &self.vars
+    }
+
     /// Add a function to the context.
     pub fn add_func(&mut self, header: FuncHeader, body: Expr, recursive: bool) {
         self.funcs.insert(header.name.name.clone(), Func { header, body, recursive });
@@ -140,6 +145,11 @@ impl Ctxt {
     /// Get the header and body of a function in the context.
     pub fn get_func(&self, name: &str) -> Option<&Func> {
         self.funcs.get(name)
+    }
+
+    /// Returns the functions in the context.
+    pub fn get_funcs(&self) -> &HashMap<String, Func> {
+        &self.funcs
     }
 
     /// Returns all functions in the context with a name similar to the given name.

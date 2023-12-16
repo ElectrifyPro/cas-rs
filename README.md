@@ -314,6 +314,31 @@ lcm(a, b) = {
 }
 ```
 
+## Unit type
+
+The unit type `()` is a special type that has only one value, also called `()`. It is used to indicate that a value is not particularly useful, and is the return type of functions that don't manually return anything.
+
+Adding a semicolon to the end of an expression will discard the value of that expression and return `()` instead.
+
+Using most operators with `()` will result in an evaluation error, with the exception of comparison-based operators, such as `==`, `!=`, `>`, `<`, etc. This can be useful for checking if a function call succeeded or not:
+
+```
+quadratic_formula(a, b, c, plus = true) = {
+    discriminant = b^2 - 4 a c;
+    if discriminant >= 0 then {
+        left = -b / (2a);
+        right = sqrt(discriminant) / (2a);
+        if plus then left + right else left - right
+    }
+};
+
+if quadratic_formula(1, 2, 3) == () then {
+    // has no real roots
+} else {
+    // has real roots
+}
+```
+
 # Acknowledgements
 
 - Arbitrary precision arithmetic is implemented using the [`rug`](https://gitlab.com/tspiteri/rug) crate.

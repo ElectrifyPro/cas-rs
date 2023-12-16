@@ -122,6 +122,32 @@ fn eval_bool_operands(
     })
 }
 
+/// Evaluates a binary expression with two unit type operands.
+fn eval_unit_operands(
+    op: BinOpKind,
+    implicit: bool,
+    left: Value,
+    right: Value,
+) -> Result<Value, EvalError> {
+    let typename = left.typename();
+    let (Value::Unit, Value::Unit) = (left, right) else {
+        unreachable!()
+    };
+    Ok(match op {
+        BinOpKind::Eq | BinOpKind::ApproxEq => Value::Boolean(true),
+        BinOpKind::NotEq | BinOpKind::ApproxNotEq | BinOpKind::Greater | BinOpKind::GreaterEq
+            | BinOpKind::Less | BinOpKind::LessEq => Value::Boolean(false),
+        BinOpKind::Exp | BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod | BinOpKind::Add
+            | BinOpKind::Sub | BinOpKind::BitRight | BinOpKind::BitLeft | BinOpKind::BitAnd
+            | BinOpKind::BitOr | BinOpKind::And | BinOpKind::Or => Err(InvalidBinaryOperation {
+                op,
+                implicit,
+                left: typename,
+                right: typename,
+            })?,
+    })
+}
+
 /// Evaluates the binary expression given the operator, and the left and right operands.
 pub(crate) fn eval_operands(
     op: BinOpKind,
@@ -139,6 +165,10 @@ pub(crate) fn eval_operands(
 
     if left.is_boolean() && right.is_boolean() {
         return eval_bool_operands(op, implicit, left, right);
+    }
+
+    if left.is_unit() && right.is_unit() {
+        return eval_unit_operands(op, implicit, left, right);
     }
 
     Err(InvalidBinaryOperation {

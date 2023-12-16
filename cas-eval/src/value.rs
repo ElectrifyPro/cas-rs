@@ -114,6 +114,11 @@ impl Value {
         matches!(self, Value::Boolean(_))
     }
 
+    /// Returns true if this value is a unit type.
+    pub fn is_unit(&self) -> bool {
+        matches!(self, Value::Unit)
+    }
+
     /// Returns true if this value is truthy.
     pub fn is_truthy(&self) -> bool {
         match self {

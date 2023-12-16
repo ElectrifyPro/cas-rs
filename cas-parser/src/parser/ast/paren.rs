@@ -54,24 +54,7 @@ impl<'source> Parse<'source> for Paren {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let open_paren = input.try_parse::<OpenParen>().forward_errors(recoverable_errors)?;
-        let expr = match input.try_parse::<Expr>().forward_errors(recoverable_errors) {
-            Ok(expr) => Ok(expr),
-            Err(errs) => {
-                if let Ok(close_paren) = input.try_parse::<CloseParen>().forward_errors(recoverable_errors) {
-                    recoverable_errors.push(Error::new(
-                        vec![open_paren.span.start..close_paren.span.end],
-                        kind::EmptyParenthesis,
-                    ));
-
-                    // return a fake expression for recovery purposes, and also so that we don't
-                    // try to parse the close paren again below (which would add an extraneous
-                    // error to the error list)
-                    return Garbage::garbage();
-                } else {
-                    Err(errs)
-                }
-            },
-        }?;
+        let expr = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
         let close_paren = input.try_parse::<CloseParen>()
             .forward_errors(recoverable_errors)
             .unwrap_or_else(|_| {

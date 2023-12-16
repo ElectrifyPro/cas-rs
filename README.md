@@ -138,21 +138,13 @@ Error: invalid digits in radix notation: `+`
 The parser always attempts to recover from syntax errors in order to be able to report as many errors as possible. For example, here's an example filled with syntax errors:
 
 ```
-> (        ) + f(8) = 1'999 )
-Error: missing expression inside parenthesis
-   ╭─[input:1:1]
-   │
- 1 │ (        ) + f(8) = 1'999 )
-   │ ─────┬────
-   │      ╰────── add an expression here
-───╯
-
+> () + f(8) = 1'999 )
 Error: invalid base in radix notation
-   ╭─[input:1:21]
+   ╭─[input:1:13]
    │
- 1 │ (        ) + f(8) = 1'999 )
-   │                     ┬
-   │                     ╰── this value is too small
+ 1 │ () + f(8) = 1'999 )
+   │             ┬
+   │             ╰── this value is too small
    │
    │ Help: the base must be between 2 and 64, inclusive
 ───╯
@@ -160,22 +152,21 @@ Error: invalid base in radix notation
 Error: invalid left-hand-side of assignment operator
    ╭─[input:1:1]
    │
- 1 │ (        ) + f(8) = 1'999 )
-   │ ────────┬──────── ┬
-   │         ╰──────────── (1) this expression should be a symbol or function header...
-   │                   │
-   │                   ╰── (2) ...to work with this assignment operator
+ 1 │ () + f(8) = 1'999 )
+   │ ────┬──── ┬
+   │     ╰──────── (1) this expression should be a symbol or function header...
+   │           │
+   │           ╰── (2) ...to work with this assignment operator
    │
    │ Help: maybe you meant to compare expressions with `==`?
 ───╯
 
 Error: expected end of file
-   ╭─[input:1:27]
+   ╭─[input:1:19]
    │
- 1 │ (        ) + f(8) = 1'999 )
-   │                           ┬
-   │                           ╰── I could not understand the remaining expression here
-───╯
+ 1 │ () + f(8) = 1'999 )
+   │                   ┬
+   │                   ╰── I could not understand the remaining expression here
 ```
 
 Admittedly, these are rather handpicked examples. However, it is a design goal to make the parser as helpful as possible, and this is a good start.
@@ -287,9 +278,7 @@ In the case of `if` / `else` statements, you often will not need to enclose cond
 my_abs(x) = if x < 0 then -x else x;
 quadratic_formula(a, b, c, plus = true) = {
     discriminant = b^2 - 4 a c;
-    if discriminant < 0 then {
-        f() = 0
-    } else {
+    if discriminant >= 0 then {
         left = -b / (2a);
         right = sqrt(discriminant) / (2a);
         if plus then left + right else left - right

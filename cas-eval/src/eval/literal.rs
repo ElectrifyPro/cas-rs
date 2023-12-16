@@ -16,6 +16,7 @@ impl Eval for Literal {
             Literal::Radix(radix) => Ok(Value::Number(float(from_str_radix(radix.value.as_str(), radix.base)))),
             Literal::Symbol(sym) => ctxt.get_var(sym.name.as_str())
                 .ok_or_else(|| Error::new(vec![sym.span.clone()], UndefinedVariable { name: sym.name.clone() })),
+            Literal::Unit(_) => Ok(Value::Unit),
         }
     }
 }

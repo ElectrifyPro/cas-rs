@@ -2,7 +2,7 @@ use crate::{
     parser::{
         error::{kind, Error},
         fmt::Latex,
-        token::{Float, Name, Int, Quote},
+        token::{CloseParen, Float, Name, Int, OpenParen, Quote},
         Parse,
         Parser,
         ParseResult,
@@ -294,6 +294,40 @@ impl Latex for LitSym {
     }
 }
 
+/// The unit type, written as `()`. The unit type is by-default returned by functions that do not
+/// return a value.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct LitUnit {
+    /// The region of the source code that this literal was parsed from.
+    pub span: Range<usize>,
+}
+
+impl<'source> Parse<'source> for LitUnit {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let open = input.try_parse::<OpenParen>().forward_errors(recoverable_errors)?;
+        let close = input.try_parse::<CloseParen>().forward_errors(recoverable_errors)?;
+        Ok(Self {
+            span: open.span.start..close.span.end,
+        })
+    }
+}
+
+impl std::fmt::Display for LitUnit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "()")
+    }
+}
+
+impl Latex for LitUnit {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "()")
+    }
+}
+
 /// Represents a literal value in CalcScript.
 ///
 /// A literal is any value that can is written directly into the source code. For example, the
@@ -313,6 +347,10 @@ pub enum Literal {
 
     /// A symbol / identifier literal. Symbols are used to represent variables and functions.
     Symbol(LitSym),
+
+    /// The unit type, written as `()`. The unit type is by-default returned by functions that do
+    /// not return a value.
+    Unit(LitUnit),
 }
 
 impl Literal {
@@ -323,6 +361,7 @@ impl Literal {
             Literal::Float(float) => float.span.clone(),
             Literal::Radix(radix) => radix.span.clone(),
             Literal::Symbol(name) => name.span.clone(),
+            Literal::Unit(unit) => unit.span.clone(),
         }
     }
 }
@@ -335,7 +374,8 @@ impl<'source> Parse<'source> for Literal {
         let _ = return_if_ok!(input.try_parse::<LitRadix>().map(Literal::Radix).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse::<LitInt>().map(Literal::Integer).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse::<LitFloat>().map(Literal::Float).forward_errors(recoverable_errors));
-        input.try_parse::<LitSym>().map(Literal::Symbol).forward_errors(recoverable_errors)
+        let _ = return_if_ok!(input.try_parse::<LitSym>().map(Literal::Symbol).forward_errors(recoverable_errors));
+        input.try_parse::<LitUnit>().map(Literal::Unit).forward_errors(recoverable_errors)
     }
 }
 
@@ -346,6 +386,7 @@ impl std::fmt::Display for Literal {
             Literal::Float(float) => float.fmt(f),
             Literal::Radix(radix) => radix.fmt(f),
             Literal::Symbol(name) => name.fmt(f),
+            Literal::Unit(unit) => unit.fmt(f),
         }
     }
 }
@@ -357,6 +398,7 @@ impl Latex for Literal {
             Literal::Float(float) => float.fmt_latex(f),
             Literal::Radix(radix) => radix.fmt_latex(f),
             Literal::Symbol(name) => name.fmt_latex(f),
+            Literal::Unit(unit) => unit.fmt_latex(f),
         }
     }
 }

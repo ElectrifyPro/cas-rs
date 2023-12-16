@@ -187,14 +187,6 @@ pub struct UnclosedParenthesis {
     pub opening: bool,
 }
 
-/// There was no expression inside a pair of parentheses.
-#[derive(Debug, Clone, ErrorKind, PartialEq)]
-#[error(
-    message = "missing expression inside parenthesis",
-    labels = ["add an expression here"],
-)]
-pub struct EmptyParenthesis;
-
 /// The left-hand-side of an assignment was not a valid symbol or function header.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

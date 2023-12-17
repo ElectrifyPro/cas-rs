@@ -32,11 +32,14 @@
 //! rendered to a PNG file.
 //!
 //! ```no_run
-//! use cas_graph::Graph;
+//! use cas_graph::{Graph, GraphOptions};
 //! use std::fs::File;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let surface = Graph::default()
+//! let surface = Graph::with_opts(GraphOptions {
+//!         square_scale: true, // scale the x- and y-axes together, looks nicer in my opinion
+//!         ..Default::default()
+//!     })
 //!     .try_add_expr("y == 0.8214285714x^2 + 4.3785714286x + 7").unwrap()
 //! //  .try_add_expr("0.8214285714x^2 + 4.3785714286x + 7").unwrap() // "y==" can be omitted
 //!     .add_point((-5.0, 5.0))

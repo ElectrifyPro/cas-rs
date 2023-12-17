@@ -244,20 +244,31 @@ impl Graph {
         &self,
         context: &Context,
     ) -> Result<(), Error> {
+        let num_extra_minor_spaces = 4;
         context.set_source_rgb(0.4, 0.4, 0.4);
-        context.set_line_width(2.0);
 
         // vertical grid lines (x = ...)
+        let mut count = 0;
         let vert_bounds = (
-            round_to(self.options.center.0 - self.options.scale.0, self.options.minor_grid_spacing.0),
-            round_to(self.options.center.0 + self.options.scale.0, self.options.minor_grid_spacing.0),
+            round_to(self.options.center.0 - self.options.scale.0, self.options.minor_grid_spacing.0) - self.options.minor_grid_spacing.0,
+            round_to(self.options.center.0 + self.options.scale.0, self.options.minor_grid_spacing.0) + self.options.minor_grid_spacing.0,
         );
         let mut x = vert_bounds.0;
         while x <= vert_bounds.1 {
+            if count == 0 {
+                // minor line
+                context.set_line_width(2.0);
+            } else {
+                // even more minor line
+                context.set_line_width(1.0);
+            }
+
+            count = (count + 1) % num_extra_minor_spaces;
+
             // is this grid line within the canvas bounds?
             let x_canvas = self.options.x_to_canvas(x);
             if x_canvas < 0.0 || x_canvas > self.options.canvas_size.0 as f64 {
-                x += self.options.minor_grid_spacing.0;
+                x += self.options.minor_grid_spacing.0 / num_extra_minor_spaces as f64;
                 continue;
             }
 
@@ -265,19 +276,28 @@ impl Graph {
             context.line_to(x_canvas, self.options.canvas_size.1 as f64);
             context.stroke()?;
 
-            x += self.options.minor_grid_spacing.0;
+            x += self.options.minor_grid_spacing.0 / num_extra_minor_spaces as f64;
         }
 
         // horizontal grid lines (y = ...)
+        let mut count = 0;
         let hor_bounds = (
-            round_to(self.options.center.1 - self.options.scale.1, self.options.minor_grid_spacing.1),
-            round_to(self.options.center.1 + self.options.scale.1, self.options.minor_grid_spacing.1),
+            round_to(self.options.center.1 - self.options.scale.1, self.options.minor_grid_spacing.1) - self.options.minor_grid_spacing.1,
+            round_to(self.options.center.1 + self.options.scale.1, self.options.minor_grid_spacing.1) + self.options.minor_grid_spacing.1,
         );
         let mut y = hor_bounds.0;
         while y <= hor_bounds.1 {
+            if count == 0 {
+                context.set_line_width(2.0);
+            } else {
+                context.set_line_width(1.0);
+            }
+
+            count = (count + 1) % num_extra_minor_spaces;
+
             let y_canvas = self.options.y_to_canvas(y);
             if y_canvas < 0.0 || y_canvas > self.options.canvas_size.1 as f64 {
-                y += self.options.minor_grid_spacing.1;
+                y += self.options.minor_grid_spacing.1 / num_extra_minor_spaces as f64;
                 continue;
             }
 
@@ -285,7 +305,7 @@ impl Graph {
             context.line_to(self.options.canvas_size.0 as f64, y_canvas);
             context.stroke()?;
 
-            y += self.options.minor_grid_spacing.1;
+            y += self.options.minor_grid_spacing.1 / num_extra_minor_spaces as f64;
         }
 
         Ok(())

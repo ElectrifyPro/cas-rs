@@ -91,6 +91,40 @@ fn round_to(n: f64, k: f64) -> f64 {
     (n / k).round() * k
 }
 
+/// Choose a minor grid spacing for the given scale of an axis.
+///
+/// Returns a 2-tuple where the first element is the minor grid spacing for the axis, and the
+/// second is the minor grid divisions for the axis.
+fn choose_minor_grid_spacing(mut scale: f64) -> (f64, u8) {
+    scale = scale / 4.0;
+
+    // to make the grid lines look nice and easier to read,
+    // only choose the closest scale:
+    if scale >= 1.0 {
+        // whose first digit is 1, 2, or 5
+        let num_digits = scale.log10().floor() as i32;
+        let scientific = scale / 10.0_f64.powi(num_digits);
+        if scientific >= 2.5 {
+            (5.0 * 10.0_f64.powi(num_digits), 5)
+        } else if scientific >= 1.25 {
+            (2.0 * 10.0_f64.powi(num_digits), 4)
+        } else {
+            (10.0_f64.powi(num_digits), 4)
+        }
+    } else {
+        // whose last decimal digit is 1, 2, or 5
+        let num_digits = -scale.log10().ceil() as i32 + 1;
+        let scientific = scale * 10.0_f64.powi(num_digits);
+        if scientific >= 0.25 {
+            (5.0 * 10.0_f64.powi(-num_digits), 5)
+        } else if scientific >= 0.125 {
+            (2.0 * 10.0_f64.powi(-num_digits), 4)
+        } else {
+            (10.0_f64.powi(-num_digits), 4)
+        }
+    }
+}
+
 /// A graph containing expressions and points to draw.
 ///
 /// See the [module-level documentation](self) for more information.
@@ -161,50 +195,49 @@ impl Graph {
             sum.1 / self.points.len() as f64,
         );
 
-        // find the point furthest from the center and scale so that is is visible
-        let mut max_dist = 0.0;
-        for point in self.points.iter() {
-            let dist = point.coordinates.distance(self.options.center);
-            if dist > max_dist {
-                max_dist = dist;
+        if self.options.square_scale {
+            // find the point furthest from the center and scale so that is is visible
+            let mut max_dist = 0.0;
+            for point in self.points.iter() {
+                let dist = point.coordinates.distance(self.options.center);
+                if dist > max_dist {
+                    max_dist = dist;
+                }
             }
+            self.options.scale = GraphPoint(
+                max_dist * 1.5,
+                max_dist * 1.5,
+            );
+        } else {
+            // find the point furthest from the center in each direction and scale so that is is
+            // visible
+            let mut max_dist_x = 0.0;
+            let mut max_dist_y = 0.0;
+            for point in self.points.iter() {
+                let dist_x = (point.coordinates.0 - self.options.center.0).abs();
+                let dist_y = (point.coordinates.1 - self.options.center.1).abs();
+                if dist_x > max_dist_x {
+                    max_dist_x = dist_x;
+                }
+                if dist_y > max_dist_y {
+                    max_dist_y = dist_y;
+                }
+            }
+            self.options.scale = GraphPoint(
+                max_dist_x * 1.5,
+                max_dist_y * 1.5,
+            );
         }
-        self.options.scale = GraphPoint(
-            max_dist * 1.5,
-            max_dist * 1.5,
-        );
 
-        // choose a minor grid spacing
-        let normalize = |n: f64| {
-            // to make the grid lines look nice and easier to read,
-            // only choose the closest scale:
-            if n >= 1.0 {
-                // whose first digit is 1, 2, or 5
-                let num_digits = n.log10().floor() as i32;
-                let scientific = n / 10.0_f64.powi(num_digits);
-                if scientific >= 2.5 {
-                    5.0 * 10.0_f64.powi(num_digits)
-                } else if scientific >= 1.25 {
-                    2.0 * 10.0_f64.powi(num_digits)
-                } else {
-                    10.0_f64.powi(num_digits)
-                }
-            } else {
-                // whose last decimal digit is 1, 2, or 5
-                let num_digits = -n.log10().ceil() as i32 + 1;
-                let scientific = n * 10.0_f64.powi(num_digits);
-                if scientific >= 0.25 {
-                    5.0 * 10.0_f64.powi(-num_digits)
-                } else if scientific >= 0.125 {
-                    2.0 * 10.0_f64.powi(-num_digits)
-                } else {
-                    10.0_f64.powi(-num_digits)
-                }
-            }
-        };
+        let (minor_grid_spacing_x, minor_grid_divisions_x) = choose_minor_grid_spacing(self.options.scale.0);
+        let (minor_grid_spacing_y, minor_grid_divisions_y) = choose_minor_grid_spacing(self.options.scale.1);
         self.options.minor_grid_spacing = GraphPoint(
-            normalize(self.options.scale.0 / 4.0),
-            normalize(self.options.scale.1 / 4.0),
+            minor_grid_spacing_x,
+            minor_grid_spacing_y,
+        );
+        self.options.minor_grid_divisions = (
+            minor_grid_divisions_x,
+            minor_grid_divisions_y,
         );
 
         self
@@ -244,7 +277,6 @@ impl Graph {
         &self,
         context: &Context,
     ) -> Result<(), Error> {
-        let num_extra_minor_spaces = 4;
         context.set_source_rgb(0.4, 0.4, 0.4);
 
         // vertical grid lines (x = ...)
@@ -263,12 +295,12 @@ impl Graph {
                 context.set_line_width(1.0);
             }
 
-            count = (count + 1) % num_extra_minor_spaces;
+            count = (count + 1) % self.options.minor_grid_divisions.0;
 
             // is this grid line within the canvas bounds?
             let x_canvas = self.options.x_to_canvas(x);
             if x_canvas < 0.0 || x_canvas > self.options.canvas_size.0 as f64 {
-                x += self.options.minor_grid_spacing.0 / num_extra_minor_spaces as f64;
+                x += self.options.minor_grid_spacing.0 / self.options.minor_grid_divisions.0 as f64;
                 continue;
             }
 
@@ -276,7 +308,7 @@ impl Graph {
             context.line_to(x_canvas, self.options.canvas_size.1 as f64);
             context.stroke()?;
 
-            x += self.options.minor_grid_spacing.0 / num_extra_minor_spaces as f64;
+            x += self.options.minor_grid_spacing.0 / self.options.minor_grid_divisions.0 as f64;
         }
 
         // horizontal grid lines (y = ...)
@@ -293,11 +325,11 @@ impl Graph {
                 context.set_line_width(1.0);
             }
 
-            count = (count + 1) % num_extra_minor_spaces;
+            count = (count + 1) % self.options.minor_grid_divisions.1;
 
             let y_canvas = self.options.y_to_canvas(y);
             if y_canvas < 0.0 || y_canvas > self.options.canvas_size.1 as f64 {
-                y += self.options.minor_grid_spacing.1 / num_extra_minor_spaces as f64;
+                y += self.options.minor_grid_spacing.1 / self.options.minor_grid_divisions.1 as f64;
                 continue;
             }
 
@@ -305,7 +337,7 @@ impl Graph {
             context.line_to(self.options.canvas_size.0 as f64, y_canvas);
             context.stroke()?;
 
-            y += self.options.minor_grid_spacing.1 / num_extra_minor_spaces as f64;
+            y += self.options.minor_grid_spacing.1 / self.options.minor_grid_divisions.1 as f64;
         }
 
         Ok(())

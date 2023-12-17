@@ -26,6 +26,12 @@ pub struct GraphOptions {
     /// The default value is `(10.0, 10.0)`.
     pub scale: GraphPoint<f64>,
 
+    /// When calling [`Graph::center_on_points`], determines whether to scale the x- and y-axes
+    /// together (resulting in a square graph) or independently (resulting in a rectangular graph).
+    ///
+    /// The default value is `false`.
+    pub square_scale: bool,
+
     /// The number of graph units between each minor grid line, given as a pair of `(x, y)` units.
     ///
     /// For example, to have a minor grid line every `3.0` units on the x-axis and every `2.0` units
@@ -33,6 +39,15 @@ pub struct GraphOptions {
     ///
     /// The default value is `(2.0, 2.0)`.
     pub minor_grid_spacing: GraphPoint<f64>,
+
+    /// The number of spaces to divide each minor grid line into, given as a pair of `(x, y)`
+    /// units.
+    ///
+    /// For example, to divide each minor grid line into `5` spaces on the x-axis and `4` spaces on
+    /// the y-axis, set this to `(5, 4)`.
+    ///
+    /// The default value is `(1, 1)`.
+    pub minor_grid_divisions: (u8, u8),
 }
 
 /// The default options for a graph. Returns a [`GraphOptions`] with the following values:
@@ -47,7 +62,9 @@ impl Default for GraphOptions {
             canvas_size: CanvasPoint(1000, 1000),
             center: GraphPoint(0.0, 0.0),
             scale: GraphPoint(10.0, 10.0),
+            square_scale: false,
             minor_grid_spacing: GraphPoint(2.0, 2.0),
+            minor_grid_divisions: (1, 1),
         }
     }
 }
@@ -132,7 +149,7 @@ mod tests {
             canvas_size: CanvasPoint(465, 917),
             center: GraphPoint(-3.0, 2.41),
             scale: GraphPoint(3.59, 5.69),
-            minor_grid_spacing: GraphPoint(2.0, 2.0),
+            ..Default::default()
         };
 
         assert_eq!(
@@ -160,7 +177,7 @@ mod tests {
             canvas_size: CanvasPoint(465, 917),
             center: GraphPoint(-3.0, 2.41),
             scale: GraphPoint(3.59, 5.69),
-            minor_grid_spacing: GraphPoint(2.0, 2.0),
+            ..Default::default()
         };
 
         assert_eq!(

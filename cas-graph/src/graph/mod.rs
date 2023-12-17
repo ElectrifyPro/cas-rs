@@ -174,6 +174,39 @@ impl Graph {
             max_dist * 1.5,
         );
 
+        // choose a minor grid spacing
+        let normalize = |n: f64| {
+            // to make the grid lines look nice and easier to read,
+            // only choose the closest scale:
+            if n >= 1.0 {
+                // whose first digit is 1, 2, or 5
+                let num_digits = n.log10().floor() as i32;
+                let scientific = n / 10.0_f64.powi(num_digits);
+                if scientific >= 2.5 {
+                    5.0 * 10.0_f64.powi(num_digits)
+                } else if scientific >= 1.25 {
+                    2.0 * 10.0_f64.powi(num_digits)
+                } else {
+                    10.0_f64.powi(num_digits)
+                }
+            } else {
+                // whose last decimal digit is 1, 2, or 5
+                let num_digits = -n.log10().ceil() as i32 + 1;
+                let scientific = n * 10.0_f64.powi(num_digits);
+                if scientific >= 0.25 {
+                    5.0 * 10.0_f64.powi(-num_digits)
+                } else if scientific >= 0.125 {
+                    2.0 * 10.0_f64.powi(-num_digits)
+                } else {
+                    10.0_f64.powi(-num_digits)
+                }
+            }
+        };
+        self.options.minor_grid_spacing = GraphPoint(
+            normalize(self.options.scale.0 / 4.0),
+            normalize(self.options.scale.1 / 4.0),
+        );
+
         self
     }
 
@@ -279,6 +312,7 @@ impl Graph {
         let mut x = vert_bounds.0;
         while x <= vert_bounds.1 {
             // skip 0.0, as the origin axes will be drawn later
+            // this can be missed if floating point
             if x == 0.0 {
                 x += self.options.minor_grid_spacing.0;
                 continue;
@@ -293,6 +327,13 @@ impl Graph {
 
             let x_value_str_raw = format!("{:.3}", x);
             let x_value_str = x_value_str_raw.trim_end_matches('0').trim_end_matches('.');
+
+            // last check for 0.0
+            if x_value_str == "0" || x_value_str == "-0" {
+                x += self.options.minor_grid_spacing.0;
+                continue;
+            }
+
             let x_value_extents = context.text_extents(x_value_str)?;
 
             // will this grid line number collide with the left / right edge labels?
@@ -335,6 +376,12 @@ impl Graph {
 
             let y_value_str_raw = format!("{:.3}", y);
             let y_value_str = y_value_str_raw.trim_end_matches('0').trim_end_matches('.');
+
+            if y_value_str == "0" || y_value_str == "-0" {
+                y += self.options.minor_grid_spacing.0;
+                continue;
+            }
+
             let y_value_extents = context.text_extents(y_value_str)?;
 
             let text_top_bound = y_canvas - y_value_extents.height() / 2.0;

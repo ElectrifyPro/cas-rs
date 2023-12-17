@@ -185,6 +185,19 @@ impl Graph {
     ///
     /// Returns a mutable reference to the graph to allow chaining.
     pub fn center_on_points(&mut self) -> &mut Self {
+        if self.points.is_empty() {
+            return self;
+        } else if self.points.len() == 1 {
+            self.options.center = self.points[0].coordinates;
+            self.options = GraphOptions {
+                canvas_size: self.options.canvas_size,
+                center: self.points[0].coordinates,
+                square_scale: self.options.square_scale,
+                ..Default::default()
+            };
+            return self;
+        }
+
         let mut sum = GraphPoint(0.0, 0.0);
 
         // find the average of the points and center on that

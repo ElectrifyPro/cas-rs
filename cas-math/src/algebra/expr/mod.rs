@@ -951,4 +951,19 @@ mod tests {
             ]),
         ]));
     }
+
+    #[test]
+    fn fmt_expr() {
+        let expr = parse_expr("8a^73b sqrt(2634*a*b)");
+
+        // the order switches around a bit because of the way we're traversing the tree
+        // but the output is still semantically correct
+        assert_eq!(expr.to_string(), "sqrt(b * a * 2634) * b * a^73 * 8");
+    }
+
+    #[test]
+    fn fmt_expr_2() {
+        let expr = parse_expr("(((((((((a) b) c) d) e + f) g) h) i) j)");
+        assert_eq!(expr.to_string(), "j * i * h * g * (f + e * d * c * b * a)");
+    }
 }

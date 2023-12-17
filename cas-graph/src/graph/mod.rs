@@ -66,7 +66,7 @@ use analyzed::AnalyzedExpr;
 use cairo::{Context, Error, FontSlant, Format, ImageSurface, FontWeight, TextExtents};
 use cas_parser::parser::{ast::expr::Expr, Parser};
 use eval::evaluate_expr;
-pub use point::{CanvasPoint, GraphPoint};
+pub use point::{CanvasPoint, GraphPoint, Point};
 use rayon::prelude::*;
 use super::text_align::ShowTextAlign;
 pub use opts::GraphOptions;
@@ -100,7 +100,7 @@ pub struct Graph {
     pub expressions: Vec<AnalyzedExpr>,
 
     /// The points to draw.
-    pub points: Vec<GraphPoint<f64>>,
+    pub points: Vec<Point<f64>>,
 
     /// The rendering options for the graph.
     pub options: GraphOptions,
@@ -139,7 +139,7 @@ impl Graph {
     /// Add a point to the graph.
     ///
     /// Returns a mutable reference to the graph to allow chaining.
-    pub fn add_point(&mut self, point: impl Into<GraphPoint<f64>>) -> &mut Self {
+    pub fn add_point(&mut self, point: impl Into<Point<f64>>) -> &mut Self {
         self.points.push(point.into());
         self
     }
@@ -152,8 +152,8 @@ impl Graph {
 
         // find the average of the points and center on that
         for point in self.points.iter() {
-            sum.0 += point.0;
-            sum.1 += point.1;
+            sum.0 += point.coordinates.0;
+            sum.1 += point.coordinates.1;
         }
 
         self.options.center = GraphPoint(
@@ -164,7 +164,7 @@ impl Graph {
         // find the point furthest from the center and scale so that is is visible
         let mut max_dist = 0.0;
         for point in self.points.iter() {
-            let dist = (point.0 - self.options.center.0).hypot(point.1 - self.options.center.1);
+            let dist = point.coordinates.distance(self.options.center);
             if dist > max_dist {
                 max_dist = dist;
             }
@@ -466,28 +466,38 @@ impl Graph {
         &self,
         context: &Context,
     ) -> Result<(), Error> {
-        context.set_source_rgb(1.0, 0.0, 0.0);
         context.set_font_size(30.0);
 
         for point in self.points.iter() {
-            let canvas = self.options.to_canvas(*point);
+            context.set_source_rgb(point.color.0, point.color.1, point.color.2);
+
+            let canvas = self.options.to_canvas(point.coordinates);
             context.arc(canvas.0, canvas.1, 10.0, 0.0, 2.0 * std::f64::consts::PI);
             context.fill()?;
 
-            // draw the point's coordinates
-            let point_value = (
-                format!("{:.3}", point.0),
-                format!("{:.3}", point.1),
-            );
-            context.show_text_align(
-                &format!(
-                    "({}, {})",
-                    point_value.0.trim_end_matches('0').trim_end_matches('.'),
-                    point_value.1.trim_end_matches('0').trim_end_matches('.')
-                ),
-                (canvas.0, canvas.1),
-                (-0.1, -0.1),
-            )?;
+            if let Some(label) = &point.label {
+                // draw the point's label
+                context.show_text_align(
+                    label,
+                    (canvas.0, canvas.1),
+                    (-0.1, -0.1),
+                )?;
+            } else {
+                // draw the point's coordinates
+                let point_value = (
+                    format!("{:.3}", point.coordinates.0),
+                    format!("{:.3}", point.coordinates.1),
+                );
+                context.show_text_align(
+                    &format!(
+                        "({}, {})",
+                        point_value.0.trim_end_matches('0').trim_end_matches('.'),
+                        point_value.1.trim_end_matches('0').trim_end_matches('.')
+                    ),
+                    (canvas.0, canvas.1),
+                    (-0.1, -0.1),
+                )?;
+            }
         }
 
         Ok(())

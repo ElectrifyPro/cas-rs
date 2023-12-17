@@ -54,11 +54,11 @@ mod iter;
 use cas_eval::{funcs::from_str_radix, consts::{float_from_str, int, int_from_str}};
 use cas_parser::parser::{
     ast::{expr::Expr as AstExpr, literal::Literal},
-    token::op::{BinOpKind, UnaryOpKind},
+    token::op::{BinOpKind, Precedence, UnaryOpKind},
 };
 use iter::ExprIter;
 use rug::{Float, Integer};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg};
+use std::{cmp::Ordering, ops::{Add, AddAssign, Mul, MulAssign, Neg}};
 use super::simplify::fraction::make_fraction;
 
 /// A single term / factor, such as a number, variable, or function call.
@@ -90,6 +90,27 @@ impl std::hash::Hash for Primary {
             Self::Call(name, args) => {
                 name.hash(state);
                 args.hash(state);
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for Primary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Integer(num) => write!(f, "{}", num.to_f64()),
+            Self::Float(num) => write!(f, "{}", num.to_f64()),
+            Self::Symbol(sym) => write!(f, "{}", sym),
+            Self::Call(name, args) => {
+                write!(f, "{}(", name)?;
+                let mut iter = args.iter();
+                if let Some(arg) = iter.next() {
+                    write!(f, "{}", arg)?;
+                    for arg in iter {
+                        write!(f, ", {}", arg)?;
+                    }
+                }
+                write!(f, ")")
             },
         }
     }
@@ -173,7 +194,100 @@ pub enum Expr {
     Exp(Box<Expr>, Box<Expr>),
 }
 
+impl std::fmt::Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Primary(primary) => write!(f, "{}", primary),
+            Self::Add(terms) => {
+                let mut iter = terms.iter();
+                if let Some(term) = iter.next() {
+                    write!(f, "{}", term)?;
+                    for term in iter {
+                        write!(f, " + {}", term)?;
+                    }
+                }
+                Ok(())
+            },
+            Self::Mul(factors) => {
+                let mut iter = factors.iter();
+                if let Some(factor) = iter.next() {
+                    if matches!(factor.cmp_precedence(self), Ordering::Less) {
+                        write!(f, "({})", factor)?;
+                    } else {
+                        write!(f, "{}", factor)?;
+                    }
+                    for factor in iter {
+                        if matches!(factor.cmp_precedence(self), Ordering::Less) {
+                            write!(f, " * ({})", factor)?;
+                        } else {
+                            write!(f, " * {}", factor)?;
+                        }
+                    }
+                }
+                Ok(())
+            },
+            Self::Exp(base, exp) => {
+                if matches!(base.cmp_precedence(self), Ordering::Less) {
+                    write!(f, "({})", base)?;
+                } else {
+                    write!(f, "{}", base)?;
+                }
+                write!(f, "^")?;
+                if matches!(exp.cmp_precedence(self), Ordering::Less) {
+                    write!(f, "({})", exp)?;
+                } else {
+                    write!(f, "{}", exp)?;
+                }
+                Ok(())
+            },
+        }
+    }
+}
+
 impl Expr {
+    /// Returns the precedence of the expression.
+    fn precedence(&self) -> Option<Precedence> {
+        match self {
+            Self::Primary(_) => None,
+            Self::Add(_) => Some(BinOpKind::Add.precedence()),
+            Self::Mul(_) => Some(BinOpKind::Mul.precedence()),
+            Self::Exp(_, _) => Some(BinOpKind::Exp.precedence()),
+        }
+    }
+
+    /// Returns true if the given expression has lower precedence than this expression.
+    ///
+    /// This is used to determine if parentheses are needed around the given expression when
+    /// printing.
+    pub fn cmp_precedence(&self, other: &Self) -> Ordering {
+        #[derive(PartialEq, Eq)]
+        enum PrecedenceExt {
+            Primary,
+            Op(Precedence),
+        }
+
+        impl PartialOrd for PrecedenceExt {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                match (self, other) {
+                    (Self::Primary, Self::Primary) => Some(Ordering::Equal),
+                    (Self::Primary, Self::Op(_)) => Some(Ordering::Greater),
+                    (Self::Op(_), Self::Primary) => Some(Ordering::Less),
+                    (Self::Op(lhs), Self::Op(rhs)) => Some(lhs.cmp(rhs)),
+                }
+            }
+        }
+
+        impl Ord for PrecedenceExt {
+            fn cmp(&self, other: &Self) -> Ordering {
+                self.partial_cmp(other).unwrap()
+            }
+        }
+
+        let lhs = self.precedence().map(PrecedenceExt::Op).unwrap_or(PrecedenceExt::Primary);
+        let rhs = other.precedence().map(PrecedenceExt::Op).unwrap_or(PrecedenceExt::Primary);
+        lhs.cmp(&rhs)
+    }
+
     /// If the expression is a [`Primary::Integer`], returns a reference to the contained integer.
     pub fn as_integer(&self) -> Option<&Integer> {
         match self {

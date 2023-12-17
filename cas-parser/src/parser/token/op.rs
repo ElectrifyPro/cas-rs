@@ -29,7 +29,7 @@ pub enum Associativity {
 
 /// The precedence of an operation, in order from lowest precedence (evaluated last) to highest
 /// precedence (evaluated first).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Precedence {
     /// Any precedence.
     Any,
@@ -84,6 +84,14 @@ impl PartialOrd for Precedence {
         let left = *self as u8;
         let right = *other as u8;
         left.partial_cmp(&right)
+    }
+}
+
+impl Ord for Precedence {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let left = *self as u8;
+        let right = *other as u8;
+        left.cmp(&right)
     }
 }
 

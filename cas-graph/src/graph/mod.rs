@@ -39,11 +39,11 @@
 //! let surface = Graph::default()
 //!     .try_add_expr("y == 0.8214285714x^2 + 4.3785714286x + 7").unwrap()
 //! //  .try_add_expr("0.8214285714x^2 + 4.3785714286x + 7").unwrap() // "y==" can be omitted
-//!     .add_point((-5.0, 5.0).into())
-//!     .add_point((-4.0, 4.0).into())
-//!     .add_point((-3.0, 1.0).into())
-//!     .add_point((-2.0, 0.5).into())
-//!     .add_point((-1.0, 4.0).into())
+//!     .add_point((-5.0, 5.0))
+//!     .add_point((-4.0, 4.0))
+//!     .add_point((-3.0, 1.0))
+//!     .add_point((-2.0, 0.5))
+//!     .add_point((-1.0, 4.0))
 //!     .center_on_points()
 //!     .draw()?;
 //!
@@ -139,8 +139,8 @@ impl Graph {
     /// Add a point to the graph.
     ///
     /// Returns a mutable reference to the graph to allow chaining.
-    pub fn add_point(&mut self, point: GraphPoint<f64>) -> &mut Self {
-        self.points.push(point);
+    pub fn add_point(&mut self, point: impl Into<GraphPoint<f64>>) -> &mut Self {
+        self.points.push(point.into());
         self
     }
 

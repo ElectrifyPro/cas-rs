@@ -14,11 +14,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let surface = Graph::default()
         .try_add_expr("erf(y)").unwrap()
         .try_add_expr("erf(x)").unwrap()
-        .add_point((0.0, 8.1).into())
-        .add_point((1.2, 6.2).into())
-        .add_point((2.3, 4.3).into())
-        .add_point((3.4, 2.4).into())
-        .add_point((4.5, 0.5).into())
+        .add_point((0.0, 8.1))
+        .add_point((1.2, 6.2))
+        .add_point((2.3, 4.3))
+        .add_point((3.4, 2.4))
+        .add_point((4.5, 0.5))
         .center_on_points()
         .draw()?;
 

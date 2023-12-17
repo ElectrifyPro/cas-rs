@@ -87,7 +87,19 @@ where
 
         // then begin recursing into the expression's children
         match expr {
-            Expr::Primary(primary) => return (Expr::Primary(primary), changed_at_least_once),
+            Expr::Primary(ref mut primary) => {
+                if let Primary::Call(_, args) = primary {
+                    let mut changed_in_this_pass = false;
+                    for arg in args.iter_mut() {
+                        let result = inner_simplify_with(arg, complexity, step_collector);
+                        *arg = result.0;
+                        changed_in_this_pass |= result.1;
+                        changed_at_least_once |= result.1;
+                    }
+                }
+
+                return (expr, changed_at_least_once);
+            },
             Expr::Add(ref terms) => {
                 let mut output = Expr::Add(Vec::new());
                 for term in terms {
@@ -635,5 +647,28 @@ mod tests {
                 i,
             );
         }
+    }
+
+    #[test]
+    fn root_rules() {
+        let simplified_expr = simplify_str("sqrt(878*192*a^2*b^3*a^145)");
+        assert_eq!(simplified_expr, Expr::Mul(vec![
+            Expr::Primary(Primary::Integer(int(8))),
+            Expr::Exp(
+                Box::new(Expr::Primary(Primary::Symbol("a".to_string()))),
+                Box::new(Expr::Primary(Primary::Integer(int(73)))),
+            ),
+            Expr::Primary(Primary::Symbol("b".to_string())),
+            Expr::Primary(Primary::Call(
+                "sqrt".to_string(),
+                vec![
+                    Expr::Mul(vec![
+                        Expr::Primary(Primary::Integer(int(2634))),
+                        Expr::Primary(Primary::Symbol("a".to_string())),
+                        Expr::Primary(Primary::Symbol("b".to_string())),
+                    ]),
+                ],
+            )),
+        ]));
     }
 }

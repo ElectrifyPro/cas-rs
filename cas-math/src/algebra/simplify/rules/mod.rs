@@ -9,6 +9,7 @@ pub mod distribute;
 pub mod imaginary;
 pub mod multiply;
 pub mod power;
+pub mod root;
 pub mod trigonometry;
 
 use crate::{algebra::expr::Primary, step::StepCollector};
@@ -75,4 +76,5 @@ pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<
         .or_else(|| distribute::all(expr, step_collector))
         .or_else(|| imaginary::all(expr, step_collector))
         .or_else(|| trigonometry::all(expr, step_collector))
+        .or_else(|| root::all(expr, step_collector))
 }

@@ -70,4 +70,9 @@ pub enum Step {
 
     /// `tan(x)` identity
     Tan,
+
+    /// `sqrt(x^2) = x`, `x >= 0`
+    /// `cbrt(x^3) = x`
+    /// `root(x^y, y) = x`
+    Root,
 }

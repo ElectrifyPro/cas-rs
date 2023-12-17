@@ -5,6 +5,7 @@ use crate::{
     algebra::{expr::{Expr, Primary}, simplify::{rules::do_power, step::Step}},
     step::StepCollector,
 };
+use rug::ops::Pow;
 
 /// `a^0 = 1`
 ///
@@ -85,6 +86,19 @@ pub fn power_power(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) ->
     Some(opt)
 }
 
+/// Simplifies integer powers.
+pub fn integer(expr: &Expr, _: &mut dyn StepCollector<Step>) -> Option<Expr> {
+    do_power(expr, |lhs, rhs| {
+        if let Some(lhs) = lhs.as_integer() {
+            if let Some(rhs) = rhs.as_integer() {
+                return Some(Expr::Primary(Primary::Integer(lhs.pow(rhs.to_u32()?).into())));
+            }
+        }
+
+        None
+    })
+}
+
 /// Applies all power rules.
 ///
 /// All power rules will reduce the complexity of the expression.
@@ -94,4 +108,5 @@ pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<
         .or_else(|| power_one_left(expr, step_collector))
         .or_else(|| power_one(expr, step_collector))
         .or_else(|| power_power(expr, step_collector))
+        .or_else(|| integer(expr, step_collector))
 }

@@ -98,6 +98,9 @@ impl std::hash::Hash for Primary {
 /// [`Eq`] is implemented manually to allow comparing [`Primary::Float`]s. This module **must
 /// never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report any bugs that cause
 /// this to happen.
+/// [`Eq`] is implemented manually to allow comparing [`Primary::Integer`] and [`Primary::Float`]s.
+/// This module **must never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report
+/// any bugs that cause this to happen.
 impl Eq for Primary {}
 
 /// Adds two [`Primary`]s together. If both are the **same numeric type**, the numbers are added

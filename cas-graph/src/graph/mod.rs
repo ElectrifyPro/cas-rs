@@ -229,7 +229,7 @@ impl Graph {
             }
 
             context.move_to(x_canvas, 0.0);
-            context.line_to(x_canvas, 1000.0);
+            context.line_to(x_canvas, self.options.canvas_size.1 as f64);
             context.stroke()?;
 
             x += self.options.minor_grid_spacing.0;
@@ -249,7 +249,7 @@ impl Graph {
             }
 
             context.move_to(0.0, y_canvas);
-            context.line_to(1000.0, y_canvas);
+            context.line_to(self.options.canvas_size.0 as f64, y_canvas);
             context.stroke()?;
 
             y += self.options.minor_grid_spacing.1;
@@ -370,14 +370,14 @@ impl Graph {
         // vertical axis (x = 0)
         if origin_canvas.0 >= 0.0 && origin_canvas.0 <= self.options.canvas_size.0 as f64 {
             context.move_to(origin_canvas.0, 0.0);
-            context.line_to(origin_canvas.0, 1000.0);
+            context.line_to(origin_canvas.0, self.options.canvas_size.1 as f64);
             context.stroke()?;
         }
 
         // horizontal axis (y = 0)
         if origin_canvas.1 >= 0.0 && origin_canvas.1 <= self.options.canvas_size.1 as f64 {
             context.move_to(0.0, origin_canvas.1);
-            context.line_to(1000.0, origin_canvas.1);
+            context.line_to(self.options.canvas_size.0 as f64, origin_canvas.1);
             context.stroke()?;
         }
 

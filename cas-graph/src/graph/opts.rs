@@ -46,7 +46,7 @@ pub struct GraphOptions {
     /// For example, to divide each minor grid line into `5` spaces on the x-axis and `4` spaces on
     /// the y-axis, set this to `(5, 4)`.
     ///
-    /// The default value is `(1, 1)`.
+    /// The default value is `(4, 4)`.
     pub minor_grid_divisions: (u8, u8),
 }
 
@@ -64,7 +64,7 @@ impl Default for GraphOptions {
             scale: GraphPoint(10.0, 10.0),
             square_scale: false,
             minor_grid_spacing: GraphPoint(2.0, 2.0),
-            minor_grid_divisions: (1, 1),
+            minor_grid_divisions: (4, 4),
         }
     }
 }

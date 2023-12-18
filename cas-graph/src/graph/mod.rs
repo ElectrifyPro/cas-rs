@@ -74,19 +74,20 @@ use rayon::prelude::*;
 use super::text_align::ShowTextAlign;
 pub use opts::GraphOptions;
 
-/// The extents of the edge labels.
+/// The extents of the edge labels. The corresponding field of each label can be `None` if the
+/// label if it is not visible / drawn.
 struct EdgeExtents {
     /// The extents of the top edge label.
-    pub top: TextExtents,
+    pub top: Option<TextExtents>,
 
     /// The extents of the bottom edge label.
-    pub bottom: TextExtents,
+    pub bottom: Option<TextExtents>,
 
     /// The extents of the left edge label.
-    pub left: TextExtents,
+    pub left: Option<TextExtents>,
 
     /// The extents of the right edge label.
-    pub right: TextExtents,
+    pub right: Option<TextExtents>,
 }
 
 /// Round `n` to the nearest `k`.
@@ -371,6 +372,10 @@ impl Graph {
         context.set_font_size(30.0);
 
         let padding = 10.0;
+        let (canvas_width, canvas_height) = (
+            self.options.canvas_size.0 as f64,
+            self.options.canvas_size.1 as f64,
+        );
 
         // vertical grid line numbers
         let vert_bounds = (
@@ -393,30 +398,43 @@ impl Graph {
                 continue;
             }
 
-            let x_value_str_raw = format!("{:.3}", x);
-            let x_value_str = x_value_str_raw.trim_end_matches('0').trim_end_matches('.');
+            let x_value_str = format!("{:.3}", x);
+            let x_value_str_trimmed = x_value_str.trim_end_matches('0').trim_end_matches('.');
 
             // last check for 0.0
-            if x_value_str == "0" || x_value_str == "-0" {
+            if x_value_str_trimmed == "0" || x_value_str_trimmed == "-0" {
                 x += self.options.minor_grid_spacing.0;
                 continue;
             }
 
-            let x_value_extents = context.text_extents(x_value_str)?;
+            let x_value_extents = context.text_extents(x_value_str_trimmed)?;
 
             // will this grid line number collide with the left / right edge labels?
-            let text_left_bound = x_canvas - x_value_extents.width() / 2.0;
-            let text_right_bound = x_canvas + x_value_extents.width() / 2.0;
-            if text_left_bound < edges.left.width() + padding
-                || text_right_bound > self.options.canvas_size.0 as f64 - edges.right.width() - padding {
-                x += self.options.minor_grid_spacing.0;
-                continue;
+            if let Some(left) = edges.left {
+                let text_left_bound = x_canvas - x_value_extents.width() / 2.0;
+                if text_left_bound < left.width() + padding {
+                    x += self.options.minor_grid_spacing.0;
+                    continue;
+                }
+            } else if let Some(right) = edges.right {
+                let text_right_bound = x_canvas + x_value_extents.width() / 2.0;
+                if text_right_bound > self.options.canvas_size.0 as f64 - right.width() - padding {
+                    x += self.options.minor_grid_spacing.0;
+                    continue;
+                }
             }
 
+            // will the horizontal axis (y = 0) intersect with this grid line number?
+            let (y, anchor) = if origin_canvas.1 >= canvas_height - x_value_extents.height() - 2.0 * padding {
+                (origin_canvas.1.min(canvas_height) - padding, (0.5, 0.0))
+            } else {
+                (origin_canvas.1.max(0.0) + padding, (0.5, 1.0))
+            };
+
             context.show_text_align_with_extents(
-                x_value_str,
-                (x_canvas, origin_canvas.1 + padding),
-                (0.5, 1.0),
+                x_value_str_trimmed,
+                (x_canvas, y),
+                anchor,
                 &x_value_extents,
             )?;
 
@@ -452,18 +470,30 @@ impl Graph {
 
             let y_value_extents = context.text_extents(y_value_str)?;
 
-            let text_top_bound = y_canvas - y_value_extents.height() / 2.0;
-            let text_bottom_bound = y_canvas + y_value_extents.height() / 2.0;
-            if text_top_bound < edges.top.height() + padding
-                || text_bottom_bound > self.options.canvas_size.1 as f64 - edges.bottom.height() - padding {
-                y += self.options.minor_grid_spacing.1;
-                continue;
+            if let Some(top) = edges.top {
+                let text_top_bound = y_canvas - y_value_extents.height() / 2.0;
+                if text_top_bound < top.height() + padding {
+                    y += self.options.minor_grid_spacing.1;
+                    continue;
+                }
+            } else if let Some(bottom) = edges.bottom {
+                let text_bottom_bound = y_canvas + y_value_extents.height() / 2.0;
+                if text_bottom_bound > self.options.canvas_size.1 as f64 - bottom.height() - padding {
+                    y += self.options.minor_grid_spacing.1;
+                    continue;
+                }
             }
+
+            let (x, anchor) = if origin_canvas.0 >= canvas_width - y_value_extents.width() - 2.0 * padding {
+                (origin_canvas.0.min(canvas_width) - padding, (1.0, 0.5))
+            } else {
+                (origin_canvas.0.max(0.0) + padding, (0.0, 0.5))
+            };
 
             context.show_text_align_with_extents(
                 y_value_str,
-                (origin_canvas.0 + padding, y_canvas),
-                (0.0, 0.5),
+                (x, y_canvas),
+                anchor,
                 &y_value_extents,
             )?;
 
@@ -511,38 +541,107 @@ impl Graph {
         context.set_font_size(40.0);
 
         let padding = 10.0;
+        let (canvas_width, canvas_height) = (
+            self.options.canvas_size.0 as f64,
+            self.options.canvas_size.1 as f64,
+        );
 
         // top edge, bottom edge
-        let x = origin_canvas.0 + padding;
-        let top_value = format!("{:.3}", self.options.center.1 + self.options.scale.1);
-        let top = context.show_text_align(
-            top_value.trim_end_matches('0').trim_end_matches('.'),
-            (x, padding),
-            (0.0, 1.0),
-        )?;
+        let x = origin_canvas.0;
+        let top = if origin_canvas.1 >= 0.0 {
+            // if the origin is visible or below the bottom edge of the canvas, draw the top edge
+            // label
+            let top_value = format!("{:.3}", self.options.center.1 + self.options.scale.1);
+            let top_value_trimmed = top_value.trim_end_matches('0').trim_end_matches('.');
+            let text_width = context.text_extents(top_value_trimmed)?.width();
 
-        let bottom_value = format!("{:.3}", self.options.center.1 - self.options.scale.1);
-        let bottom = context.show_text_align(
-            bottom_value.trim_end_matches('0').trim_end_matches('.'),
-            (x, self.options.canvas_size.1 as f64 - padding),
-            (0.0, 0.0),
-        )?;
+            // if the vertical axis (x = 0) intersects with the top edge label (it's too far to the
+            // right of the canvas), move the label to the left side of the vertical axis
+            let (x, anchor) = if x >= canvas_width - text_width - 2.0 * padding {
+                (x.min(canvas_width) - padding, (1.0, 1.0))
+            } else {
+                (x.max(0.0) + padding, (0.0, 1.0))
+            };
+
+            Some(context.show_text_align(
+                top_value_trimmed,
+                (x, padding),
+                anchor,
+            )?)
+        } else {
+            // otherwise, the top edge label might intersect with the numbers on the x-axis or the
+            // x-axis itself, so don't draw it
+            None
+        };
+
+        let bottom = if origin_canvas.1 <= canvas_height {
+            // if the origin is visible or above the top edge of the canvas, draw the bottom edge
+            // label
+            let bottom_value = format!("{:.3}", self.options.center.1 - self.options.scale.1);
+            let bottom_value_trimmed = bottom_value.trim_end_matches('0').trim_end_matches('.');
+            let text_width = context.text_extents(bottom_value_trimmed)?.width();
+
+            // if the vertical axis (x = 0) intersects with the bottom edge label (it's too far to
+            // the right of the canvas), move the label to the left side of the vertical axis
+            let (x, anchor) = if x >= canvas_width - text_width - 2.0 * padding {
+                (x.min(canvas_width) - padding, (1.0, 0.0))
+            } else {
+                (x.max(0.0) + padding, (0.0, 0.0))
+            };
+
+            Some(context.show_text_align(
+                bottom_value_trimmed,
+                (x, canvas_height - padding),
+                anchor,
+            )?)
+        } else {
+            // otherwise, the bottom edge label might intersect with the numbers on the x-axis or
+            // the x-axis itself, so don't draw it
+            None
+        };
 
         // left edge, right edge
-        let y = origin_canvas.1 + padding;
-        let left_value = format!("{:.3}", self.options.center.0 - self.options.scale.0);
-        let left = context.show_text_align(
-            left_value.trim_end_matches('0').trim_end_matches('.'),
-            (padding, y),
-            (0.0, 1.0),
-        )?;
+        let y = origin_canvas.1;
+        let left = if origin_canvas.0 >= 0.0 {
+            // same as above, but for the left edge
+            let left_value = format!("{:.3}", self.options.center.0 - self.options.scale.0);
+            let left_value_trimmed = left_value.trim_end_matches('0').trim_end_matches('.');
+            let text_height = context.text_extents(left_value_trimmed)?.height();
 
-        let right_value = format!("{:.3}", self.options.center.0 + self.options.scale.0);
-        let right = context.show_text_align(
-            right_value.trim_end_matches('0').trim_end_matches('.'),
-            (self.options.canvas_size.0 as f64 - padding, y),
-            (1.0, 1.0),
-        )?;
+            let (y, anchor) = if y >= canvas_height - text_height - 2.0 * padding {
+                (y.min(canvas_height) - padding, (0.0, 0.0))
+            } else {
+                (y.max(0.0) + padding, (0.0, 1.0))
+            };
+
+            Some(context.show_text_align(
+                left_value.trim_end_matches('0').trim_end_matches('.'),
+                (padding, y),
+                anchor,
+            )?)
+        } else {
+            None
+        };
+
+        let right = if origin_canvas.0 <= canvas_width {
+            let right_value = format!("{:.3}", self.options.center.0 + self.options.scale.0);
+            let right_value_trimmed = right_value.trim_end_matches('0').trim_end_matches('.');
+            let text_height = context.text_extents(right_value_trimmed)?.height();
+
+            let (y, anchor) = if y >= canvas_height - text_height - 2.0 * padding {
+                (y.min(canvas_height) - padding, (1.0, 0.0))
+            } else {
+                (y.max(0.0) + padding, (1.0, 1.0))
+            };
+
+            Some(context.show_text_align(
+                right_value.trim_end_matches('0').trim_end_matches('.'),
+                (canvas_width - padding, y),
+                anchor,
+            )?)
+        } else {
+            None
+        };
 
         Ok(EdgeExtents { top, bottom, left, right })
     }

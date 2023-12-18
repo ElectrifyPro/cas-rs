@@ -8,12 +8,12 @@ use super::{analyzed::{AnalyzedExpr, Variable}, GraphOptions, GraphPoint};
 /// can start to assume that the next points might be outside the viewport as well. This allows us
 /// to cut down on the number of points we need to evaluate.
 ///
-/// Also in general, when the slope of the expression is steep, the step size can be somewhat
-/// larger, since variation in the slope will not be as noticeable, in terms of someone observing
-/// the graph.
+/// Also in general, when the slope of the expression does not vary wildly, the step size can be
+/// somewhat larger, since variation in the slope will not be as noticeable in terms of someone
+/// observing the graph.
 ///
-/// However, when the slope of the expression is shallow, the step size must be smaller. For
-/// example, if the step size is too large, we could end up skipping past a relative minimum /
+/// However, when the slope of the expression does start varying, the step size must be smaller.
+/// For example, if the step size is too large, we could end up skipping past a relative minimum /
 /// maximum of the expression, which would be extremely obvious.
 pub(crate) fn evaluate_expr(
     analyzed: &AnalyzedExpr,
@@ -43,7 +43,9 @@ pub(crate) fn evaluate_expr(
     };
 
     let mut current_trace = bounds.0;
-    let min_step_len = options.scale.0 / 32.0;
+    let min_step_len = options.scale.0 / 64.0;
+    let max_step_len = options.scale.0 / 16.0;
+    let mut last_slope: Option<f64> = None;
 
     while current_trace <= bounds.1 {
         ctxt.add_var(analyzed.independent.as_str(), current_trace.into());
@@ -64,7 +66,7 @@ pub(crate) fn evaluate_expr(
         let step_len = if current_point.map(|p| p.1 < cross_axis_bounds.0 || p.1 > cross_axis_bounds.1).unwrap_or(false) {
             // if the expression moves outside the graph viewport, we hardcode the step length to
             // be an arbitrary high step length so we can get to a visible point more quickly
-            min_step_len * 4.0
+            min_step_len * 2.0
         } else if let (Some(last), Some(current)) = (last_point, current_point) {
             // in our slope calculation, we divide by the y-scale again to account for the scale
             // changing the visual slope of the expression
@@ -74,9 +76,16 @@ pub(crate) fn evaluate_expr(
             // slope of the expression past x=0 gets very steep very fast
             let slope = compute_slope(last, current);
 
-            // the larger the slope, the larger the step length can be
-            // not too large though, so we can catch discontinuities
-            min_step_len.max(slope.abs() / 10.0).min(min_step_len * 4.0)
+            if let Some(last) = last_slope {
+                // if the slope of the expression is changing too much, lower the step length so we
+                // can catch discontinuities
+                let rate = (slope - last).abs() / last.abs();
+                last_slope = Some(slope);
+                (0.05 / rate).min(max_step_len).max(min_step_len)
+            } else {
+                last_slope = Some(slope);
+                min_step_len
+            }
         } else {
             min_step_len
         };

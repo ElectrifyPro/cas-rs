@@ -424,7 +424,9 @@ impl Graph {
                     x += self.options.minor_grid_spacing.0;
                     continue;
                 }
-            } else if let Some(right) = edges.right {
+            }
+
+            if let Some(right) = edges.right {
                 let text_right_bound = x_canvas + x_value_extents.width() / 2.0;
                 if text_right_bound > self.options.canvas_size.0 as f64 - right.width() - padding {
                     x += self.options.minor_grid_spacing.0;
@@ -484,7 +486,9 @@ impl Graph {
                     y += self.options.minor_grid_spacing.1;
                     continue;
                 }
-            } else if let Some(bottom) = edges.bottom {
+            }
+
+            if let Some(bottom) = edges.bottom {
                 let text_bottom_bound = y_canvas + y_value_extents.height() / 2.0;
                 if text_bottom_bound > self.options.canvas_size.1 as f64 - bottom.height() - padding {
                     y += self.options.minor_grid_spacing.1;

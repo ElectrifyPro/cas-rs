@@ -174,6 +174,14 @@ impl Graph {
         Ok(self)
     }
 
+    /// Adds an expression that has already been analyzed to the graph.
+    ///
+    /// Returns a mutable reference to the graph to allow chaining.
+    pub fn add_analyzed_expr(&mut self, expr: AnalyzedExpr) -> &mut Self {
+        self.expressions.push(expr);
+        self
+    }
+
     /// Add a point to the graph.
     ///
     /// Returns a mutable reference to the graph to allow chaining.
@@ -652,13 +660,14 @@ impl Graph {
         context: &Context,
     ) -> Result<(), Error> {
         // evaluate expressions and draw as we go
-        context.set_source_rgb(1.0, 0.0, 0.0);
         context.set_line_width(5.0);
 
         let expr_points = self.expressions.par_iter()
-            .map(|expr| evaluate_expr(expr, self.options))
+            .map(|expr| (expr, evaluate_expr(expr, self.options)))
             .collect::<Vec<_>>();
-        for points in expr_points {
+        for (expr, points) in expr_points {
+            context.set_source_rgb(expr.color.0, expr.color.1, expr.color.2);
+
             let mut first_eval = true;
             for point in points {
                 let canvas = self.options.to_canvas(point);

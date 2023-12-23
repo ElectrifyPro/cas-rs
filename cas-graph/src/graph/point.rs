@@ -38,6 +38,8 @@ pub struct Point<T> {
 
     /// The color of the point, given as an RGB tuple with each value in the
     /// range 0.0 to 1.0.
+    ///
+    /// The default color is a solid red.
     pub color: (f64, f64, f64),
 
     /// The label of the point. If omitted, the point will be labeled with its

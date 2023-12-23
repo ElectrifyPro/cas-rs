@@ -92,12 +92,35 @@ pub struct AnalyzedExpr {
 
     /// The independent variable.
     pub independent: Variable,
+
+    /// The color of the expression, given as an RGB tuple with each value in the range 0.0 to 1.0.
+    ///
+    /// The default color is a solid red.
+    pub color: (f64, f64, f64),
 }
 
 impl AnalyzedExpr {
     /// Analyze the given expression and return a new [`AnalyzedExpr`].
     pub fn new(expr: Expr) -> Self {
         let (independent, expr) = predict_independent(expr);
-        Self { expr, independent }
+        Self {
+            expr,
+            independent,
+            color: (1.0, 0.0, 0.0),
+        }
+    }
+
+    /// Parses and analyzes the given expression and returns a new [`AnalyzedExpr`].
+    pub fn parse(expr: &str) -> Result<Self, Vec<cas_parser::parser::error::Error>> {
+        cas_parser::parser::Parser::new(expr).try_parse_full()
+            .map(Self::new)
+    }
+
+    /// Sets the color of the expression.
+    ///
+    /// Returns the expression itself to allow chaining.
+    pub fn with_color(mut self, color: (f64, f64, f64)) -> Self {
+        self.color = color;
+        self
     }
 }

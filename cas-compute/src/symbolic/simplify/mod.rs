@@ -397,8 +397,8 @@ mod tests {
 
     #[test]
     fn combine_like_factors_decimals() {
-        let simplified_expr = simplify_str("4.125 * -1.99 * 2.57");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Float(float_from_str("-21.0964875"))));
+        let simplified_expr = simplify_str("4.125 * -1.99 * 2.59");
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Float(float_from_str("-21.2606625"))));
     }
 
     #[test]

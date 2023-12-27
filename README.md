@@ -6,13 +6,13 @@ See below for a guide on the REPL and some code examples.
 
 # Features
 
-- Simplification of algebraic expressions, learn more [here](cas-math/README.md)
+- Simplification of algebraic expressions, learn more [here](cas-compute/README.md)
 - Graphing calculator, learn more [here](cas-graph/README.md)
 - Robust expression parser and evaluator with very human-friendly output
 - Arbitrary precision arithmetic
 - Real and complex numbers
 - Radix notation (e.g. `2'1010` = 10)
-- 60+ built-in functions, covering many expected use cases ([see here](https://github.com/ElectrifyPro/cas-rs/blob/main/cas-eval/src/builtins/mod.rs))
+- 60+ built-in functions, covering many expected use cases ([see here](https://github.com/ElectrifyPro/cas-rs/blob/dev/cas-compute/src/numerical/builtins/mod.rs))
 - Powerful formatting options, including LaTeX code output
 - Builtin REPL
 - And more!

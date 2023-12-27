@@ -1,6 +1,6 @@
 mod error;
 
-use cas_eval::{ctxt::Ctxt, eval::eval_stmts, value::Value};
+use cas_compute::numerical::{ctxt::Ctxt, eval::eval_stmts, value::Value};
 use cas_parser::parser::{ast::stmt::Stmt, Parser};
 use error::Error;
 use std::{fs::File, io::{self, BufReader, IsTerminal, Read, Write}};

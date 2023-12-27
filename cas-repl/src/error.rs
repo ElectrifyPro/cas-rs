@@ -1,5 +1,5 @@
 use ariadne::Source;
-use cas_eval::error::Error as EvalError;
+use cas_compute::numerical::error::Error as EvalError;
 use cas_parser::parser::error::Error as ParseError;
 
 /// Utility enum to package errors that can occur while parsing / evaluating.

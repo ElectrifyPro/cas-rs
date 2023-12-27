@@ -1,21 +1,13 @@
 # cas-math
 
-This subcrate provides the computer algebra facilities for `cas-rs`, and additional mathematical utilities, such as unit conversion.
+This subcrate provides useful mathematical utilities, such as unit conversion.
 
-# Simplification
+# Unit conversion
 
 ```rust
-use cas_eval::consts::int;
-use cas_parser::parser::{ast::Expr as AstExpr, Parser};
-use cas_math::algebra::{expr::{Expr, Primary}, simplify};
+use cas_math::unit_conversion::{Length, Measurement};
 
-let mut parser = Parser::new("x + x + x");
-let ast_expr = parser.try_parse_full::<AstExpr>().unwrap();
-let simplified = simplify(&ast_expr.into());
-
-// `x + x + x = 3x`
-assert_eq!(simplified, Expr::Mul(vec![
-    Expr::Primary(Primary::Integer(int(3))),
-    Expr::Primary(Primary::Symbol("x".to_string())),
-]));
+let m = Measurement::new(2.0, Length::Mile);
+let m2 = m.convert(Length::Decimeter).unwrap();
+assert_eq!(m2.value(), &32186.88);
 ```

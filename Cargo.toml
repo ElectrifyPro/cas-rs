@@ -1,8 +1,8 @@
 [workspace]
 members = [
 	"cas-attrs",
+	"cas-compute",
 	"cas-error",
-	"cas-eval",
 	"cas-graph",
 	"cas-math",
 	"cas-parser",

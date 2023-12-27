@@ -1,4 +1,4 @@
-use cas_eval::{ctxt::Ctxt, eval::Eval, value::Value};
+use cas_compute::numerical::{ctxt::Ctxt, eval::Eval, value::Value};
 use super::{analyzed::{AnalyzedExpr, Variable}, GraphOptions, GraphPoint};
 
 /// Evaluate the given expression and returns the points to draw.

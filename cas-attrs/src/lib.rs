@@ -49,7 +49,7 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 }
 
 /// An attribute that implements runtime type-checking for the function it is applied to, intended
-/// for use in `cas_eval` builtins.
+/// for use in `cas_compute` builtins.
 ///
 /// This attribute can be applied to any function that takes a [`Ctxt`] and a slice of [`Value`]s
 /// as its argument, and returns a `Result<Value, BuiltinError>`. It will check that the number of
@@ -59,8 +59,8 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 ///
 /// `<name>: <type> ['radians' | 'degrees'] [= <default value>]`.
 ///
-/// Additionally, the list of parameters can optionally be terminated with a semicolon, followed by
-/// either `radians` or `degrees`. This specifies the unit that the function's builtin
+/// Additionally, the list of parameters can optionally be terminated with an arrow `->`, followed
+/// by either `radians` or `degrees`. This specifies the unit that the function's builtin
 /// implementation returns.
 ///
 /// The name of the parameter must be a valid Rust identifier to bind to, and the type must be one
@@ -71,6 +71,7 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 /// | `Number`  | A number value. Numbers can freely coerce to [`Value::Complex`].                                    |
 /// | `Complex` | A complex number value. Complex numbers can coerce to [`Value::Number`] if the imaginary part is 0. |
 /// | `Unit`    | The unit type, analogous to `()` in Rust.                                                           |
+/// | `Any`     | Any value, regardless of type. The value will be left as a [`Value`].                               |
 ///
 /// The `radians` and `degrees` tags are optional, and specify that the builtin function's
 /// implementation expects the inputs to be in radians or degrees, respectively. If the context's
@@ -86,7 +87,7 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 /// extern crate cas_attrs;
 ///
 /// use cas_attrs::args;
-/// use cas_eval::{
+/// use cas_compute::numerical::{
 ///     builtins::{error::BuiltinError, Builtin},
 ///     consts::float,
 ///     ctxt::{Ctxt, TrigMode},
@@ -107,17 +108,17 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 ///     Ok(Value::Number(n.ln() / base.ln()))
 /// }
 ///
-/// #[args(n: Number; radians)]
+/// #[args(n: Number -> radians)]
 /// fn asin(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 ///    // the `asin` function on the `rug` crate always returns radians, so we mark this function
-///    // with `; radians`
+///    // with `-> radians`
 ///    //
 ///    // if the context is in degrees mode, this will be automatically be converted to degrees
 ///    Ok(Value::Number(n.sin()))
 /// }
 /// ```
 ///
-/// [`Value`]: cas_eval::Value
+/// [`Value`]: cas_compute::numerical::value::Value
 #[proc_macro_attribute]
 pub fn args(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attr as Args);

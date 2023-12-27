@@ -7,14 +7,3 @@ edition = "2021"
 
 [dev-dependencies]
 assert_float_eq = "1.1.3"
-pretty_assertions = "1.3.0"
-
-[dependencies.cas-eval]
-path = "../cas-eval"
-
-[dependencies.cas-parser]
-path = "../cas-parser"
-
-[dependencies]
-once_cell = "1.18.0"
-rug = "1.22.0"

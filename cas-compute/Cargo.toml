@@ -1,0 +1,37 @@
+[package]
+name = "cas-compute"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+mysql = ["mysql_common", "flate2"]
+serde = ["dep:serde", "dep:serde_repr", "rug/serde", "cas-parser/serde"]
+
+[dev-dependencies]
+assert_float_eq = "1.1.3"
+pretty_assertions = "1.3.0"
+
+[dependencies.mysql_common]
+version = "0.30.6"
+default-features = false
+features = ["derive"]
+optional = true
+
+[dependencies.serde]
+version = "1.0.188"
+features = ["derive"]
+optional = true
+
+[dependencies]
+ariadne = "0.2.0"
+cas-attrs = { path = "../cas-attrs" }
+cas-error = { path = "../cas-error" }
+cas-parser = { path = "../cas-parser" }
+flate2 = { version = "1.0.27", optional = true }
+levenshtein = "1.0.5"
+once_cell = "1.18.0"
+rand = "0.8.5"
+rug = "1.22.0"
+serde_repr = { version = "0.1.6", optional = true }

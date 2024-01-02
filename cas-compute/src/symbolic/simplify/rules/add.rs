@@ -1,6 +1,6 @@
 //! Simplification rules for expressions involving addition, including combining like terms.
 
-use crate::numerical::consts::int;
+use crate::primitive::int;
 use crate::symbolic::{
     expr::{Expr, Primary},
     simplify::{fraction::{extract_explicit_frac, make_fraction, extract_fractional}, rules::do_add, step::Step},

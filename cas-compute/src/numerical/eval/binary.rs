@@ -2,12 +2,12 @@ use cas_parser::parser::{ast::binary::Binary, token::op::BinOpKind};
 use rug::ops::Pow;
 use crate::eval_break;
 use crate::numerical::{
-    consts::{int_from_float, float},
     ctxt::Ctxt,
     error::{kind::{BitshiftOverflow, InvalidBinaryOperation}, Error},
     eval::{error::EvalError, Eval},
     value::Value,
 };
+use crate::primitive::{int_from_float, float};
 
 /// Evaluates a binary expression with two integer operands.
 fn eval_integer_operands(
@@ -176,9 +176,8 @@ fn eval_unit_operands(
         unreachable!()
     };
     Ok(match op {
-        BinOpKind::Eq | BinOpKind::ApproxEq => Value::Boolean(true),
-        BinOpKind::NotEq | BinOpKind::ApproxNotEq | BinOpKind::Greater | BinOpKind::GreaterEq
-            | BinOpKind::Less | BinOpKind::LessEq => Value::Boolean(false),
+        BinOpKind::Eq | BinOpKind::ApproxEq | BinOpKind::GreaterEq | BinOpKind::LessEq => Value::Boolean(true),
+        BinOpKind::NotEq | BinOpKind::ApproxNotEq | BinOpKind::Greater | BinOpKind::Less => Value::Boolean(false),
         BinOpKind::Exp | BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod | BinOpKind::Add
             | BinOpKind::Sub | BinOpKind::BitRight | BinOpKind::BitLeft | BinOpKind::BitAnd
             | BinOpKind::BitOr | BinOpKind::And | BinOpKind::Or => Err(InvalidBinaryOperation {

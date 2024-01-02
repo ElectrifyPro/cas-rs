@@ -1,7 +1,8 @@
 use cas_parser::parser::ast::{assign::FuncHeader, expr::Expr};
+use crate::consts;
 use levenshtein::levenshtein;
-use std::collections::HashMap;
-use super::value::Value;
+use std::{collections::HashMap, sync::Arc};
+use super::{builtin::Builtin, value::Value};
 
 #[cfg(feature = "mysql")]
 use mysql_common::prelude::FromValue;
@@ -39,19 +40,31 @@ impl std::fmt::Display for TrigMode {
     }
 }
 
-/// A function definition in a context.
+/// A function available for use in a context.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Func {
-    /// The header of the function.
-    pub header: FuncHeader,
+pub enum Func {
+    /// A builtin function.
+    Builtin(Arc<dyn Builtin>),
 
-    /// The body of the function.
-    pub body: Expr,
+    /// A user-defined function.
+    UserDefined {
+        /// The header of the function.
+        header: FuncHeader,
 
-    /// Whether the function is recursive, used to report better errors if the stack overflows
-    /// while evaluating the function.
-    pub recursive: bool,
+        /// The body of the function.
+        body: Expr,
+
+        /// Whether the function is recursive, used to report better errors if the stack overflows
+        /// while evaluating the function.
+        recursive: bool,
+    },
+}
+
+impl From<Box<dyn Builtin>> for Func {
+    fn from(builtin: Box<dyn Builtin>) -> Self {
+        Func::Builtin(builtin.into())
+    }
 }
 
 /// A context to use when evaluating an expression, containing variables and functions that can be
@@ -91,15 +104,18 @@ impl Default for Ctxt {
     fn default() -> Self {
         Self {
             vars: HashMap::from([
-                ("i".to_string(), super::consts::I.clone().into()),
-                ("e".to_string(), super::consts::E.clone().into()),
-                ("phi".to_string(), super::consts::PHI.clone().into()),
-                ("pi".to_string(), super::consts::PI.clone().into()),
-                ("tau".to_string(), super::consts::TAU.clone().into()),
+                ("i".to_string(), consts::I.clone().into()),
+                ("e".to_string(), consts::E.clone().into()),
+                ("phi".to_string(), consts::PHI.clone().into()),
+                ("pi".to_string(), consts::PI.clone().into()),
+                ("tau".to_string(), consts::TAU.clone().into()),
                 ("true".to_string(), true.into()),
                 ("false".to_string(), false.into()),
             ]),
-            funcs: HashMap::new(),
+            funcs: crate::funcs::all()
+                .into_iter()
+                .map(|(name, func)| (name.to_string(), func.into()))
+                .collect(),
             trig_mode: TrigMode::default(),
             loop_depth: 0,
             break_loop: false,
@@ -139,7 +155,7 @@ impl Ctxt {
 
     /// Add a function to the context.
     pub fn add_func(&mut self, header: FuncHeader, body: Expr, recursive: bool) {
-        self.funcs.insert(header.name.name.clone(), Func { header, body, recursive });
+        self.funcs.insert(header.name.name.clone(), Func::UserDefined { header, body, recursive });
     }
 
     /// Get the header and body of a function in the context.
@@ -153,11 +169,11 @@ impl Ctxt {
     }
 
     /// Returns all functions in the context with a name similar to the given name.
-    pub fn get_similar_funcs(&self, name: &str) -> Vec<&Func> {
+    pub fn get_similar_funcs(&self, name: &str) -> Vec<&str> {
         self.funcs
             .iter()
             .filter(|(n, _)| levenshtein(n, name) < 2)
-            .map(|(_, f)| f)
+            .map(|(n, _)| n.as_str())
             .collect()
     }
 }

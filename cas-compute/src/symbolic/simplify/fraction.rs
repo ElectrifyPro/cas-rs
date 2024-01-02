@@ -1,6 +1,7 @@
 //! Tools to help manipulate fractions.
 
-use crate::{approx::approximate_rational, numerical::consts::int};
+use crate::approx::approximate_rational;
+use crate::primitive::int;
 use crate::symbolic::expr::{Expr, Primary};
 use rug::Integer;
 

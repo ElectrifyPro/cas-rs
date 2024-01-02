@@ -1,6 +1,6 @@
 use ariadne::Fmt;
 use cas_attrs::ErrorKind;
-use cas_error::{ErrorKind, EXPR};
+use cas_error::EXPR;
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
 
 /// The given binary operation cannot be applied to the given operands.

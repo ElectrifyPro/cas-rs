@@ -24,7 +24,7 @@ pub mod fraction;
 pub mod rules;
 pub mod step;
 
-use crate::numerical::consts::{float, int};
+use crate::primitive::{float, int};
 use crate::symbolic::StepCollector;
 use step::Step;
 use super::expr::{Expr, Primary};
@@ -170,7 +170,7 @@ pub fn simplify_with_steps(expr: &Expr) -> (Expr, Vec<Step>) {
 mod tests {
     use super::*;
 
-    use crate::numerical::consts::float_from_str;
+    use crate::primitive::float_from_str;
     use cas_parser::parser::{ast::expr::Expr as AstExpr, Parser};
     use fraction::make_fraction;
     use pretty_assertions::assert_eq;

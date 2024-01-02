@@ -1,6 +1,6 @@
 //! Simplification rules for power expressions.
 
-use crate::numerical::consts::int;
+use crate::primitive::int;
 use crate::symbolic::{
     expr::{Expr, Primary},
     simplify::{rules::do_power, step::Step},

@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["numerical"]
+numerical = []
 mysql = ["mysql_common", "flate2"]
 serde = ["dep:serde", "dep:serde_repr", "rug/serde", "cas-parser/serde"]
 

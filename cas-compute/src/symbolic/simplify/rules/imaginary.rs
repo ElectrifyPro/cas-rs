@@ -1,6 +1,6 @@
 //! Simplification rules for expressions involving the imaginary unit.
 
-use crate::numerical::consts::int;
+use crate::primitive::int;
 use crate::symbolic::{
     expr::{Expr, Primary},
     simplify::{rules::do_power, step::Step},

@@ -33,7 +33,10 @@ pub trait Eval {
 /// Eval tests depend on the parser, so ensure that parser tests pass before running these.
 #[cfg(test)]
 mod tests {
-    use crate::numerical::{builtins::{self, Builtin}, consts::{self, float}, funcs::factorial};
+    use crate::consts;
+    use crate::funcs::miscellaneous::{Abs, Factorial};
+    use crate::numerical::builtin::Builtin;
+    use crate::primitive::float;
     use rug::ops::Pow;
     use super::*;
 
@@ -43,14 +46,14 @@ mod tests {
     fn binary_expr() {
         let mut parser = Parser::new("1 + 2");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), 3.0.into());
+        assert_eq!(expr.eval_default().unwrap(), 3.into());
     }
 
     #[test]
     fn binary_expr_2() {
         let mut parser = Parser::new("1 + 2 * 3");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), 7.0.into());
+        assert_eq!(expr.eval_default().unwrap(), 7.into());
     }
 
     #[test]
@@ -64,7 +67,7 @@ mod tests {
     fn parenthesized() {
         let mut parser = Parser::new("((1 + 9) / 5) * 3");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), 6.0.into());
+        assert_eq!(expr.eval_default().unwrap(), 6.into());
     }
 
     #[test]
@@ -91,7 +94,7 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         let val1 = expr.eval_default().unwrap();
-        let val2 = Value::Float(consts::PI.clone().pow(2) * factorial(float(17)) / -float(4.9) + &*consts::E);
+        let val2 = Value::Float(consts::PI.clone().pow(2) * Factorial::eval_static(float(17)) / -float(4.9) + &*consts::E);
         assert!(val1.approx_eq(&val2));
     }
 
@@ -107,7 +110,7 @@ mod tests {
         // call function
         let mut parser = Parser::new("f(7)");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval(&mut ctxt).unwrap(), 90.0.into());
+        assert_eq!(expr.eval(&mut ctxt).unwrap(), 90.into());
     }
 
     #[test]
@@ -121,10 +124,10 @@ mod tests {
 
         // call function
         let tries = [
-            (None, None, 18.0),
+            (None, None, 18),
             // (None, Some(4.0), 12.0), // TODO: there is currently no way to pass only the second argument
-            (Some(9.0), None, 54.0),
-            (Some(8.0), Some(14.0), 112.0),
+            (Some(9), None, 54),
+            (Some(8), Some(14), 112),
         ];
         for (n, k, expected_result) in tries {
             let source = format!(
@@ -145,7 +148,7 @@ mod tests {
 
     #[test]
     fn builtin_func_arg_check() {
-        assert_eq!(builtins::abs.eval(&Ctxt::default(), &[Value::from(4.0)]).unwrap().coerce_float(), 4.0.into());
-        assert!(builtins::abs.eval(&Ctxt::default(), &[Value::Unit]).is_err());
+        assert_eq!(Abs.eval(&Ctxt::default(), &mut [Value::from(4.0)].into_iter()).unwrap().coerce_float(), 4.0.into());
+        assert!(Abs.eval(&Ctxt::default(), &mut [Value::Unit].into_iter()).is_err());
     }
 }

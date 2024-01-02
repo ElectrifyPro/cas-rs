@@ -1,14 +1,6 @@
-use rug::{Assign, Float, Integer, Rational};
+use rug::{Float, Integer, Rational};
 use std::cmp::Ordering;
-
-// TODO: duplicate of crate::numerical::consts::float
-pub fn float<T>(n: T) -> Float
-where
-    Float: Assign<T>,
-{
-    const PRECISION: u32 = 1 << 9;
-    Float::with_val(PRECISION, n)
-}
+use super::primitive::float;
 
 /// Computes the [`Rational`] from the continued fraction form of a float.
 fn rational_from_continued_fraction(continued_fraction_form: &[Integer]) -> Rational {

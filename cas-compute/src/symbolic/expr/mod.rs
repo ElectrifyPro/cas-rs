@@ -50,7 +50,7 @@
 
 mod iter;
 
-use crate::numerical::{funcs::from_str_radix, consts::{float_from_str, int, int_from_str}};
+use crate::primitive::{float_from_str, from_str_radix, int, int_from_str};
 use cas_parser::parser::{
     ast::{expr::Expr as AstExpr, literal::Literal},
     token::op::{BinOpKind, Precedence, UnaryOpKind},

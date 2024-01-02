@@ -1,6 +1,8 @@
+use crate::consts::PI;
+use crate::primitive::{complex, float};
 use rug::{Complex, Float, Integer};
 use std::fmt::{Display, Formatter};
-use super::{consts::{PI, complex, float}, fmt::{FormatOptions, ValueFormatter}};
+use super::fmt::{FormatOptions, ValueFormatter};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -93,7 +95,7 @@ impl Value {
 
     /// Converts this value from radians to degrees. If it is a real number, it is converted as
     /// usual. If it is a complex number, the real and imaginary parts are converted separately.
-    pub fn to_degrees(self) -> Self {
+    pub fn into_degrees(self) -> Self {
         let convert = |n: Float| n * 180.0 / &*PI;
         match self {
             Value::Float(n) => Value::Float(convert(n)),
@@ -108,7 +110,7 @@ impl Value {
 
     /// Converts this value from degrees to radians. If it is a real number, it is converted as
     /// usual. If it is a complex number, the real and imaginary parts are converted separately.
-    pub fn to_radians(self) -> Self {
+    pub fn into_radians(self) -> Self {
         let convert = |n: Float| n * &*PI / 180.0;
         match self {
             Value::Float(n) => Value::Float(convert(n)),
@@ -188,6 +190,18 @@ impl From<Float> for Value {
     }
 }
 
+impl From<i64> for Value {
+    fn from(n: i64) -> Self {
+        Value::Integer(Integer::from(n))
+    }
+}
+
+impl From<Integer> for Value {
+    fn from(n: Integer) -> Self {
+        Value::Integer(n)
+    }
+}
+
 impl From<Complex> for Value {
     fn from(c: Complex) -> Self {
         Value::Complex(c)
@@ -197,6 +211,12 @@ impl From<Complex> for Value {
 impl From<bool> for Value {
     fn from(b: bool) -> Self {
         Value::Boolean(b)
+    }
+}
+
+impl From<()> for Value {
+    fn from(_: ()) -> Self {
+        Value::Unit
     }
 }
 

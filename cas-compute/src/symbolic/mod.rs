@@ -57,7 +57,7 @@
 //! like terms / factors, distributing multiplication over addition, basic power rules, and more.
 //!
 //! ```
-//! use cas_compute::numerical::consts::int;
+//! use cas_compute::primitive::int;
 //! use cas_compute::symbolic::{expr::{Expr, Primary}, simplify};
 //! use cas_parser::parser::{ast::Expr as AstExpr, Parser};
 //!

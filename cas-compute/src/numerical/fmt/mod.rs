@@ -2,8 +2,9 @@ mod complex;
 mod float;
 mod integer;
 
+use crate::primitive::float;
 use std::fmt::{Display, Formatter};
-use super::{consts::float, value::Value};
+use super::value::Value;
 
 /// Formatting options for values.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]

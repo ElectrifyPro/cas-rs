@@ -1,11 +1,11 @@
-mod args;
+mod builtin;
 mod error_kind;
 
-use args::Args;
+use builtin::{Builtin, Radian};
 use error_kind::ErrorKindTarget;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{ItemFn, parse_macro_input};
+use syn::parse_macro_input;
 
 /// Derives the [`ErrorKind`] trait, provided in the `cas_error` crate, for the given item.
 ///
@@ -40,89 +40,96 @@ use syn::{ItemFn, parse_macro_input};
 #[proc_macro_derive(ErrorKind, attributes(error))]
 pub fn error_kind(item: TokenStream) -> TokenStream {
     let target = parse_macro_input!(item as ErrorKindTarget);
-    let name = &target.name;
-    quote! {
-        impl ErrorKind for #name {
-            #target
-        }
-    }.into()
+    quote! { #target }.into()
 }
 
-/// An attribute that implements runtime type-checking for the function it is applied to, intended
-/// for use in `cas_compute` builtins.
+/// An attribute that implements `cas_compute`'s `Builtin` trait on `struct`s representing
+/// functions.
 ///
-/// This attribute can be applied to any function that takes a [`Ctxt`] and a slice of [`Value`]s
-/// as its argument, and returns a `Result<Value, BuiltinError>`. It will check that the number of
-/// arguments given to the function is correct, and that the types of the arguments are correct.
+/// This attribute can be applied to any `struct` that has a static implementation through an
+/// associated function called `eval_static`. The attribute will use this function in the
+/// implementation of the `Builtin` trait to perform runtime type-checking of the arguments passed
+/// to the function.
 ///
-/// The attribute accepts a comma-separated list of parameters in the form
-///
-/// `<name>: <type> ['radians' | 'degrees'] [= <default value>]`.
-///
-/// Additionally, the list of parameters can optionally be terminated with an arrow `->`, followed
-/// by either `radians` or `degrees`. This specifies the unit that the function's builtin
-/// implementation returns.
-///
-/// The name of the parameter must be a valid Rust identifier to bind to, and the type must be one
-/// of the following:
+/// The `eval_static` method can be implemented like any Rust function, with some limitations to
+/// the types of its parameters, to match the types that [`Value`] provides. These are the accepted
+/// types:
 ///
 /// | Type      | Description                                                                                                              |
 /// | --------- | ------------------------------------------------------------------------------------------------------------------------ |
-/// | `Float`   | A floating-point value. Floats can freely coerce to [`Value::Complex`].                                                  |
-/// | `Integer` | An integer value. Integers can freely coerce to [`Value::Complex`] or [`Value::Float`].                                  |
-/// | `Complex` | A complex number value. Complex numbers can coerce to [`Value::Float`] or [`Value::Integer`] if the imaginary part is 0. |
-/// | `Unit`    | The unit type, analogous to `()` in Rust.                                                                                |
-/// | `Any`     | Any value, regardless of type. The value will be left as a [`Value`].                                                    |
+/// | `Float`   | [`rug::Float`]: A floating-point value. Floats can freely coerce to `Complex`.                                           |
+/// | `Integer` | [`rug::Integer`]: An integer value. Integers can freely coerce to `Complex` or `Float`.                                  |
+/// | `Complex` | [`rug::Complex`]: A complex number value. Complex numbers can coerce to `Float` or `Integer` if the imaginary part is 0. |
+/// | `bool`    | [`bool`]: A boolean value.                                                                                               |
+/// | `()`      | [`()`]: The unit type, analogous to `()` in Rust.                                                                        |
+/// | `Value`   | Any value, regardless of type. The value will be left as a [`Value`] for the function to handle.                         |
 ///
-/// The `radians` and `degrees` tags are optional, and specify that the builtin function's
-/// implementation expects the inputs to be in radians or degrees, respectively. If the context's
-/// trigonometric mode does not match the tag, the inputs will be converted to the correct mode
-/// before being passed to the function. If neither tag is given, the input will not be changed.
+/// In addition, any of these types can be wrapped in an [`Option`] to make the argument optional.
+/// Optional arguments should be placed at the end of the list of parameters, though the attribute
+/// does not enforce this.
 ///
-/// Parameters can be given default values by using the `= <value>` syntax after the pattern. The
-/// default value will be used if the argument is not given.
+/// For trigonometric functions, the attribute can be used to indicate that the function takes
+/// input in radians, or returns an output in radians. This is done by adding the `radian` tag to
+/// the attribute, with the value `input` or `output`. If the user's trigonometric mode does not
+/// match the function's declared mode (i.e. the user is in degree mode), the input or output will
+/// be automatically converted to the correct mode. See the example below for more context.
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_compile
 /// extern crate cas_attrs;
 ///
-/// use cas_attrs::args;
+/// use cas_attrs::builtin;
+/// use cas_compute::primitive::{complex, float};
 /// use cas_compute::numerical::{
-///     builtins::{error::BuiltinError, Builtin},
-///     consts::float,
 ///     ctxt::{Ctxt, TrigMode},
 ///     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
-///     value::Value::{self, *},
 /// };
+/// use rug::{Complex, Float};
 ///
-/// /// Returns the absolute value of a float.
-/// #[args(n: Float)]
-/// fn abs(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
-///    // if the argument is not a float (or can't be coerced to one), this will never be executed
-///    Ok(Value::Float(n.abs()))
+/// /// Returns the absolute value of a floating-point number.
+/// pub struct Abs;
+///
+/// #[builtin]
+/// impl Abs {
+///     pub fn eval_static(n: Float) -> Float {
+///         n.abs()
+///     }
 /// }
 ///
-/// /// Returns the logarithm of a float with a given base.
-/// #[args(n: Float, base: Float = float(10.0))]
-/// fn log(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
-///     Ok(Value::Float(n.ln() / base.ln()))
+/// /// Returns the logarithm to an arbitrary base.
+/// pub struct Log;
+///
+/// #[builtin]
+/// impl Log {
+///     pub fn eval_static(n: Complex, base: Option<Complex>) -> Complex {
+///         let base = base.unwrap_or(complex(10));
+///         n.ln() / base.ln()
+///     }
 /// }
 ///
-/// #[args(n: Float -> radians)]
-/// fn asin(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
-///    // the `asin` function on the `rug` crate always returns radians, so we mark this function
-///    // with `-> radians`
-///    //
-///    // if the context is in degrees mode, this will be automatically be converted to degrees
-///    Ok(Value::Float(n.sin()))
+/// /// Returns the arcsine of a value.
+/// pub struct Asin;
+///
+/// // the `asin` function on the `rug` crate always returns radians, so we annotate this function
+/// // with `#[builtin(radian = output)]` to indicate this
+/// //
+/// // if the context is in degree mode, the output of this function is automatically converted to
+/// // degrees
+/// #[builtin(radian = output)]
+/// impl Asin {
+///     pub fn eval_static(n: Complex) -> Complex {
+///        n.asin()
+///     }
 /// }
 /// ```
 ///
 /// [`Value`]: cas_compute::numerical::value::Value
+ // NOTE: this cannot be a derive macro, since we need to know information about the function
+ // signature; applying #[derive(Builtin)] to the marker struct does not provide that information
 #[proc_macro_attribute]
-pub fn args(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(attr as Args);
-    let item = parse_macro_input!(item as ItemFn);
-    args.build_struct(&item).into()
+pub fn builtin(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    let radian = parse_macro_input!(attrs as Radian);
+    let builtin = parse_macro_input!(item as Builtin);
+    builtin.generate(radian).into()
 }

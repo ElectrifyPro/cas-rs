@@ -57,42 +57,10 @@ pub struct ErrorKindTarget {
     pub error_args: ErrorArgs,
 }
 
-impl Parse for ErrorKindTarget {
-    fn parse(input: ParseStream) -> Result<Self> {
-        // parse outer attributes, including documentation and `info` attributes
-        let attributes = input.call(Attribute::parse_outer)?;
-        let name = match input.parse::<Item>() {
-            Ok(Item::Struct(s)) => s.ident,
-            Ok(Item::Enum(e)) => e.ident,
-            _ => panic!("expected struct or enum"),
-        };
-
-        let mut error_args = ErrorArgs::default();
-
-        for attr in &attributes {
-            let attr_name = attr.path().get_ident().unwrap();
-            let ident = attr_name.to_string();
-            if ident.as_str() == "error" {
-                error_args = attr.parse_args::<ErrorArgs>()?;
-                break;
-            }
-        }
-
-        Ok(ErrorKindTarget {
-            name,
-            error_args,
-        })
-    }
-}
-
-impl ToTokens for ErrorKindTarget {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let (message, labels, help) = (
-            self.error_args.message.as_ref(),
-            self.error_args.labels.as_ref(),
-            self.error_args.help.as_ref().map(|e| quote! { builder.set_help(#e); }),
-        );
-        let labels = match labels {
+impl ErrorKindTarget {
+    /// Generate the code that adds the labels to the error report.
+    fn generate_labels(&self) -> TokenStream2 {
+        match self.error_args.labels.as_ref() {
             Some(labels) => quote! {
                 #labels
                     .into_iter()
@@ -116,20 +84,62 @@ impl ToTokens for ErrorKindTarget {
                         .with_color(cas_error::EXPR))
                     .collect::<Vec<_>>()
             },
+        }
+    }
+}
+
+impl Parse for ErrorKindTarget {
+    fn parse(input: ParseStream) -> Result<Self> {
+        // parse outer attributes, including documentation and `info` attributes
+        let attributes = input.call(Attribute::parse_outer)?;
+        let name = match input.parse::<Item>() {
+            Ok(Item::Struct(s)) => s.ident,
+            Ok(Item::Enum(e)) => e.ident,
+            Ok(item) => return Err(syn::Error::new_spanned(item, "expected struct or enum")),
+            Err(e) => return Err(e),
         };
 
-        tokens.extend(quote! {
-            fn build_report(
-                &self,
-                src_id: &'static str,
-                spans: &[std::ops::Range<usize>],
-            ) -> ariadne::Report<(&'static str, std::ops::Range<usize>)> {
-                let mut builder = ariadne::Report::build(ariadne::ReportKind::Error, src_id, spans[0].start)
-                    .with_message(#message)
-                    .with_labels(#labels);
+        let mut error_args = ErrorArgs::default();
 
-                #help
-                builder.finish()
+        for attr in &attributes {
+            let attr_name = attr.path().get_ident().unwrap();
+            let ident = attr_name.to_string();
+            if ident.as_str() == "error" {
+                error_args = attr.parse_args::<ErrorArgs>()?;
+                break;
+            }
+        }
+
+        Ok(ErrorKindTarget {
+            name,
+            error_args,
+        })
+    }
+}
+
+impl ToTokens for ErrorKindTarget {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let (name, message, help) = (
+            &self.name,
+            self.error_args.message.as_ref(),
+            self.error_args.help.as_ref().map(|e| quote! { builder.set_help(#e); }),
+        );
+        let labels = self.generate_labels();
+
+        tokens.extend(quote! {
+            impl cas_error::ErrorKind for #name {
+                fn build_report(
+                    &self,
+                    src_id: &'static str,
+                    spans: &[std::ops::Range<usize>],
+                ) -> ariadne::Report<(&'static str, std::ops::Range<usize>)> {
+                    let mut builder = ariadne::Report::build(ariadne::ReportKind::Error, src_id, spans[0].start)
+                        .with_message(#message)
+                        .with_labels(#labels);
+
+                    #help
+                    builder.finish()
+                }
             }
         });
     }

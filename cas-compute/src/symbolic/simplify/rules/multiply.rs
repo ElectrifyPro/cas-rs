@@ -1,7 +1,7 @@
 //! Simplification rules for expressions involving multiplication, including combining like
 //! factors.
 
-use crate::numerical::consts::int;
+use crate::primitive::int;
 use crate::symbolic::{
     expr::{Expr, Primary},
     simplify::{fraction::{extract_integer_fraction, make_fraction}, rules::do_multiply, step::Step},

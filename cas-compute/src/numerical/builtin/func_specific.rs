@@ -1,7 +1,7 @@
 use cas_attrs::ErrorKind;
 use cas_error::ErrorKind;
 use cas_parser::parser::ast::call::Call;
-use crate::numerical::builtins::BuiltinError;
+use crate::numerical::builtin::BuiltinError;
 use std::ops::Range;
 
 /// Represents an error specific to a builtin function.

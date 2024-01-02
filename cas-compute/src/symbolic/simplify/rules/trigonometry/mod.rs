@@ -3,7 +3,7 @@
 mod consts;
 mod table;
 
-use crate::numerical::consts::int;
+use crate::primitive::int;
 use crate::symbolic::{
     expr::{Expr, Primary},
     simplify::{

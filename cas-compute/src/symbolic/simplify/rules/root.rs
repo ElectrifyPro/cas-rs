@@ -1,6 +1,6 @@
 //! Simplification rules for square, cube, and higher roots.
 
-use crate::numerical::consts::int;
+use crate::primitive::int;
 use crate::symbolic::{
     expr::{Expr, Primary},
     simplify::{rules::do_call, step::Step},

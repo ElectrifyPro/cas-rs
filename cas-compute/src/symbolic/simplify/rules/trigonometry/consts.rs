@@ -1,6 +1,6 @@
 //! Relevant constants used as input and output to a trigonometric function.
 
-use crate::numerical::consts::int;
+use crate::primitive::int;
 use crate::symbolic::{
     expr::{Expr, Primary},
     simplify::fraction::make_fraction,

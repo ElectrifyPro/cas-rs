@@ -9,7 +9,7 @@ use super::{integer, FormatOptions, NumberFormat, Scientific, Separator};
 /// scientific notation.
 pub fn should_use_scientific(n: &Float) -> bool {
     let abs = n.as_abs();
-    &*abs <= &1e-6 || &*abs >= &1e+12
+    *abs <= 1e-6 || *abs >= 1e+12
 }
 
 /// Trims trailing parts from a string assumed to represent a single number in decimal notation,

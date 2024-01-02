@@ -1,12 +1,11 @@
 use cas_parser::parser::ast::literal::Literal;
 use crate::numerical::{
-    consts::{float, float_from_str},
     ctxt::Ctxt,
     error::{kind::UndefinedVariable, Error},
     eval::Eval,
-    funcs::from_str_radix,
     value::Value,
 };
+use crate::primitive::{float, from_str_radix, float_from_str};
 
 impl Eval for Literal {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {

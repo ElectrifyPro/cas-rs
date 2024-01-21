@@ -16,6 +16,7 @@ fn parse_eval(input: &str, ctxt: &mut Ctxt) -> Result<Value, Error> {
 /// failure.
 fn read_eval(input: &str, ctxt: &mut Ctxt) {
     match parse_eval(input, ctxt) {
+        Ok(Value::Unit) => (), // intentionally print nothing
         Ok(res) => println!("{}", res),
         Err(err) => err.report_to_stderr(input),
     }

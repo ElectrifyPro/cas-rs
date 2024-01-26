@@ -11,7 +11,6 @@ use super::{
     consts::{ONE, PHI, PI, TAU, TEN, TWO, ZERO, complex, float, int, int_from_float},
     ctxt::{Ctxt, TrigMode},
     error::kind::{MissingArgument, TooManyArguments, TypeMismatch},
-    fmt::trim_trailing_zeroes,
     funcs::{
         binompdf as rs_binompdf,
         choose,
@@ -131,9 +130,9 @@ pub fn acot(ctxt: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().atan()))
 }
 
-#[args(y: Number, x: Number -> radians)]
+#[args(y: Float, x: Float -> radians)]
 pub fn atan2(ctxt: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(y.atan2(&x)))
+    Ok(Float(y.atan2(&x)))
 }
 
 #[args(n: Complex)]
@@ -166,33 +165,33 @@ pub fn acoth(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(n.recip().atanh()))
 }
 
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn dtr(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(n * &*PI / 180.0))
+    Ok(Float(n * &*PI / 180.0))
 }
 
 /// Alias for `dtr`.
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn rad(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(n * &*PI / 180.0))
+    Ok(Float(n * &*PI / 180.0))
 }
 
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn rtd(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(n * 180.0 / &*PI))
+    Ok(Float(n * 180.0 / &*PI))
 }
 
 /// Alias for `rtd`.
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn deg(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(n * 180.0 / &*PI))
+    Ok(Float(n * 180.0 / &*PI))
 }
 
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn circle(ctxt: &Ctxt, args: &[Value]) -> Result {
     match ctxt.trig_mode {
-        TrigMode::Radians => Ok(Number(n * &*TAU)),
-        TrigMode::Degrees => Ok(Number(n * 360.0)),
+        TrigMode::Radians => Ok(Float(n * &*TAU)),
+        TrigMode::Degrees => Ok(Float(n * 360.0)),
     }
 }
 
@@ -210,9 +209,9 @@ pub fn log(_: &Ctxt, args: &[Value]) -> Result {
 
 // root / power functions
 
-#[args(a: Number, b: Number)]
+#[args(a: Float, b: Float)]
 pub fn hypot(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(a.hypot(&b)))
+    Ok(Float(a.hypot(&b)))
 }
 
 #[args(n: Complex)]
@@ -234,17 +233,17 @@ pub fn pow(_: &Ctxt, args: &[Value]) -> Result {
 
 #[args(z: Complex)]
 pub fn re(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(z.into_real_imag().0))
+    Ok(Float(z.into_real_imag().0))
 }
 
 #[args(z: Complex)]
 pub fn im(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(z.into_real_imag().1))
+    Ok(Float(z.into_real_imag().1))
 }
 
 #[args(z: Complex)]
 pub fn arg(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(z.arg().into_real_imag().0))
+    Ok(Float(z.arg().into_real_imag().0))
 }
 
 #[args(z: Complex)]
@@ -254,7 +253,7 @@ pub fn conj(_: &Ctxt, args: &[Value]) -> Result {
 
 // statistics
 
-#[args(n: Number, k: Number)]
+#[args(n: Float, k: Float)]
 pub fn ncr(_: &Ctxt, args: &[Value]) -> Result {
     if n < k {
         return Err(NcprError::new("ncr", NcprErrorKind::NLessThanK).into());
@@ -264,10 +263,10 @@ pub fn ncr(_: &Ctxt, args: &[Value]) -> Result {
     }
 
     let result = choose(n.to_integer().unwrap(), k.to_integer().unwrap());
-    Ok(Number(float(result)))
+    Ok(Float(float(result)))
 }
 
-#[args(n: Number, k: Number)]
+#[args(n: Float, k: Float)]
 pub fn npr(_: &Ctxt, args: &[Value]) -> Result {
     if n < k {
         return Err(NcprError::new("npr", NcprErrorKind::NLessThanK).into());
@@ -278,7 +277,7 @@ pub fn npr(_: &Ctxt, args: &[Value]) -> Result {
 
     let (n, k) = (n.to_integer().unwrap(), k.to_integer().unwrap());
     let sub = int(&n - &k);
-    Ok(Number(float(partial_factorial(n, sub))))
+    Ok(Float(float(partial_factorial(n, sub))))
 }
 
 // probability
@@ -287,86 +286,86 @@ pub fn npr(_: &Ctxt, args: &[Value]) -> Result {
 ///
 /// This function does not actually represent any probability. To get the probability of a normally
 /// distributed random variable being between a value `a` and `b`, use [`normcdf`].
-#[args(x: Number, m: Number = float(&*ZERO), s: Number = float(&*ONE))]
+#[args(x: Float, m: Float = float(&*ZERO), s: Float = float(&*ONE))]
 pub fn normpdf(_: &Ctxt, args: &[Value]) -> Result {
     let exp_arg = Float::exp(float(x - m).square() / (-2 * float(s.square_ref())));
     let bot = s * float(TAU.sqrt_ref());
-    Ok(Number(exp_arg / bot))
+    Ok(Float(exp_arg / bot))
 }
 
 /// Normal cumulative distribution function.
 ///
 /// Returns the probability that a random variable, chosen from a normal distribution with mean `m`
 /// and standard deviation `s`, will be between `a` and `b`, inclusive.
-#[args(a: Number, b: Number, m: Number = float(&*ZERO), s: Number = float(&*ONE))]
+#[args(a: Float, b: Float, m: Float = float(&*ZERO), s: Float = float(&*ONE))]
 pub fn normcdf(_: &Ctxt, args: &[Value]) -> Result {
     let sqrt_two = float(TWO.sqrt_ref());
     let z_a = (a - &m) / float(&s * &sqrt_two);
     let z_b = (b - &m) / float(&s * &sqrt_two);
-    Ok(Number((z_b.erf() - z_a.erf()) / &*TWO))
+    Ok(Float((z_b.erf() - z_a.erf()) / &*TWO))
 }
 
 /// Inverse normal cumulative distribution function.
 ///
 /// Returns the value `x` such that `normcdf(x, m, s) = p`.
-#[args(p: Number, m: Number = float(&*ZERO), s: Number = float(&*ONE))]
+#[args(p: Float, m: Float = float(&*ZERO), s: Float = float(&*ONE))]
 pub fn invnorm(_: &Ctxt, args: &[Value]) -> Result {
     let sqrt_two = float(TWO.sqrt_ref());
     let z = float(sqrt_two * inverse_error(2 * p - 1));
-    Ok(Number(m + s * z))
+    Ok(Float(m + s * z))
 }
 
 /// Geometric probability function.
 ///
 /// Returns the probability of the first success of an event occurring on the `n`th trial, where the
 /// probability of success on a single trial is `p`.
-#[args(p: Number, n: Number)]
+#[args(p: Float, n: Float)]
 pub fn geompdf(_: &Ctxt, args: &[Value]) -> Result {
     if n <= *ZERO {
-        return Ok(Number(float(&*ZERO)));
+        return Ok(Float(float(&*ZERO)));
     }
 
     let q = float(&*ONE - &p);
-    Ok(Number(p * q.pow(n - &*ONE)))
+    Ok(Float(p * q.pow(n - &*ONE)))
 }
 
 /// Cummulative geometric probability function.
 ///
 /// Returns the probability of the first success of an event occurring on or before the `n`th trial,
 /// where the probability of success on a single trial is `p`.
-#[args(p: Number, n: Number)]
+#[args(p: Float, n: Float)]
 pub fn geomcdf(_: &Ctxt, args: &[Value]) -> Result {
     if n <= *ZERO {
-        return Ok(Number(float(&*ZERO)));
+        return Ok(Float(float(&*ZERO)));
     }
 
     let q = float(&*ONE - &p);
-    Ok(Number(&*ONE - q.pow(n)))
+    Ok(Float(&*ONE - q.pow(n)))
 }
 
 /// Binomial probability function.
 ///
 /// Returns the probability of exactly `x` successes occurring in `n` trials, where the probability
 /// of success on a single trial is `p`.
-#[args(n: Number, p: Number, x: Number)]
+#[args(n: Float, p: Float, x: Float)]
 pub fn binompdf(_: &Ctxt, args: &[Value]) -> Result {
     if x < *ZERO || x > n {
-        return Ok(Number(float(&*ZERO)));
+        return Ok(Float(float(&*ZERO)));
     }
 
-    Ok(Number(rs_binompdf(n.to_integer().unwrap(), p, x.to_integer().unwrap())))
+    Ok(Float(rs_binompdf(n.to_integer().unwrap(), p, x.to_integer().unwrap())))
 }
 
 /// Cummulative binomial probability function.
 ///
 /// Returns the probability of `x` or fewer successes occurring in `n` trials, where the probability
 /// of success on a single trial is `p`.
-#[args(n: Number, p: Number, x: Number)]
+#[args(n: Float, p: Float, x: Float)]
 pub fn binomcdf(_: &Ctxt, args: &[Value]) -> Result {
     if x < *ZERO {
-        return Ok(Number(float(&*ZERO)));
+        return Ok(Float(float(&*ZERO)));
     } else if x >= n {
-        return Ok(Number(float(&*ONE)));
+        return Ok(Float(float(&*ONE)));
     }
 
     let (n, mut x) = (n.to_integer().unwrap(), x.to_integer().unwrap());
@@ -375,13 +374,13 @@ pub fn binomcdf(_: &Ctxt, args: &[Value]) -> Result {
         sum += rs_binompdf(n.clone(), p.clone(), x.clone());
         x -= 1;
     }
-    Ok(Number(sum))
+    Ok(Float(sum))
 }
 
 // sequences
 
 /// Returns the `n`th term of the Fibonacci sequence, using Binet's formula.
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn fib(_: &Ctxt, args: &[Value]) -> Result {
     let result_negative = if n.is_sign_negative() {
         // TODO
@@ -394,7 +393,7 @@ pub fn fib(_: &Ctxt, args: &[Value]) -> Result {
     let five_sqrt = float(5.0).sqrt();
     let raw = ((float((&*PHI).pow(&n)) - one_minus_phi.pow(&n)) / five_sqrt).round();
 
-    Ok(Number(if result_negative { -raw } else { raw }))
+    Ok(Float(if result_negative { -raw } else { raw }))
 }
 
 // miscellaneous functions
@@ -404,19 +403,19 @@ pub fn bool(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Boolean(v.is_truthy()))
 }
 
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn erf(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(n.erf()))
+    Ok(Float(n.erf()))
 }
 
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn erfc(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(n.erfc()))
+    Ok(Float(n.erfc()))
 }
 
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn inverf(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(inverse_error(n)))
+    Ok(Float(inverse_error(n)))
 }
 
 #[args()]
@@ -428,15 +427,15 @@ pub fn rand(_: &Ctxt, args: &[Value]) -> Result {
 
     let mut rand_state = RandState::new();
     rand_state.seed(&seed);
-    Ok(Number(float(Float::random_bits(&mut rand_state))))
+    Ok(Float(float(Float::random_bits(&mut rand_state))))
 }
 
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn factorial(_: &Ctxt, args: &[Value]) -> Result {
     if !n.is_integer() || n.is_sign_negative() {
         Ok(Complex(rs_gamma(complex(n) + 1)))
     } else {
-        Ok(Number(rs_factorial(n)))
+        Ok(Float(rs_factorial(n)))
     }
 }
 
@@ -445,17 +444,17 @@ pub fn gamma(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(rs_gamma(n)))
 }
 
-#[args(v1: Complex, v2: Complex, t: Number)]
+#[args(v1: Complex, v2: Complex, t: Float)]
 pub fn lerp(_: &Ctxt, args: &[Value]) -> Result {
     Ok(Complex(&v1 + (v2 - &v1) * t))
 }
 
-#[args(v1: Number, v2: Number, v: Number)]
+#[args(v1: Float, v2: Float, v: Float)]
 pub fn invlerp(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(float(&v - &v1) / float(&v2 - &v1)))
+    Ok(Float(float(&v - &v1) / float(&v2 - &v1)))
 }
 
-#[args(n: Number, d: Number)]
+#[args(n: Float, d: Float)]
 pub fn siground(_: &Ctxt, args: &[Value]) -> Result {
     if n.is_zero() {
         Ok(n.into())
@@ -465,14 +464,14 @@ pub fn siground(_: &Ctxt, args: &[Value]) -> Result {
 
         let magnitude = float(10.0).pow(&power);
         let shifted = (float(&n) * &magnitude).round();
-        Ok(Number(shifted / magnitude))
+        Ok(Float(shifted / magnitude))
     }
 }
 
 macro_rules! generate_rounding_builtin {
     ($($name:ident)+) => {
         $(
-            #[args(n: Complex, s: Number = float(&*ONE))]
+            #[args(n: Complex, s: Float = float(&*ONE))]
             pub fn $name(_: &Ctxt, args: &[Value]) -> Result {
                 let recip = float(s.recip_ref());
                 let (real, imag) = n.into_real_imag();
@@ -487,48 +486,44 @@ macro_rules! generate_rounding_builtin {
 
 generate_rounding_builtin!(round ceil floor trunc);
 
-#[args(a: Number, b: Number)]
+#[args(a: Float, b: Float)]
 pub fn min(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(a.min(&b)))
+    Ok(Float(a.min(&b)))
 }
 
-#[args(a: Number, b: Number)]
+#[args(a: Float, b: Float)]
 pub fn max(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(a.max(&b)))
+    Ok(Float(a.max(&b)))
 }
 
-#[args(n: Number, l: Number, r: Number)]
+#[args(n: Float, l: Float, r: Float)]
 pub fn clamp(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(n.clamp(&l, &r)))
+    Ok(Float(n.clamp(&l, &r)))
 }
 
-#[args(a: Number, b: Number)]
+#[args(a: Float, b: Float)]
 pub fn gcf(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(float(int_from_float(a).gcd(&int_from_float(b)))))
+    Ok(Float(float(int_from_float(a).gcd(&int_from_float(b)))))
 }
 
-#[args(a: Number, b: Number)]
+#[args(a: Float, b: Float)]
 pub fn lcm(_: &Ctxt, args: &[Value]) -> Result {
-    Ok(Number(float(int_from_float(a).lcm(&int_from_float(b)))))
+    Ok(Float(float(int_from_float(a).lcm(&int_from_float(b)))))
 }
 
-#[args(n: Number)]
+#[args(n: Float)]
 pub fn sign(_: &Ctxt, args: &[Value]) -> Result {
     if n.is_zero() {
         Ok(n.into())
     } else {
-        Ok(Number(n.signum()))
+        Ok(Float(n.signum()))
     }
 }
 
-#[args(n: Number)]
+#[args(n: Integer)]
 pub fn size(_: &Ctxt, args: &[Value]) -> Result {
-    let s = n.to_string_radix(2, None);
-    let mut bits = trim_trailing_zeroes(&s).len();
-    if s.contains('.') {
-        bits -= 1;
-    }
-    Ok(Number(float(bits)))
+    let count = float(n).log2().ceil();
+    Ok(Integer(count.to_integer().unwrap()))
 }
 
 /// Returns the builtin function with the given name.

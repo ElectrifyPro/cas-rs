@@ -43,7 +43,7 @@ mod tests {
     #[test]
     fn if_branching() {
         let source = include_str!("../../../examples/if_branching.calc");
-        assert_eq!(eval(source).coerce_real(), float(5).log2().into());
+        assert_eq!(eval(source).coerce_float(), float(5).log2().into());
     }
 
     #[test]

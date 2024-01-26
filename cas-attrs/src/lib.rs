@@ -66,12 +66,13 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 /// The name of the parameter must be a valid Rust identifier to bind to, and the type must be one
 /// of the following:
 ///
-/// | Type      | Description                                                                                         |
-/// | --------- | --------------------------------------------------------------------------------------------------- |
-/// | `Number`  | A number value. Numbers can freely coerce to [`Value::Complex`].                                    |
-/// | `Complex` | A complex number value. Complex numbers can coerce to [`Value::Number`] if the imaginary part is 0. |
-/// | `Unit`    | The unit type, analogous to `()` in Rust.                                                           |
-/// | `Any`     | Any value, regardless of type. The value will be left as a [`Value`].                               |
+/// | Type      | Description                                                                                                              |
+/// | --------- | ------------------------------------------------------------------------------------------------------------------------ |
+/// | `Float`   | A floating-point value. Floats can freely coerce to [`Value::Complex`].                                                  |
+/// | `Integer` | An integer value. Integers can freely coerce to [`Value::Complex`] or [`Value::Float`].                                  |
+/// | `Complex` | A complex number value. Complex numbers can coerce to [`Value::Float`] or [`Value::Integer`] if the imaginary part is 0. |
+/// | `Unit`    | The unit type, analogous to `()` in Rust.                                                                                |
+/// | `Any`     | Any value, regardless of type. The value will be left as a [`Value`].                                                    |
 ///
 /// The `radians` and `degrees` tags are optional, and specify that the builtin function's
 /// implementation expects the inputs to be in radians or degrees, respectively. If the context's
@@ -95,26 +96,26 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 ///     value::Value::{self, *},
 /// };
 ///
-/// /// Returns the absolute value of a number.
-/// #[args(n: Number)]
+/// /// Returns the absolute value of a float.
+/// #[args(n: Float)]
 /// fn abs(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
-///    // if the argument is not a number, this will never be executed
-///    Ok(Value::Number(n.abs()))
+///    // if the argument is not a float (or can't be coerced to one), this will never be executed
+///    Ok(Value::Float(n.abs()))
 /// }
 ///
-/// /// Returns the logarithm of a number with a given base.
-/// #[args(n: Number, base: Number = float(10.0))]
+/// /// Returns the logarithm of a float with a given base.
+/// #[args(n: Float, base: Float = float(10.0))]
 /// fn log(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
-///     Ok(Value::Number(n.ln() / base.ln()))
+///     Ok(Value::Float(n.ln() / base.ln()))
 /// }
 ///
-/// #[args(n: Number -> radians)]
+/// #[args(n: Float -> radians)]
 /// fn asin(ctxt: &Ctxt, args: &[Value]) -> Result<Value, BuiltinError> {
 ///    // the `asin` function on the `rug` crate always returns radians, so we mark this function
 ///    // with `-> radians`
 ///    //
 ///    // if the context is in degrees mode, this will be automatically be converted to degrees
-///    Ok(Value::Number(n.sin()))
+///    Ok(Value::Float(n.sin()))
 /// }
 /// ```
 ///

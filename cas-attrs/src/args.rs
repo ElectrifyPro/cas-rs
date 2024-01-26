@@ -12,11 +12,14 @@ use syn::{
 /// One of the possible types for the `Value` enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Type {
-    /// A number value. Numbers can freely coerce to [`Value::Complex`].
-    Number,
+    /// A floating-point value. Floats can freely coerce to [`Value::Complex`].
+    Float,
 
-    /// A complex number value. Complex numbers can coerce to [`Value::Number`] if the imaginary
-    /// part is 0.
+    /// An integer value. Integers can freely coerce to [`Value::Float`] and [`Value::Complex`].
+    Integer,
+
+    /// A complex number value. Complex numbers can coerce to [`Value::Float`] or [`Value::Integer`]
+    /// if the imaginary part is 0.
     Complex,
 
     /// The unit type, analogous to `()` in Rust.
@@ -29,11 +32,12 @@ pub enum Type {
 impl Parse for Type {
     fn parse(input: ParseStream) -> Result<Self> {
         match &*input.parse::<Ident>()?.to_string() {
-            "Number" => Ok(Type::Number),
+            "Float" => Ok(Type::Float),
+            "Integer" => Ok(Type::Integer),
             "Complex" => Ok(Type::Complex),
             "Unit" => Ok(Type::Unit),
             "Any" => Ok(Type::Any),
-            _ => Err(input.error("expected `Number`, `Complex`, `Unit`, or `Any`")),
+            _ => Err(input.error("expected `Float`, `Integer`, `Complex`, `Unit`, or `Any`")),
         }
     }
 }
@@ -41,7 +45,8 @@ impl Parse for Type {
 impl ToTokens for Type {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         match self {
-            Type::Number => tokens.extend(quote! { Number }),
+            Type::Float => tokens.extend(quote! { Float }),
+            Type::Integer => tokens.extend(quote! { Integer }),
             Type::Complex => tokens.extend(quote! { Complex }),
             Type::Unit => tokens.extend(quote! { Unit }),
             _ => tokens.extend(quote! {}),
@@ -173,11 +178,14 @@ impl Args {
         // - `Some(_)`: argument is provided, incorrect type
         // - `None`: argument is not provided
         //
-        // the `Number` and `Complex` types are somewhat special in that they can coerce into each
-        // other if:
-        // - the argument given is a `Number` and the parameter is a `Complex`
+        // the `Float`, `Integer` and `Complex` types are somewhat special in that they can coerce
+        // into each other if:
+        // - the argument given is a `Float` / `Integer` and the parameter is a `Complex`
         // - the argument given is a `Complex` with an imaginary part of 0 and the parameter is a
-        // `Number`
+        // `Float` / `Integer`
+        // - the argument given is an `Integer` and the parameter is a `Float`
+        // - the argument given is a `Float` with a fractional part of 0 and the parameter is an
+        // `Integer`
         //
         // TODO: arguments are cloned, which may or may not be ideal
         let type_checkers = self.params
@@ -199,7 +207,8 @@ impl Args {
 
                 let unit_converter = {
                     let coercer = match param.ty {
-                        Type::Number => quote! { inner_arg.coerce_real() },
+                        Type::Float => quote! { inner_arg.coerce_float() },
+                        Type::Integer => quote! { inner_arg.coerce_integer() },
                         Type::Complex => quote! { inner_arg.coerce_complex() },
                         _ => quote! { inner_arg },
                     };

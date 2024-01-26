@@ -45,7 +45,7 @@ impl Derv for (&Call, &dyn Builtin) {
     }
 
     fn eval(&self, ctxt: &mut Ctxt, float: Float) -> Result<Value, Error> {
-        self.1.eval(ctxt, &[Value::Number(float)])
+        self.1.eval(ctxt, &[Value::Float(float)])
             .map_err(|err| err.into_error(self.0))
     }
 }
@@ -62,7 +62,7 @@ impl Derv for (&Call, &Func) {
 
     fn eval(&self, ctxt: &mut Ctxt, float: Float) -> Result<Value, Error> {
         let symbol = &self.1.header.params[0].symbol().name;
-        ctxt.add_var(symbol, Value::Number(float));
+        ctxt.add_var(symbol, Value::Float(float));
         self.1.body.eval(ctxt)
     }
 }
@@ -76,8 +76,8 @@ fn compute_derivative(derv: &dyn Derv, ctxt: &mut Ctxt, initial: Value) -> Resul
     let step = float(1e-32);
 
     let get_real = |value: Value| -> Result<Float, Error> {
-        match value.coerce_real() {
-            Value::Number(n) => Ok(n),
+        match value.coerce_float() {
+            Value::Float(n) => Ok(n),
             value => Err(Error::new(derv.call_site(), NonNumericDerivative {
                 expr_type: value.typename(),
             })),
@@ -101,7 +101,7 @@ fn compute_derivative(derv: &dyn Derv, ctxt: &mut Ctxt, initial: Value) -> Resul
 
     let result_left = sum_left / float(&step).pow(derivatives);
     let result_right = sum_right / float(-step).pow(derivatives);
-    Ok(Value::Number((result_left + result_right) / float(2)))
+    Ok(Value::Float((result_left + result_right) / float(2)))
 }
 
 impl Eval for Call {

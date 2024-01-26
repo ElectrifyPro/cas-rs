@@ -17,20 +17,20 @@ fn eval_real_operands(
     right: Value,
 ) -> Result<Value, EvalError> {
     let typename = left.typename();
-    let (Value::Number(left), Value::Number(right)) = (left, right) else {
+    let (Value::Float(left), Value::Float(right)) = (left, right) else {
         unreachable!()
     };
     Ok(match op {
-        BinOpKind::Exp => Value::Number(left.pow(right)),
-        BinOpKind::Mul => Value::Number(left * right),
-        BinOpKind::Div => Value::Number(left / right),
-        BinOpKind::Mod => Value::Number(left % right),
-        BinOpKind::Add => Value::Number(left + right),
-        BinOpKind::Sub => Value::Number(left - right),
-        BinOpKind::BitRight => Value::Number(float(int_from_float(left) >> int_from_float(right).to_usize().ok_or(BitshiftOverflow)?)),
-        BinOpKind::BitLeft => Value::Number(float(int_from_float(left) << int_from_float(right).to_usize().ok_or(BitshiftOverflow)?)),
-        BinOpKind::BitAnd => Value::Number(float(int_from_float(left) & int_from_float(right))),
-        BinOpKind::BitOr => Value::Number(float(int_from_float(left) | int_from_float(right))),
+        BinOpKind::Exp => Value::Float(left.pow(right)),
+        BinOpKind::Mul => Value::Float(left * right),
+        BinOpKind::Div => Value::Float(left / right),
+        BinOpKind::Mod => Value::Float(left % right),
+        BinOpKind::Add => Value::Float(left + right),
+        BinOpKind::Sub => Value::Float(left - right),
+        BinOpKind::BitRight => Value::Float(float(int_from_float(left) >> int_from_float(right).to_usize().ok_or(BitshiftOverflow)?)),
+        BinOpKind::BitLeft => Value::Float(float(int_from_float(left) << int_from_float(right).to_usize().ok_or(BitshiftOverflow)?)),
+        BinOpKind::BitAnd => Value::Float(float(int_from_float(left) & int_from_float(right))),
+        BinOpKind::BitOr => Value::Float(float(int_from_float(left) | int_from_float(right))),
         BinOpKind::Greater => Value::Boolean(left > right),
         BinOpKind::GreaterEq => Value::Boolean(left >= right),
         BinOpKind::Less => Value::Boolean(left < right),
@@ -156,7 +156,7 @@ pub(crate) fn eval_operands(
     right: Value,
 ) -> Result<Value, EvalError> {
     if left.is_real() && right.is_real() {
-        return eval_real_operands(op, implicit, left.coerce_real(), right.coerce_real());
+        return eval_real_operands(op, implicit, left.coerce_float(), right.coerce_float());
     }
 
     if left.is_complex() && right.is_complex() {

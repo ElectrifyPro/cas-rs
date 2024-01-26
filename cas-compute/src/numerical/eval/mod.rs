@@ -82,7 +82,7 @@ mod tests {
     fn precision() {
         let mut parser = Parser::new("e^2 - tau");
         let expr = parser.try_parse_full::<Expr>().unwrap();
-        assert_eq!(expr.eval_default().unwrap(), Value::Number(consts::E.clone().pow(2) - &*consts::TAU));
+        assert_eq!(expr.eval_default().unwrap(), Value::Float(consts::E.clone().pow(2) - &*consts::TAU));
     }
 
     #[test]
@@ -91,7 +91,7 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         let val1 = expr.eval_default().unwrap();
-        let val2 = Value::Number(consts::PI.clone().pow(2) * factorial(float(17)) / -float(4.9) + &*consts::E);
+        let val2 = Value::Float(consts::PI.clone().pow(2) * factorial(float(17)) / -float(4.9) + &*consts::E);
         assert!(val1.approx_eq(&val2));
     }
 
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn builtin_func_arg_check() {
-        assert_eq!(builtins::abs.eval(&Ctxt::default(), &[Value::from(4.0)]).unwrap().coerce_real(), 4.0.into());
+        assert_eq!(builtins::abs.eval(&Ctxt::default(), &[Value::from(4.0)]).unwrap().coerce_float(), 4.0.into());
         assert!(builtins::abs.eval(&Ctxt::default(), &[Value::Unit]).is_err());
     }
 }

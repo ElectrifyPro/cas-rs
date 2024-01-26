@@ -11,13 +11,19 @@ use crate::numerical::{
 
 impl Eval for Unary {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
-        let operand = eval_break!(self.operand, ctxt).coerce_real();
+        let operand = eval_break!(self.operand, ctxt).coerce_float();
         match operand {
-            Value::Number(num) => Ok(match self.op.kind {
+            Value::Float(num) => Ok(match self.op.kind {
                 UnaryOpKind::Not => Value::Boolean(num.is_zero()),
-                UnaryOpKind::BitNot => Value::Number(float(!int_from_float(num))),
-                UnaryOpKind::Factorial => Value::Number(factorial(num)),
-                UnaryOpKind::Neg => Value::Number(-num),
+                UnaryOpKind::BitNot => Value::Float(float(!int_from_float(num))),
+                UnaryOpKind::Factorial => Value::Float(factorial(num)),
+                UnaryOpKind::Neg => Value::Float(-num),
+            }),
+            Value::Integer(num) => Ok(match self.op.kind {
+                UnaryOpKind::Not => Value::Boolean(num.is_zero()),
+                UnaryOpKind::BitNot => Value::Integer(!num),
+                UnaryOpKind::Factorial => Value::Float(factorial(float(num))),
+                UnaryOpKind::Neg => Value::Integer(-num),
             }),
             Value::Complex(ref comp) => Ok(match self.op.kind {
                 UnaryOpKind::Not => Value::Boolean(comp.is_zero()),

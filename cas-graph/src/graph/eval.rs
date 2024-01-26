@@ -49,7 +49,7 @@ pub(crate) fn evaluate_expr(
 
     while current_trace <= bounds.1 {
         ctxt.add_var(analyzed.independent.as_str(), current_trace.into());
-        if let Ok(Value::Number(float)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_real()) {
+        if let Ok(Value::Float(float)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_float()) {
             let point = match analyzed.independent {
                 Variable::X => GraphPoint(current_trace, float.to_f64()),
                 Variable::Y => GraphPoint(float.to_f64(), current_trace),

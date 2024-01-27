@@ -131,6 +131,16 @@ impl Value {
         }
     }
 
+    /// Returns true if this value is an integer, or can be coerced to one.
+    pub fn is_integer(&self) -> bool {
+        match self {
+            Value::Float(n) => n.is_integer(),
+            Value::Integer(_) => true,
+            Value::Complex(c) => c.imag().is_zero() && c.real().is_integer(),
+            _ => false,
+        }
+    }
+
     /// Returns true if this value is a complex number, or can be coerced to one.
     pub fn is_complex(&self) -> bool {
         matches!(self, Value::Complex(_) | Value::Float(_) | Value::Integer(_))

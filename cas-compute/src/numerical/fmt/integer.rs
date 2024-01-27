@@ -7,8 +7,7 @@ use super::{FormatOptions, NumberFormat, Scientific, Separator};
 /// Returns true if the given integer is large enough that it should be formatted in scientific
 /// notation.
 pub fn should_use_scientific(n: &Integer) -> bool {
-    let limit = 10i32.pow(12);
-    n >= &limit || n <= &-limit
+    n >= &1e+12 || n <= &-1e+12
 }
 
 /// Inserts separators in a string represeting an integer / float.

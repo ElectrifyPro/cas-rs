@@ -9,6 +9,48 @@ use crate::numerical::{
     value::Value,
 };
 
+/// Evaluates a binary expression with two integer operands.
+fn eval_integer_operands(
+    op: BinOpKind,
+    implicit: bool,
+    left: Value,
+    right: Value,
+) -> Result<Value, EvalError> {
+    let typename = left.typename();
+    let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
+        unreachable!()
+    };
+    Ok(match op {
+        // NOTE: there is no implementation of `poe` for `rug::Integer` with `rug::Integer`, so we
+        // need to use the `Float` implementation instead. we can't convert back to `Integer`,
+        // because `pow` can return subnormal values, which `Integer` can't represent
+        BinOpKind::Exp => Value::Float(float(left).pow(float(right))),
+        BinOpKind::Mul => Value::Integer(left * right),
+        BinOpKind::Div => Value::Float(float(left) / float(right)),
+        BinOpKind::Mod => Value::Integer(left % right),
+        BinOpKind::Add => Value::Integer(left + right),
+        BinOpKind::Sub => Value::Integer(left - right),
+        BinOpKind::BitRight => Value::Integer(left >> right.to_usize().ok_or(BitshiftOverflow)?),
+        BinOpKind::BitLeft => Value::Integer(left << right.to_usize().ok_or(BitshiftOverflow)?),
+        BinOpKind::BitAnd => Value::Integer(left & right),
+        BinOpKind::BitOr => Value::Integer(left | right),
+        BinOpKind::Greater => Value::Boolean(left > right),
+        BinOpKind::GreaterEq => Value::Boolean(left >= right),
+        BinOpKind::Less => Value::Boolean(left < right),
+        BinOpKind::LessEq => Value::Boolean(left <= right),
+        BinOpKind::Eq => Value::Boolean(left == right),
+        BinOpKind::NotEq => Value::Boolean(left != right),
+        BinOpKind::ApproxEq => Value::Boolean((left - right).abs() < 1e-6),
+        BinOpKind::ApproxNotEq => Value::Boolean((left - right).abs() >= 1e-6),
+        BinOpKind::And | BinOpKind::Or => Err(InvalidBinaryOperation {
+            op,
+            implicit,
+            left: typename,
+            right: typename,
+        })?
+    })
+}
+
 /// Evaluates a binary expression with two real operands.
 fn eval_real_operands(
     op: BinOpKind,
@@ -155,6 +197,10 @@ pub(crate) fn eval_operands(
     left: Value,
     right: Value,
 ) -> Result<Value, EvalError> {
+    if left.is_integer() && right.is_integer() {
+        return eval_integer_operands(op, implicit, left.coerce_integer(), right.coerce_integer());
+    }
+
     if left.is_real() && right.is_real() {
         return eval_real_operands(op, implicit, left.coerce_float(), right.coerce_float());
     }

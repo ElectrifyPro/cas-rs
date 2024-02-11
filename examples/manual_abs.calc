@@ -1,2 +1,2 @@
-my_abs(n) = if n < 0 then -n else n;
+my_abs(n) = if n < 0 then -n else n
 my_abs(-4)

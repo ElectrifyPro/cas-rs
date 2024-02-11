@@ -90,6 +90,65 @@ impl<'source> Parser<'source> {
         }
     }
 
+    /// Advances the cursor past non-significant whitespace tokens to the next token. **This next
+    /// token can be a newline.**
+    ///
+    /// The cursor is not guaranteed to point to a valid token (might be out of bounds), but if the
+    /// token is valid, it is guaranteed to be a newline, or otherwise, non-whitespace.
+    ///
+    /// Newlines are significant in the context of implicit multiplication. Allowing implicit
+    /// multiplication to span multiple lines has shown to be confusing and error-prone; for
+    /// example, consider how this reasonably-looking file would be parsed (before implicit
+    /// multiplication was restricted to the same line):
+    ///
+    /// ```text
+    /// fact(n) = {
+    ///     out = n;
+    ///     while n > 1 then {
+    ///         n -= 1;
+    ///         out *= n;
+    ///     };
+    ///     out
+    /// }
+    ///
+    /// fact(14) == 14!
+    /// ```
+    ///
+    /// You would expect this code to behave like so:
+    ///
+    /// 1. Define the `fact` function.
+    /// 2. Call the `fact` function with the argument `14` and compare the result to `14!`.
+    ///
+    /// It certainly seems that way. However, in this example, implicit multiplication is actually
+    /// inserted between the "end" of the function definition `}`, and `fact(14)`, resulting in:
+    ///
+    /// ```text
+    /// fact(n) = {
+    ///     out = n;
+    ///     while n > 1 then {
+    ///         n -= 1;
+    ///         out *= n;
+    ///     };
+    ///     out
+    /// }
+    /// * // <-- implicit multiplication!!
+    /// fact(14) == 14!
+    /// ```
+    ///
+    /// The comparison `fact(14) == 14!` actually ends up being a part of the `fact` function
+    /// definition, and no comparison is made! This function is used to prevent such confusion
+    /// during parsing.
+    pub fn advance_past_non_significant_whitespace(&mut self) {
+        while let Some(token) = self.tokens.get(self.cursor) {
+            if !token.is_significant_whitespace() {
+                self.cursor += 1;
+                continue;
+            } else {
+                break;
+            }
+        }
+    }
+
     /// Returns the current token, then advances the cursor. Whitespace tokens are skipped.
     ///
     /// Returns an EOF error if there are no more tokens.

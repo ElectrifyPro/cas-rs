@@ -1,10 +1,11 @@
 lcm(a, b) = {
-    i = 0;
+    i = 0
     loop {
-        i += 1;
+        i += 1
         if i % a == 0 && i % b == 0 then {
             break i
         }
     }
-};
+}
+
 lcm(37, 41)

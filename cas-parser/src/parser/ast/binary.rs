@@ -164,6 +164,15 @@ impl Binary {
                     break;
                 }
 
+                // then check if there is significant whitespace after `rhs`; if there is, we cannot
+                // parse implicit multiplication, as that would be confusing
+                input_ahead.advance_past_non_significant_whitespace();
+                if let Some(token) = input_ahead.current_token() {
+                    if token.kind.is_significant_whitespace() {
+                        break;
+                    }
+                }
+
                 let (expr, changed) = Self::parse_expr(input, recoverable_errors, rhs, BinOpKind::Mul.precedence())?;
 
                 // `rhs = expr;` must happen in all cases, even if `changed` is false, otherwise it
@@ -246,7 +255,15 @@ impl Binary {
                 lhs = Self::complete_rhs(input, recoverable_errors, lhs, assign.into(), rhs)?;
             } else if BinOpKind::Mul.precedence() >= precedence {
                 // implicit multiplication test
-                //
+
+                // do not continue if there is significant whitespace after `lhs`
+                input_ahead.advance_past_non_significant_whitespace();
+                if let Some(token) = input_ahead.current_token() {
+                    if token.kind.is_significant_whitespace() {
+                        break;
+                    }
+                }
+
                 // ensure that we get here because there is *no* operator, not because the operator
                 // has lower precedence
                 if input_ahead.try_parse_then::<BinOp, _>(|op, input| {

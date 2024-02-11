@@ -172,6 +172,11 @@ impl TokenKind {
     pub fn is_whitespace(self) -> bool {
         matches!(self, TokenKind::Whitespace | TokenKind::NewLine)
     }
+
+    /// Returns true if the token represents significant whitespace.
+    pub fn is_significant_whitespace(self) -> bool {
+        matches!(self, TokenKind::NewLine)
+    }
 }
 
 /// A token produced by the tokenizer.
@@ -191,5 +196,10 @@ impl Token<'_> {
     /// Returns true if the token represents whitespace.
     pub fn is_whitespace(&self) -> bool {
         self.kind.is_whitespace()
+    }
+
+    /// Returns true if the token represents significant whitespace.
+    pub fn is_significant_whitespace(&self) -> bool {
+        self.kind.is_significant_whitespace()
     }
 }

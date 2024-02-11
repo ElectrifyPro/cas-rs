@@ -181,12 +181,16 @@ Below are some code examples of CalcScript in action:
 
 CalcScript is an expression-oriented language, meaning that every statement is an expression that evaluates to a value. Certain statements, such as blocks, are expressions that evaluate to the last statement within them.
 
-In the complete CalcScript program below, the value of `t` is the value of the last statement, `x + y` (5). Each of the other assignment statements (and statements that are terminated by semicolons) returns the unit type `()`.
+## Block expressions
+
+Block expressions are expressions that contain multiple statements / expressions, wrapped in curly braces. The value of a block expression is the value of the last statement within it. The value of a block expression is the value of the last expression / statement within it, or `()` if the block is empty.
+
+In the complete CalcScript program below, the value of `t` is the value of the last statement, `x + y`, which evaluates to 5. Each of the assignment statements are also expressions, but their return values are discarded:
 
 ```
 t = {
-    x = 2;
-    y = if x % 2 == 0 then 3 else 4;
+    x = 2
+    y = 3
     x + y
 }
 ```
@@ -196,11 +200,11 @@ t = {
 Radix notation is a standard method of writing numbers in bases other than base-10. To type a number in radix notation, type the base, followed by a single quote, followed by the digits of the number. For example, this is the number 1072, expressed in various different bases:
 
 ```
-a = 2'10000110000;
-b = 8'2060;
-c = 25'1hm;
-d = 32'11g;
-f = 47'mC;
+a = 2'10000110000
+b = 8'2060
+c = 25'1hm
+d = 32'11g
+f = 47'mC
 
 a == b && b == c && c == d && d == f
 ```
@@ -214,20 +218,20 @@ This is contrary to some calculators and mathematical literature, which will oft
 ```
 !! THIS IS NOT THE BEHAVIOR OF CAS-RS! !!
 
-a = 4;
+a = 4
 
-f = 1 / 2a;
-g = 1 / (2a);
+f = 1 / 2a
+g = 1 / (2a)
 ```
 
 In `cas-rs`, the three variables `f`, `g`, and `h` in the below example evaluate to the **same value**:
 
 ```
-a = 4;
+a = 4
 
-f = 1 / 2a;
-g = (1 / 2)a;
-h = 1 / 2 * a;
+f = 1 / 2a
+g = (1 / 2)a
+h = 1 / 2 * a
 ```
 
 ### Whitespace
@@ -238,9 +242,11 @@ In the below example, there must be whitespace between `a` and `c`, otherwise th
 discriminant(a, b, c) = b^2 - 4a c
 ```
 
-At the moment, the parser inserts implicit multiplication with disregard for whitespace, which can result in apparently strange results and / or errors when writing programs. For example, the output of this code is actually the unit type `()`, instead of the expected `true` (the result of `fact(14) == 14!`). Implicit multiplication is inserted between the block and the expression `fact(14) == 14!`:
+Implicit multiplication is restricted to individual lines, meaning that newlines **are significant** in the context of implicit multiplication. In the past, it was noted that allowing implicit multiplication to span multiple lines could lead to ambiguity and unexpected results. For example, this code produced no output prior to the change, instead of the expected `true` (the result of `fact(14) == 14!`). This was because the parser interpreted `fact(14) == 14!` as being implicitly multiplied with the preceding block expression:
 
 ```
+// PREVIOUSLY, THIS CODE PRODUCED NO OUTPUT
+
 fact(n) = {
     out = n;
     while n > 1 then {
@@ -249,24 +255,26 @@ fact(n) = {
     };
     out
 }
+// <-- implicit multiplication was inserted here
 fact(14) == 14!
 ```
 
-In these scenarios, semicolons can be used to clearly indicate termination of a statement and prevent implicit multiplication from appearing. This modified example will now output `true`:
+Today, this code can be written as expected:
 
 ```
+// THIS CODE PRINTS `true`
+
 fact(n) = {
-    out = n;
+    out = n
     while n > 1 then {
-        n -= 1;
-        out *= n;
-    };
+        n -= 1
+        out *= n
+    }
     out
-};
+}
+
 fact(14) == 14!
 ```
-
-In the future, implicit multiplication will probably be restricted to individual lines in order to avoid this ambiguity.
 
 ## Programming constructs
 
@@ -275,27 +283,27 @@ In the future, implicit multiplication will probably be restricted to individual
 In the case of `if` / `else` statements, you often will not need to enclose conditions or branches with any special syntax (you can do so with curly braces or parentheses if needed):
 
 ```
-my_abs(x) = if x < 0 then -x else x;
+my_abs(x) = if x < 0 then -x else x
 quadratic_formula(a, b, c, plus = true) = {
-    discriminant = b^2 - 4 a c;
+    discriminant = b^2 - 4 a c
     if discriminant >= 0 then {
-        left = -b / (2a);
-        right = sqrt(discriminant) / (2a);
+        left = -b / (2a)
+        right = sqrt(discriminant) / (2a)
         if plus then left + right else left - right
     }
-};
+}
 ```
 
 `loop`s and `while` loops are also supported. A `loop` expression will execute its body forever, while a `while` expression will run its body for as long as the given condition is true. Within the scope of a `loop` / `while` expression, the `break` and `continue` keywords can be used to break out of the loop or skip to the next iteration, respectively:
 
 ```
 my_factorial(n) = {
-    i = 1;
-    result = 1;
+    i = 1
+    result = 1
     while i < n then {
-        i += 1;
-        result *= i;
-    };
+        i += 1
+        result *= i
+    }
     result
 }
 ```
@@ -304,9 +312,9 @@ The `break` keyword can also be used to give a value to the loop expression. For
 
 ```
 lcm(a, b) = {
-    i = 0;
+    i = 0
     loop {
-        i += 1;
+        i += 1
         if i % a == 0 && i % b == 0 then {
             break i
         }
@@ -316,21 +324,21 @@ lcm(a, b) = {
 
 ## Unit type
 
-The unit type `()` is a special type that has only one value, also called `()`. It is used to indicate that a value is not particularly useful, and is the return type of functions that don't manually return anything.
+The unit type `()` is a special type that has only one value, also called `()`. It is used to indicate that a value is not particularly useful, and is the return type of functions that don't manually return anything. This is similar to `void` in C-like languages, `None` in Python, or `undefined` in JavaScript.
 
-Adding a semicolon to the end of an expression will discard the value of that expression and return `()` instead.
+Adding a semicolon to the end of an expression will evaluate, then discard the value of that expression and return `()` instead.
 
 Using most operators with `()` will result in an evaluation error, with the exception of comparison-based operators, such as `==`, `!=`, `>`, `<`, etc. This can be useful for checking if a function call succeeded or not:
 
 ```
 quadratic_formula(a, b, c, plus = true) = {
-    discriminant = b^2 - 4 a c;
+    discriminant = b^2 - 4 a c
     if discriminant >= 0 then {
-        left = -b / (2a);
-        right = sqrt(discriminant) / (2a);
+        left = -b / (2a)
+        right = sqrt(discriminant) / (2a)
         if plus then left + right else left - right
     }
-};
+}
 
 if quadratic_formula(1, 2, 3) == () then {
     // has no real roots

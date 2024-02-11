@@ -1,10 +1,11 @@
 fact(n) = {
-    out = n;
+    out = n
     loop {
-        n -= 1;
-        out *= n;
-        if n <= 1 then break;
-    };
+        n -= 1
+        out *= n
+        if n <= 1 then break
+    }
     out
-};
+}
+
 fact(14) == 14!

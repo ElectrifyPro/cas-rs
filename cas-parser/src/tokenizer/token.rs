@@ -198,7 +198,7 @@ impl Token<'_> {
         self.kind.is_whitespace()
     }
 
-    /// Returns true if the token represents significant whitespace.
+    /// Returns true if the token represents significant whitespace, i.e., the token is a newline.
     pub fn is_significant_whitespace(&self) -> bool {
         self.kind.is_significant_whitespace()
     }

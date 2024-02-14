@@ -140,7 +140,7 @@ impl<'source> Parser<'source> {
     /// during parsing.
     pub fn advance_past_non_significant_whitespace(&mut self) {
         while let Some(token) = self.tokens.get(self.cursor) {
-            if !token.is_significant_whitespace() {
+            if token.is_whitespace() && !token.is_significant_whitespace() {
                 self.cursor += 1;
                 continue;
             } else {
@@ -999,6 +999,59 @@ mod tests {
                 span: 4..6,
             })),
             span: 0..6,
+        }));
+    }
+
+    #[test]
+    fn implicit_multiplication_3() {
+        let mut parser = Parser::new("(1 - x)(1 + x)");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Paren(Paren {
+                expr: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                        value: "1".to_string(),
+                        span: 1..2,
+                    }))),
+                    op: BinOp {
+                        kind: BinOpKind::Sub,
+                        implicit: false,
+                        span: 3..4,
+                    },
+                    rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                        name: "x".to_string(),
+                        span: 5..6,
+                    }))),
+                    span: 1..6,
+                })),
+                span: 0..7,
+            })),
+            op: BinOp {
+                kind: BinOpKind::Mul,
+                implicit: true,
+                span: 7..7,
+            },
+            rhs: Box::new(Expr::Paren(Paren {
+                expr: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                        value: "1".to_string(),
+                        span: 8..9,
+                    }))),
+                    op: BinOp {
+                        kind: BinOpKind::Add,
+                        implicit: false,
+                        span: 10..11,
+                    },
+                    rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                        name: "x".to_string(),
+                        span: 12..13,
+                    }))),
+                    span: 8..13,
+                })),
+                span: 7..14,
+            })),
+            span: 0..14,
         }));
     }
 

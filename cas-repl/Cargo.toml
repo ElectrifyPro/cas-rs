@@ -9,3 +9,4 @@ edition = "2021"
 ariadne = "0.2.0"
 cas-compute = { path = "../cas-compute", default-features = false, features = ["numerical"] }
 cas-parser = { path = "../cas-parser" }
+rustyline = "13.0.0"

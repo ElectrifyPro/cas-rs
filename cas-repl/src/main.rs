@@ -3,7 +3,8 @@ mod error;
 use cas_compute::numerical::{ctxt::Ctxt, eval::eval_stmts, value::Value};
 use cas_parser::parser::{ast::stmt::Stmt, Parser};
 use error::Error;
-use std::{fs::File, io::{self, BufReader, IsTerminal, Read, Write}};
+use rustyline::{error::ReadlineError, DefaultEditor};
+use std::{fs::File, io::{self, BufReader, IsTerminal, Read}};
 
 /// Parses and evaluates the given input string, returning the results of both operations.
 fn parse_eval(input: &str, ctxt: &mut Ctxt) -> Result<Value, Error> {
@@ -43,13 +44,23 @@ fn main() {
         read_eval(&input, &mut ctxt);
     } else {
         // run the repl / interactive mode
-        loop {
-            print!("> ");
-            io::stdout().flush().unwrap();
-            let mut input = String::new();
-            io::stdin().read_line(&mut input).unwrap();
+        let mut rl = DefaultEditor::new().unwrap();
 
-            read_eval(&input, &mut ctxt);
+        fn process_line(rl: &mut DefaultEditor, ctxt: &mut Ctxt) -> Result<(), ReadlineError> {
+            let input = rl.readline("> ")?;
+            rl.add_history_entry(&input)?;
+            read_eval(&input, ctxt);
+            Ok(())
+        }
+
+        loop {
+            if let Err(err) = process_line(&mut rl, &mut ctxt) {
+                match err {
+                    ReadlineError::Eof | ReadlineError::Interrupted => (),
+                    _ => eprintln!("{}", err),
+                }
+                break;
+            }
         }
     }
 }

@@ -33,7 +33,7 @@ fn prime_factorization(mut n: Integer) -> HashMap<Integer, usize> {
 ///
 /// Returns a 2-tuple of the factors that have been moved outside of the root and the factors that
 /// remain inside the root.
-fn do_root(expr: &Expr, root: usize) -> (Vec<Expr>, Vec<Expr>) {
+fn do_root(expr: &Expr, root: usize) -> Option<Expr> {
     let factors = if let Expr::Mul(factors) = expr {
         factors.clone()
     } else {
@@ -94,29 +94,30 @@ fn do_root(expr: &Expr, root: usize) -> (Vec<Expr>, Vec<Expr>) {
         })
         .collect::<Vec<_>>();
 
-    (outside_factors, inside_factors)
-}
-
-/// Rebuilds a call expression after performing root simplification with the given function name
-/// and arguments.
-fn rebuild_call(name: &str, (outside, inside): (Vec<Expr>, Vec<Expr>)) -> Option<Expr> {
-    if outside.is_empty() {
+    if outside_factors.is_empty() {
+        // nothing was pulled out of the root; no simplification was performed
         None
-    } else if inside.is_empty() {
-        Some(Expr::Mul(outside))
+    } else if inside_factors.is_empty() {
+        // everything was pulled out of the root; the root / call is gone
+        Some(Expr::Mul(outside_factors))
     } else {
-        // rebuild call
-        Some(Expr::Mul(outside) * Expr::Primary(Primary::Call(
-            name.to_string(),
-            vec![Expr::Mul(inside)],
-        )))
+        // call needs to be rebuilt with the new arguments
+        let call = match root {
+            2 => Primary::Call("sqrt".to_string(), vec![Expr::Mul(inside_factors)]),
+            3 => Primary::Call("cbrt".to_string(), vec![Expr::Mul(inside_factors)]),
+            n => Primary::Call(
+                "root".to_string(),
+                vec![Expr::Mul(inside_factors), Expr::Primary(Primary::Integer(Integer::from(n)))],
+            ),
+        };
+        Some(Expr::Mul(outside_factors) * Expr::Primary(call))
     }
 }
 
 /// `sqrt(x^2) = x`, `x >= 0`
 fn sqrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_call(expr, "sqrt", |args| {
-        rebuild_call("sqrt", do_root(args.get(0)?, 2))
+        do_root(args.get(0)?, 2)
     })?;
 
     // keep the step collection logic outside of the closure to make it implement `Fn`
@@ -127,7 +128,7 @@ fn sqrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Exp
 /// `cbrt(x^3) = x`
 fn cbrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_call(expr, "cbrt", |args| {
-        rebuild_call("cbrt", do_root(args.get(0)?, 3))
+        do_root(args.get(0)?, 3)
     })?;
 
     step_collector.push(Step::Root);
@@ -138,7 +139,7 @@ fn cbrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Exp
 fn root(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_call(expr, "root", |args| {
         let y = args.get(1)?.as_integer()?;
-        rebuild_call("root", do_root(args.get(0)?, y.to_usize()?))
+        do_root(args.get(0)?, y.to_usize()?)
     })?;
 
     step_collector.push(Step::Root);

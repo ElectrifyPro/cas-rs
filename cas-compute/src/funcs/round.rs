@@ -35,11 +35,11 @@ pub struct Siground;
 #[cfg_attr(feature = "numerical", builtin)]
 impl Siground {
     pub fn eval_static(n: Complex, d: Integer) -> Complex {
-        if n.is_zero() {
-            return n;
-        }
-
         fn inner(n: Float, d: &Integer) -> Float {
+            if n.is_zero() {
+                return n;
+            }
+
             let num_digits = float(n.abs_ref()).log10().ceil().to_integer().unwrap();
             let power = d - num_digits;
 

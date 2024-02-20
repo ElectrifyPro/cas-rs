@@ -16,13 +16,13 @@ impl Eval for Unary {
             Value::Float(num) => Ok(match self.op.kind {
                 UnaryOpKind::Not => Value::Boolean(num.is_zero()),
                 UnaryOpKind::BitNot => Value::Float(float(!int_from_float(num))),
-                UnaryOpKind::Factorial => Value::Float(Factorial::eval_static(num)),
+                UnaryOpKind::Factorial => Factorial::eval_static(num),
                 UnaryOpKind::Neg => Value::Float(-num),
             }),
             Value::Integer(num) => Ok(match self.op.kind {
                 UnaryOpKind::Not => Value::Boolean(num.is_zero()),
                 UnaryOpKind::BitNot => Value::Integer(!num),
-                UnaryOpKind::Factorial => Value::Float(Factorial::eval_static(float(num))),
+                UnaryOpKind::Factorial => Factorial::eval_static(float(num)),
                 UnaryOpKind::Neg => Value::Integer(-num),
             }),
             Value::Complex(ref comp) => Ok(match self.op.kind {

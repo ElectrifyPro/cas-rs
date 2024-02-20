@@ -94,7 +94,12 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         let val1 = expr.eval_default().unwrap();
-        let val2 = Value::Float(consts::PI.clone().pow(2) * Factorial::eval_static(float(17)) / -float(4.9) + &*consts::E);
+        let fac_17 = if let Value::Integer(fac_17) = Factorial::eval_static(float(17)) {
+            fac_17
+        } else {
+            unreachable!("factorial of 17 is an integer")
+        };
+        let val2 = Value::Float(consts::PI.clone().pow(2) * fac_17 / -float(4.9) + &*consts::E);
         assert!(val1.approx_eq(&val2));
     }
 

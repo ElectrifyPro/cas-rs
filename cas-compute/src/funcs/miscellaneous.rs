@@ -73,12 +73,13 @@ pub struct Factorial;
 
 #[cfg_attr(feature = "numerical", builtin)]
 impl Factorial {
-    pub fn eval_static(n: Float) -> Float {
+    pub fn eval_static(n: Float) -> Value {
         if !n.is_integer() || n.is_sign_negative() {
-            (n + 1u8).gamma()
+            Value::Float((n + 1u8).gamma())
         } else {
+            // returning an integer in this case is more efficient and provides better precision
             let n = n.to_integer().unwrap();
-            float(partial_factorial(n, int(1)))
+            Value::Integer(partial_factorial(n, int(1)))
         }
     }
 }

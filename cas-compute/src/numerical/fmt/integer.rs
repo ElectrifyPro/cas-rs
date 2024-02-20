@@ -37,7 +37,7 @@ pub fn fmt_decimal(f: &mut Formatter<'_>, n: &Integer, separators: Separator) ->
 pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Integer, scientific_suffix: Scientific) -> std::fmt::Result {
     let mut s = n.to_string_radix(10);
 
-    // locate first non-zero digit
+    // locate first non-zero digit, which will be either at index 0 or 1 (if there is a sign)
     let first_non_zero = s.find(|c: char| c.is_ascii_digit() && c != '0').unwrap();
 
     // count the number of digits after this point, representing the exponent
@@ -50,6 +50,11 @@ pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Integer, scientific_suffix: Sci
     } else {
         // if there are digits after the first non-zero digit, insert a decimal point after it
         s.insert(first_non_zero + 1, '.');
+
+        // remove trailing zeroes, since there is now a decimal point, making them redundant as
+        // they are now part of the fractional part
+        // (they could still be significant figures)
+        let s = s.trim_end_matches('0');
 
         // if the user wants to use scientific notation, we need to add an exponent
         match scientific_suffix {

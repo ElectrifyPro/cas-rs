@@ -1,10 +1,11 @@
 //! Probability density and distribution functions.
 
 use cas_attrs::builtin;
-use crate::consts::{ONE, PI, TAU, TWO, ZERO};
-use crate::primitive::{float, float_from_str};
+use crate::consts::{E, ONE, PI, TAU, TWO, ZERO};
+use crate::primitive::{float, float_from_str, int};
 use once_cell::sync::Lazy;
 use rug::{float::Special, ops::Pow, Float, Integer};
+use super::miscellaneous::partial_factorial;
 
 /// The error function, `erf(x)`.
 #[derive(Debug)]
@@ -250,4 +251,45 @@ impl Binomcdf {
     }
 }
 
-// TODO: poisspdf, poisscdf
+/// Poisson probability function.
+///
+/// Returns the probability of exactly `k` events occurring in an arbitrary time interval, where
+/// the mean number of occurrences of the event in the time interval is `l`.
+#[derive(Debug)]
+pub struct Poisspdf;
+
+#[cfg_attr(feature = "numerical", builtin)]
+impl Poisspdf {
+    pub fn eval_static(k: Integer, l: Float) -> Float {
+        if k < *ZERO {
+            return float(&*ZERO);
+        }
+
+        let b = float(&*E).pow(&*l.as_neg());
+        let a = l.pow(&k);
+        let c = partial_factorial(k, int(1));
+        a * b / c
+    }
+}
+
+/// Cummulative poisson probability function.
+///
+/// Returns the probability of `k` or fewer events occurring in an arbitrary time interval, where
+/// the mean number of occurrences of the event in the time interval is `l`.
+#[derive(Debug)]
+pub struct Poisscdf;
+
+#[cfg_attr(feature = "numerical", builtin)]
+impl Poisscdf {
+    pub fn eval_static(k: Integer, l: Float) -> Float {
+        if k < *ZERO {
+            return float(&*ZERO);
+        }
+
+        fn reg_gamma(s: Float, x: Float) -> Float {
+            float(s.gamma_inc_ref(&x)) / s.gamma()
+        }
+
+        reg_gamma(float(k + 1), l)
+    }
+}

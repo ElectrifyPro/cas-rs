@@ -135,6 +135,8 @@ pub fn all() -> HashMap<&'static str, Box<dyn Builtin>> {
         "geomcdf" Geomcdf,
         "binompdf" Binompdf,
         "binomcdf" Binomcdf,
+        "poisspdf" Poisspdf,
+        "poisscdf" Poisscdf,
         "siground" Siground,
         "round" Round,
         "ceil" Ceil,

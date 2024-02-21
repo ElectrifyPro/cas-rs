@@ -12,7 +12,7 @@ See below for a guide on the REPL and some code examples.
 - Arbitrary precision arithmetic
 - Real and complex numbers
 - Radix notation (e.g. `2'1010` = 10)
-- 60+ built-in functions, covering many expected use cases ([see here](https://github.com/ElectrifyPro/cas-rs/blob/dev/cas-compute/src/numerical/builtins/mod.rs))
+- 60+ built-in functions, covering many expected use cases ([see here](https://github.com/ElectrifyPro/cas-rs/blob/dev/cas-compute/src/funcs/mod.rs))
 - Powerful formatting options, including LaTeX code output
 - Builtin REPL
 - And more!

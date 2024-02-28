@@ -21,10 +21,20 @@ fn eval_integer_operands(
         unreachable!()
     };
     Ok(match op {
-        // NOTE: there is no implementation of `poe` for `rug::Integer` with `rug::Integer`, so we
-        // need to use the `Float` implementation instead. we can't convert back to `Integer`,
-        // because `pow` can return subnormal values, which `Integer` can't represent
-        BinOpKind::Exp => Value::Float(float(left).pow(float(right))),
+        BinOpKind::Exp => {
+            // NOTE: there is no implementation of `pow` for `rug::Integer` with `rug::Integer`
+            if let Some(right) = right.to_u16() {
+                // so try the `u32` implementation if `right` fits in a `u16` (`u32::MAX` takes
+                // unreasonably long to compute), ensuring we get full precision
+
+                // `right` is a positive integer
+                Value::Integer(left.pow(u32::from(right)))
+            } else {
+                // otherwise, use the `Float` implementation, which will be faster, but can lose
+                // precision
+                Value::Float(float(left).pow(float(right)))
+            }
+        },
         BinOpKind::Mul => Value::Integer(left * right),
         BinOpKind::Div => Value::Float(float(left) / float(right)),
         BinOpKind::Mod => Value::Integer(left % right),

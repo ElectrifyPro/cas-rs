@@ -77,9 +77,17 @@ impl Factorial {
         if !n.is_integer() || n.is_sign_negative() {
             Value::Float((n + 1u8).gamma())
         } else {
-            // returning an integer in this case is more efficient and provides better precision
-            let n = n.to_integer().unwrap();
-            Value::Integer(partial_factorial(n, int(1)))
+            let n_int = n.to_integer().unwrap();
+
+            // if `n` fits within `u32`, we can use `rug`'s `factorial` method, which uses a
+            // much more efficient algorithm than naive multiplication
+            if let Some(n) = n_int.to_u16() {
+                Value::Integer(int(Integer::factorial(u32::from(n))))
+            } else {
+                // otherwise, there really isn't a good way to compute the factorial fast, so we'll
+                // just use the gamma function
+                Value::Float((n + 1u8).gamma())
+            }
         }
     }
 }

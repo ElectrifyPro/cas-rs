@@ -63,20 +63,25 @@ fn compute_derivative(
     let derivatives = call.derivatives;
 
     for k in 0..=derivatives {
-        let a = float(-1).pow(k + derivatives);
+        // synonym for a = (-1)^(k + derivatives) to avoid overflow errors
+        let a = if k % 2 == derivatives % 2 {
+            1
+        } else {
+            -1
+        };
         let b = Ncr::eval_static(derivatives.into(), k.into());
 
         // TODO: eval will do unnecessary typechecking on builtin functions
         let c = get_real(eval(ctxt, &initial + float(k * &step))?)?;
         let d = get_real(eval(ctxt, &initial - float(k * &step))?)?;
 
-        sum_left += float(&a * &b) * c;
-        sum_right += a * b * d;
+        sum_left += c * &b * a;
+        sum_right += d * &b * a;
     }
 
     let result_left = sum_left / float(&step).pow(derivatives);
     let result_right = sum_right / float(-step).pow(derivatives);
-    Ok(Value::Float((result_left + result_right) / float(2)))
+    Ok(Value::Float((result_left + result_right) / 2))
 }
 
 impl Eval for Call {

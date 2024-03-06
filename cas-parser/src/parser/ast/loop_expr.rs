@@ -1,6 +1,6 @@
 use crate::parser::{
     ast::expr::Expr,
-    error::Error,
+    error::{kind::{BreakOutsideLoop, ContinueOutsideLoop}, Error},
     fmt::Latex,
     keyword::{Break as BreakToken, Continue as ContinueToken, Loop as LoopToken},
     Parse,
@@ -39,7 +39,10 @@ impl<'source> Parse<'source> for Loop {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let loop_token = input.try_parse::<LoopToken>().forward_errors(recoverable_errors)?;
-        let body = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
+
+        let body = input.try_parse_with_state::<_, Expr>(|state| {
+            state.loop_depth += 1;
+        }).forward_errors(recoverable_errors)?;
         let span = loop_token.span.start..body.span().end;
 
         Ok(Self {
@@ -102,6 +105,14 @@ impl<'source> Parse<'source> for Break {
             break_token.span.clone()
         };
 
+        // `break` expressions can only be used inside loops
+        if input.state.loop_depth == 0 {
+            recoverable_errors.push(Error::new(
+                vec![break_token.span.clone()],
+                BreakOutsideLoop,
+            ));
+        }
+
         Ok(Self {
             value: value.map(Box::new),
             span,
@@ -150,11 +161,20 @@ impl<'source> Parse<'source> for Continue {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        input.try_parse::<ContinueToken>()
-            .forward_errors(recoverable_errors)
-            .map(|continue_token| Self {
-                span: continue_token.span,
-            })
+        let continue_token = input.try_parse::<ContinueToken>()
+            .forward_errors(recoverable_errors)?;
+
+        // `continue` expressions can only be used inside loops
+        if input.state.loop_depth == 0 {
+            recoverable_errors.push(Error::new(
+                vec![continue_token.span.clone()],
+                ContinueOutsideLoop,
+            ));
+        }
+
+        Ok(Self {
+            span: continue_token.span,
+        })
     }
 }
 

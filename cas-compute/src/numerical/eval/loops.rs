@@ -9,7 +9,6 @@ trait ConditionalLoop {
 
     /// Evaluates the loop expression.
     fn eval_loop(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
-        ctxt.loop_depth += 1;
         while self.condition(ctxt)? {
             let value = match self.body() {
                 Expr::Literal(literal) => literal.eval(ctxt),
@@ -28,12 +27,10 @@ trait ConditionalLoop {
 
             if ctxt.break_loop {
                 ctxt.break_loop = false;
-                ctxt.loop_depth -= 1;
                 return Ok(value);
             }
         }
 
-        ctxt.loop_depth -= 1;
         Ok(Value::Unit)
     }
 }

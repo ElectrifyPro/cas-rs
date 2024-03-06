@@ -81,11 +81,6 @@ pub struct Ctxt {
     /// The trigonometric mode of the context.
     pub trig_mode: TrigMode,
 
-    /// The current depth of the loop stack. This is used to detect `break` and `continue` outside
-    /// of a loop.
-    #[cfg_attr(feature = "serde", serde(skip))]
-    pub(crate) loop_depth: usize,
-
     /// When true, a `break` expression was evaluated in the current loop. The evaluator should
     /// stop and propogate the value of the `break` expression.
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -117,7 +112,6 @@ impl Default for Ctxt {
                 .map(|(name, func)| (name.to_string(), func.into()))
                 .collect(),
             trig_mode: TrigMode::default(),
-            loop_depth: 0,
             break_loop: false,
             stack_depth: 0,
             max_depth_reached: false,

@@ -254,3 +254,21 @@ pub struct MissingIfBranch {
     /// The keyword that was expected.
     pub keyword: &'static str,
 }
+
+/// Cannot use `break` outside of a loop.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "cannot use `break` keyword here",
+    labels = [""],
+    help = "`break` or `continue` can only be used within a `loop` block",
+)]
+pub struct BreakOutsideLoop;
+
+/// Cannot use `continue` outside of a loop.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "cannot use `continue` keyword here",
+    labels = [""],
+    help = "`break` or `continue` can only be used within a `loop` block",
+)]
+pub struct ContinueOutsideLoop;

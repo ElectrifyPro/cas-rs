@@ -11,6 +11,17 @@ use error::{Error, kind};
 use super::tokenizer::{tokenize_complete, Token};
 use std::{ops::Range, sync::Arc};
 
+/// State that can be used to determine if certain parse trees are valid (e.g. if a checking if a
+/// `break` expression is inside a loop).
+///
+/// The state cannot be mutated directly; it can only be changed when parsing using the [`Parser::try_parse_with_state`] method.
+#[derive(Debug, Clone, Default)]
+pub struct ParserState {
+    /// The current depth of a `loop` expression stack. This is used to detect `break` and
+    /// `continue` outside of a loop.
+    pub loop_depth: usize,
+}
+
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
 /// code into an abstract syntax tree.
 #[derive(Debug, Clone)]
@@ -20,6 +31,12 @@ pub struct Parser<'source> {
 
     /// The index of the **next** token to be parsed.
     cursor: usize,
+
+    /// Holds state that can be used to determine if certain parse trees are valid (e.g. if a
+    /// checking if a `break` expression is inside a loop).
+    ///
+    /// The state cannot be mutated directly; it can only be changed when parsing using the [`Parser::try_parse_with_state`] method.
+    state: ParserState,
 }
 
 impl<'source> Parser<'source> {
@@ -28,7 +45,13 @@ impl<'source> Parser<'source> {
         Self {
             tokens: tokenize_complete(source).into(),
             cursor: 0,
+            state: ParserState::default(),
         }
+    }
+
+    /// Returns an immutable reference to the parser's state.
+    pub fn state(&self) -> &ParserState {
+        &self.state
     }
 
     /// Sets the parser to point to the same token as the given parser. It is assumed that both
@@ -176,6 +199,35 @@ impl<'source> Parser<'source> {
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
     pub fn try_parse<T: Parse<'source>>(&mut self) -> ParseResult<T> {
         self.try_parse_with_fn(T::parse)
+    }
+
+    /// Speculatively parses a value from the given stream of tokens. Before parsing, a copy of the
+    /// parser is created with the state mutated using the given function. The original parser's
+    /// state will not change, but the cursor position can be advanced if the new parser was
+    /// successful.
+    ///
+    /// This function can be used in the [`Parse::parse`] implementation of a type with the given
+    /// [`Parser`], as it will automatically backtrack the cursor position if parsing fails.
+    ///
+    /// If parsing is successful, the stream is advanced past the consumed tokens and the parsed
+    /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
+    pub fn try_parse_with_state<F, T>(&mut self, modify_state: F) -> ParseResult<T>
+    where
+        F: FnOnce(&mut ParserState) -> (),
+        T: Parse<'source>,
+    {
+        let mut state = self.state.clone();
+        modify_state(&mut state);
+
+        let mut new_parser = Self {
+            tokens: self.tokens.clone(),
+            cursor: self.cursor,
+            state,
+        };
+
+        let t = new_parser.try_parse();
+        self.set_cursor(&new_parser);
+        t
     }
 
     /// Speculatively parses a value from the given stream of tokens, using a custom parsing

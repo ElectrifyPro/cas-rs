@@ -16,6 +16,13 @@ impl Eval for Literal {
             Literal::Symbol(sym) => ctxt.get_var(sym.name.as_str())
                 .ok_or_else(|| Error::new(vec![sym.span.clone()], UndefinedVariable { name: sym.name.clone() })),
             Literal::Unit(_) => Ok(Value::Unit),
+            Literal::List(list) => {
+                let mut values = Vec::with_capacity(list.values.len());
+                for value in &list.values {
+                    values.push(value.eval(ctxt)?);
+                }
+                Ok(Value::List(values))
+            },
         }
     }
 }

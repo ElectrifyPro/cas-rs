@@ -148,6 +148,12 @@ pub enum TokenKind {
     #[token("}")]
     CloseCurly,
 
+    #[token("[")]
+    OpenSquare,
+
+    #[token("]")]
+    CloseSquare,
+
     #[token("'")]
     Quote,
 

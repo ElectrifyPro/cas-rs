@@ -97,6 +97,8 @@ token_kinds!(
     CloseParen
     OpenCurly
     CloseCurly
+    OpenSquare
+    CloseSquare
     Quote
     Semicolon
     Int

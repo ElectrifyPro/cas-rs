@@ -104,6 +104,19 @@ impl Display for ValueFormatter<'_> {
             Value::Complex(c) => complex::fmt(f, c, self.options),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Unit => write!(f, "()"),
+            Value::List(l) => {
+                write!(f, "[")?;
+                for (i, item) in l.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", ValueFormatter {
+                        value: item,
+                        options: self.options,
+                    })?;
+                }
+                write!(f, "]")
+            },
         }
     }
 }

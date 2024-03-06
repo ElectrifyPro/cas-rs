@@ -12,3 +12,10 @@ pub type ParenDelimited<'source, T> = surrounded::Surrounded<
     crate::parser::token::CloseParen<'source>,
     delimited::Delimited<crate::parser::token::Comma<'source>, T>,
 >;
+
+/// Type alias for a comma-separated list of values, surrounded by square brackets.
+pub type SquareDelimited<'source, T> = surrounded::Surrounded<
+    crate::parser::token::OpenSquare<'source>,
+    crate::parser::token::CloseSquare<'source>,
+    delimited::Delimited<crate::parser::token::Comma<'source>, T>,
+>;

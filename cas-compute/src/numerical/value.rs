@@ -25,6 +25,9 @@ pub enum Value {
 
     /// The unit type, analogous to `()` in Rust.
     Unit,
+
+    /// A list of values.
+    List(Vec<Value>),
 }
 
 #[cfg(test)]
@@ -47,6 +50,7 @@ impl Value {
             Value::Complex(_) => "Complex",
             Value::Boolean(_) => "Boolean",
             Value::Unit => "Unit",
+            Value::List(_) => "List",
         }
     }
 
@@ -166,6 +170,7 @@ impl Value {
             Value::Complex(c) => !c.is_zero(),
             Value::Boolean(b) => *b,
             Value::Unit => false,
+            Value::List(l) => !l.is_empty(),
         }
     }
 

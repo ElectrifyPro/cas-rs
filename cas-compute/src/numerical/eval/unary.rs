@@ -47,6 +47,10 @@ impl Eval for Unary {
                 op: self.op.kind,
                 expr_type: operand.typename(),
             })),
+            Value::List(_) => Err(Error::new(vec![self.operand.span(), self.op.span.clone()], InvalidUnaryOperation {
+                op: self.op.kind,
+                expr_type: operand.typename(),
+            })),
         }
     }
 }

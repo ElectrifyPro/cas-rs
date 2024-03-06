@@ -1,5 +1,6 @@
 use crate::{
     parser::{
+        ast::{expr::Expr, helper::SquareDelimited},
         error::{kind, Error},
         fmt::Latex,
         token::{CloseParen, Float, Name, Int, OpenParen, Quote},
@@ -328,6 +329,58 @@ impl Latex for LitUnit {
     }
 }
 
+/// A list type, consisting of a list of expressions surrounded by square brackets and delimited by
+/// commas.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct LitList {
+    /// The list of expressions.
+    pub values: Vec<Expr>,
+
+    /// The region of the source code that this literal was parsed from.
+    pub span: Range<usize>,
+}
+
+impl<'source> Parse<'source> for LitList {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let surrounded = input.try_parse::<SquareDelimited<_>>().forward_errors(recoverable_errors)?;
+
+        Ok(Self {
+            values: surrounded.value.values,
+            span: surrounded.start.span.start..surrounded.end.span.end,
+        })
+    }
+}
+
+impl std::fmt::Display for LitList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[")?;
+        for (i, value) in self.values.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", value)?;
+        }
+        write!(f, "]")
+    }
+}
+
+impl Latex for LitList {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[")?;
+        for (i, value) in self.values.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            value.fmt_latex(f)?;
+        }
+        write!(f, "]")
+    }
+}
+
 /// Represents a literal value in CalcScript.
 ///
 /// A literal is any value that can is written directly into the source code. For example, the
@@ -351,6 +404,10 @@ pub enum Literal {
     /// The unit type, written as `()`. The unit type is by-default returned by functions that do
     /// not return a value.
     Unit(LitUnit),
+
+    /// A list type, consisting of a list of expressions surrounded by square brackets and delimited
+    /// by commas.
+    List(LitList),
 }
 
 impl Literal {
@@ -362,6 +419,7 @@ impl Literal {
             Literal::Radix(radix) => radix.span.clone(),
             Literal::Symbol(name) => name.span.clone(),
             Literal::Unit(unit) => unit.span.clone(),
+            Literal::List(list) => list.span.clone(),
         }
     }
 }
@@ -375,7 +433,8 @@ impl<'source> Parse<'source> for Literal {
         let _ = return_if_ok!(input.try_parse::<LitInt>().map(Literal::Integer).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse::<LitFloat>().map(Literal::Float).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse::<LitSym>().map(Literal::Symbol).forward_errors(recoverable_errors));
-        input.try_parse::<LitUnit>().map(Literal::Unit).forward_errors(recoverable_errors)
+        let _ = return_if_ok!(input.try_parse::<LitUnit>().map(Literal::Unit).forward_errors(recoverable_errors));
+        input.try_parse::<LitList>().map(Literal::List).forward_errors(recoverable_errors)
     }
 }
 
@@ -387,6 +446,7 @@ impl std::fmt::Display for Literal {
             Literal::Radix(radix) => radix.fmt(f),
             Literal::Symbol(name) => name.fmt(f),
             Literal::Unit(unit) => unit.fmt(f),
+            Literal::List(list) => list.fmt(f),
         }
     }
 }
@@ -399,6 +459,7 @@ impl Latex for Literal {
             Literal::Radix(radix) => radix.fmt_latex(f),
             Literal::Symbol(name) => name.fmt_latex(f),
             Literal::Unit(unit) => unit.fmt_latex(f),
+            Literal::List(list) => list.fmt_latex(f),
         }
     }
 }

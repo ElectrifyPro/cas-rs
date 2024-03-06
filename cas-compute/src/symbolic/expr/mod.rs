@@ -445,6 +445,7 @@ impl From<AstExpr> for Expr {
                 Literal::Radix(radix) => Self::Primary(Primary::Integer(from_str_radix(&radix.value, radix.base))),
                 Literal::Symbol(sym) => Self::Primary(Primary::Symbol(sym.name)),
                 Literal::Unit(_) => todo!(),
+                Literal::List(_) => todo!(),
             },
             AstExpr::Paren(paren) => Self::from(paren.into_innermost()),
             AstExpr::Block(_) => todo!(),

@@ -38,7 +38,7 @@ mod tests {
     #[test]
     fn function_scope() {
         let source = include_str!("../../../examples/function_scope.calc");
-        assert_eq!(eval(source), 14.0.into());
+        assert_eq!(eval(source), 14.into());
     }
 
     #[test]

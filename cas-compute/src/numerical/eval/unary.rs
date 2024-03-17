@@ -11,7 +11,7 @@ use crate::primitive::{complex, int_from_float, float};
 
 impl Eval for Unary {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
-        let operand = eval_break!(self.operand, ctxt).coerce_float();
+        let operand = eval_break!(self.operand, ctxt).coerce_number();
         match operand {
             Value::Float(num) => Ok(match self.op.kind {
                 UnaryOpKind::Not => Value::Boolean(num.is_zero()),

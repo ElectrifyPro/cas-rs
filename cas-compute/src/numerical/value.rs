@@ -54,8 +54,11 @@ impl Value {
         }
     }
 
-    /// Consumes and attempts to coerce the value to a real number. This coercion is lossless, and
-    /// only occurs if one of the following is true:
+    /// Consumes and attempts to coerce the value to a real number. **Note that this coercion can
+    /// be lossy** if converting an arbitrary-precision integer to a fixed-width float. To preserve
+    /// precision, see [`Value::coerce_integer`] and [`Value::coerce_number`].
+    ///
+    /// This conversion only occurs if one of the following is true:
     ///
     /// - The value is an integer.
     /// - The value is a complex number with a zero imaginary part.
@@ -72,8 +75,9 @@ impl Value {
         }
     }
 
-    /// Consumes and attempts to coerce the value to an integer. This coercion is lossless, and
-    /// only occurs if one of the following is true:
+    /// Consumes and attempts to coerce the value to an integer. **This coercion is lossless**.
+    ///
+    /// This conversion only occurs if one of the following is true:
     ///
     /// - The value is a float with a zero fractional part.
     /// - The value is a complex number with a zero imaginary part, and a real part with a zero
@@ -83,6 +87,32 @@ impl Value {
             Value::Float(n) if n.is_integer() => Value::Integer(n.to_integer().unwrap()),
             Value::Complex(c) if c.imag().is_zero() && c.real().is_integer() => {
                 Value::Integer(c.into_real_imag().0.to_integer().unwrap())
+            }
+            _ => self,
+        }
+    }
+
+    /// Consumes and attempts to coerce the value to a real number or an integer, preferring
+    /// integers if possible. **This coercion is lossless**.
+    ///
+    /// This conversion follows these rules:
+    ///
+    /// - If the value is an integer, it is returned as-is.
+    /// - If the value is a float with a zero fractional part, it is converted to an integer.
+    /// Otherwise, it is returned as-is.
+    /// - If the value is a complex number with a zero imaginary part, either an integer or float
+    /// is returned if the real part is an integer or float, respectively. Otherwise, it is
+    /// returned as-is.
+    pub fn coerce_number(self) -> Self {
+        match self {
+            Value::Float(n) if n.is_integer() => Value::Integer(n.to_integer().unwrap()),
+            Value::Complex(c) if c.imag().is_zero() => {
+                let (real, _) = c.into_real_imag();
+                if real.is_integer() {
+                    Value::Integer(real.to_integer().unwrap())
+                } else {
+                    Value::Float(real)
+                }
             }
             _ => self,
         }

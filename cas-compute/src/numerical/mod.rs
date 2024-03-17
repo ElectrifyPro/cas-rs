@@ -50,6 +50,6 @@ mod tests {
     #[test]
     fn manual_abs() {
         let source = include_str!("../../../examples/manual_abs.calc");
-        assert_eq!(eval(source), 4.0.into());
+        assert_eq!(eval(source), 4.into());
     }
 }

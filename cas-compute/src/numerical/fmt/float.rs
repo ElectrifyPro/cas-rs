@@ -108,25 +108,27 @@ pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Float, scientific_suffix: Scien
 fn fmt_fraction(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::fmt::Result {
     if !n.is_normal() {
         return fmt_decimal(f, n, options.separators);
-    } else if n.is_integer() {
-        return fmt(f, n, FormatOptions {
-            number: NumberFormat::Auto,
-            ..options
-        });
+    }
+
+    let options = options.into_builder()
+        .number(NumberFormat::Auto)
+        .build();
+
+    if n.is_integer() {
+        return fmt(f, n, options);
     }
 
     let (numerator, denominator) = approximate_rational(n).into_numer_denom();
 
     // write numerator
-    integer::fmt(f, &numerator, FormatOptions {
-        number: NumberFormat::Auto,
-        ..options
-    })?;
+    integer::fmt(f, &numerator, options)?;
 
     // write fraction bar
     write!(f, " / ")?;
 
-    // write denominator
+    // write denominator using `NumberFormat::Auto`
+    // the functionality of `integer::fmt` is copied here because we need to manually add
+    // parentheses in edge case where the denominator is rendered in scientific notation
     let expected_format = if integer::should_use_scientific(&denominator) {
         NumberFormat::Scientific
     } else {

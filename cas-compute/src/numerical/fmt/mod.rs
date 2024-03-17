@@ -23,6 +23,13 @@ pub struct FormatOptions {
     pub separators: Separator,
 }
 
+impl FormatOptions {
+    /// Wraps the given [`FormatOptions`] into a builder for further customization.
+    pub fn into_builder(self) -> FormatOptionsBuilder {
+        FormatOptionsBuilder(self)
+    }
+}
+
 /// The different ways to format a number.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum NumberFormat {
@@ -30,6 +37,8 @@ pub enum NumberFormat {
     ///
     /// Numbers that are in the ranges `[-1e-6, 1e-6]` and `[-inf, -1e+12] U [1e+12, inf]` are
     /// scientific notation, while all other numbers are formatted in decimal notation.
+    ///
+    /// This is the default option.
     #[default]
     Auto,
 
@@ -78,12 +87,50 @@ pub enum Scientific {
 /// Whether to display separators for large numbers.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum Separator {
-    /// Always display separators.
+    /// Always display separators. For example, the number _one million_ is rendered with commas as
+    /// `1,000,000`.
     Always,
 
     /// Never display separators.
+    ///
+    /// This is the default option.
     #[default]
     Never,
+}
+
+/// Helper struct to build a [`FormatOptions`] struct.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub struct FormatOptionsBuilder(FormatOptions);
+
+impl FormatOptionsBuilder {
+    /// Creates a new builder with the default options.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets the number format. See [`NumberFormat`] for more information.
+    pub fn number(mut self, number: NumberFormat) -> Self {
+        self.0.number = number;
+        self
+    }
+
+    /// Sets the scientific notation suffix. See [`Scientific`] for more information.
+    pub fn scientific(mut self, scientific: Scientific) -> Self {
+        self.0.scientific = scientific;
+        self
+    }
+
+    /// Sets whether to display separators for large numbers. See [`Separator`] for more
+    /// information.
+    pub fn separators(mut self, separators: Separator) -> Self {
+        self.0.separators = separators;
+        self
+    }
+
+    /// Builds the [`FormatOptions`] struct.
+    pub fn build(self) -> FormatOptions {
+        self.0
+    }
 }
 
 /// Formatter for a value.
@@ -137,10 +184,10 @@ mod tests {
     #[test]
     fn highly_precise_decimal() {
         let float = eval("2.1 ^ 100");
-        let formatted = format!("{}", float.fmt(FormatOptions {
-            number: NumberFormat::Decimal,
-            ..Default::default()
-        }));
+        let opts = FormatOptionsBuilder::new()
+            .number(NumberFormat::Decimal)
+            .build();
+        let formatted = format!("{}", float.fmt(opts));
 
         // this is the exact value
         assert_eq!(
@@ -152,10 +199,10 @@ mod tests {
     #[test]
     fn highly_precise_decimal_2() {
         let float = eval("2^457 / 10^50");
-        let formatted = format!("{}", float.fmt(FormatOptions {
-            number: NumberFormat::Decimal,
-            ..Default::default()
-        }));
+        let opts = FormatOptionsBuilder::new()
+            .number(NumberFormat::Decimal)
+            .build();
+        let formatted = format!("{}", float.fmt(opts));
 
         // this is the exact value
         assert_eq!(
@@ -167,10 +214,10 @@ mod tests {
     #[test]
     fn highly_precise_decimal_3() {
         let float = eval("1/sqrt(2)");
-        let formatted = format!("{}", float.fmt(FormatOptions {
-            number: NumberFormat::Decimal,
-            ..Default::default()
-        }));
+        let opts = FormatOptionsBuilder::new()
+            .number(NumberFormat::Decimal)
+            .build();
+        let formatted = format!("{}", float.fmt(opts));
 
         assert_eq!(
             formatted,
@@ -181,11 +228,11 @@ mod tests {
     #[test]
     fn scientific_e() {
         let float = eval("1/256!");
-        let formatted = format!("{}", float.fmt(FormatOptions {
-            number: NumberFormat::Scientific,
-            scientific: Scientific::E,
-            ..Default::default()
-        }));
+        let opts = FormatOptionsBuilder::new()
+            .number(NumberFormat::Scientific)
+            .scientific(Scientific::E)
+            .build();
+        let formatted = format!("{}", float.fmt(opts));
 
         assert_eq!(
             formatted,
@@ -196,10 +243,10 @@ mod tests {
     #[test]
     fn highly_precise_scientific() {
         let float = eval("124!");
-        let formatted = format!("{}", float.fmt(FormatOptions {
-            number: NumberFormat::Scientific,
-            ..Default::default()
-        }));
+        let opts = FormatOptionsBuilder::new()
+            .number(NumberFormat::Scientific)
+            .build();
+        let formatted = format!("{}", float.fmt(opts));
 
         assert_eq!(
             formatted,
@@ -210,10 +257,10 @@ mod tests {
     #[test]
     fn highly_precise_scientific_2() {
         let float = eval("3^1100 / 12^740");
-        let formatted = format!("{}", float.fmt(FormatOptions {
-            number: NumberFormat::Scientific,
-            ..Default::default()
-        }));
+        let opts = FormatOptionsBuilder::new()
+            .number(NumberFormat::Scientific)
+            .build();
+        let formatted = format!("{}", float.fmt(opts));
 
         assert_eq!(
             formatted,
@@ -224,10 +271,10 @@ mod tests {
     #[test]
     fn highly_precise_complex() {
         let complex = eval("1/128! - 1/256! * i");
-        let formatted = format!("{}", complex.fmt(FormatOptions {
-            number: NumberFormat::Scientific,
-            ..Default::default()
-        }));
+        let opts = FormatOptionsBuilder::new()
+            .number(NumberFormat::Scientific)
+            .build();
+        let formatted = format!("{}", complex.fmt(opts));
 
         assert_eq!(
             formatted,
@@ -238,10 +285,10 @@ mod tests {
     #[test]
     fn complex_imaginary_part() {
         let complex = eval("sqrt(-4)");
-        let formatted = format!("{}", complex.fmt(FormatOptions {
-            number: NumberFormat::Decimal,
-            ..Default::default()
-        }));
+        let opts = FormatOptionsBuilder::new()
+            .number(NumberFormat::Decimal)
+            .build();
+        let formatted = format!("{}", complex.fmt(opts));
 
         assert_eq!(formatted, "2i");
     }
@@ -265,12 +312,12 @@ mod tests {
             "-i",
         ];
 
-        for (complex, output) in complexes.iter().zip(outputs.iter()) {
-            let formatted = format!("{}", complex.fmt(FormatOptions {
-                number: NumberFormat::Decimal,
-                ..Default::default()
-            }));
+        let opts = FormatOptionsBuilder::new()
+            .number(NumberFormat::Decimal)
+            .build();
 
+        for (complex, output) in complexes.iter().zip(outputs.iter()) {
+            let formatted = format!("{}", complex.fmt(opts));
             assert_eq!(formatted, *output);
         }
     }

@@ -1,6 +1,6 @@
 mod error;
 
-use cas_compute::numerical::{ctxt::Ctxt, eval::eval_stmts, value::Value};
+use cas_compute::numerical::{ctxt::Ctxt, eval::eval_stmts, fmt::{FormatOptionsBuilder, NumberFormat, Scientific, Separator}, value::Value};
 use cas_parser::parser::{ast::stmt::Stmt, Parser};
 use error::Error;
 use rustyline::{error::ReadlineError, DefaultEditor};
@@ -16,9 +16,17 @@ fn parse_eval(input: &str, ctxt: &mut Ctxt) -> Result<Value, Error> {
 /// Reads from the provided file or stdin and parses / evaluates the input, printing the success or
 /// failure.
 fn read_eval(input: &str, ctxt: &mut Ctxt) {
+    // let fmt = FormatOptions {
+    let fmt = FormatOptionsBuilder::new()
+        .number(NumberFormat::Auto)
+        .scientific(Scientific::Times)
+        .precision(Some(150))
+        .separators(Separator::Never)
+        .build();
+
     match parse_eval(input, ctxt) {
         Ok(Value::Unit) => (), // intentionally print nothing
-        Ok(res) => println!("{}", res),
+        Ok(res) => println!("{}", res.fmt(fmt)),
         Err(err) => err.report_to_stderr(input),
     }
 }

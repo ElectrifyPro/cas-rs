@@ -12,40 +12,50 @@ pub fn should_use_scientific(n: &Float) -> bool {
     *abs <= 1e-6 || *abs >= 1e+12
 }
 
-/// Trims trailing parts from a string assumed to represent a single number in decimal notation,
-/// and attempts to remove minor errors introduced by floating point arithmetic.
+/// Trims trailing parts from a string assumed to represent a single number in decimal notation.
 fn trim_trailing(s: &str) -> &str {
-    // floating point arithmetic can introduce results like this:
-    //
-    // input: 19829.98
-    // output: 19829.98000000000000000000000000000000000000000000000000000000000000000000000001
-    //
-    // this is a slightly hacky way to fix this, by using only the first several fractional digits,
-    // and trimming trailing zeros
-    if let Some(index) = s.find('.') {
-        // find out how long the fractional part is
-        let fractional_part = s[index + 1..].len();
-
-        // only use the first 145 digits of the fractional part, then trim trailing zeros
-        s[..index + 1 + fractional_part.min(145)].trim_end_matches('0').trim_end_matches('.')
+    // look for decimal point
+    if s.contains('.') {
+        // look for trailing zeros
+        let trimmed = s.trim_end_matches('0').trim_end_matches('.');
+        let byte_len = trimmed.len();
+        &s[..byte_len]
     } else {
+        // cannot trim trailing zeros to the left of the decimal point
         s
     }
 }
 
-/// Formats a float as a standard number.
-fn fmt_decimal<F: std::fmt::Write>(f: &mut F, n: &Float, separators: Separator) -> std::fmt::Result {
-    if !n.is_normal() {
-        if n.is_nan() {
-            return write!(f, "NaN");
-        } else if n.is_infinite() {
-            return write!(f, "{}∞", if n.is_sign_negative() { "-" } else { "" });
-        } else if n.is_zero() {
-            return write!(f, "0");
-        }
+/// Formats a non-normal float, that is, a float that is either `NaN`, infinity, or zero.
+///
+/// # Panics
+///
+/// Panics if the float is normal.
+fn fmt_non_normal_decimal<F: std::fmt::Write>(f: &mut F, n: &Float) -> std::fmt::Result {
+    if n.is_normal() {
+        panic!("fmt_non_normal_decimal called with a normal float: {}", n);
     }
 
-    let (sign, mut s, exponent) = n.to_sign_string_exp_round(10, Some(145), Round::Nearest);
+    if n.is_nan() {
+        return write!(f, "NaN");
+    }
+    if n.is_infinite() {
+        return write!(f, "{}∞", if n.is_sign_negative() { "-" } else { "" });
+    }
+    if n.is_zero() {
+        return write!(f, "0");
+    }
+
+    unreachable!()
+}
+
+/// Formats a float as a standard number.
+fn fmt_decimal<F: std::fmt::Write>(f: &mut F, n: &Float, options: FormatOptions) -> std::fmt::Result {
+    if !n.is_normal() {
+        return fmt_non_normal_decimal(f, n);
+    }
+
+    let (sign, mut s, exponent) = n.to_sign_string_exp_round(10, options.precision, Round::Nearest);
     let exponent = exponent.unwrap(); // exponent is Some() if the number is normal
 
     // add decimal point
@@ -68,20 +78,19 @@ fn fmt_decimal<F: std::fmt::Write>(f: &mut F, n: &Float, separators: Separator) 
         },
     }
 
-    if separators == Separator::Always {
+    if options.separators == Separator::Always {
         integer::insert_separators(&mut s);
     }
     write!(f, "{}{}", if sign { "-" } else { "" }, trim_trailing(&s))
 }
 
 /// Formats a float in scientific notation.
-pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Float, scientific_suffix: Scientific) -> std::fmt::Result {
+pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::fmt::Result {
     if !n.is_normal() {
-        // separator doesn't matter here because the number is not normal
-        return fmt_decimal(f, n, Separator::Never);
+        return fmt_non_normal_decimal(f, n);
     }
 
-    let (sign, mut s, exponent) = n.to_sign_string_exp_round(10, Some(145), Round::Nearest);
+    let (sign, mut s, exponent) = n.to_sign_string_exp_round(10, options.precision, Round::Nearest);
     let mut exponent = exponent.unwrap(); // exponent is Some() if the number is normal
 
     // add decimal point
@@ -96,7 +105,7 @@ pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Float, scientific_suffix: Scien
     write!(f, "{}{}{}{}",
         if sign { "-" } else { "" },
         trim_trailing(&s),
-        match scientific_suffix {
+        match options.scientific {
             Scientific::Times => " × 10 ^ ",
             Scientific::E => "E",
         },
@@ -107,7 +116,7 @@ pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Float, scientific_suffix: Scien
 /// Formats a float as a rational fraction.
 fn fmt_fraction(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::fmt::Result {
     if !n.is_normal() {
-        return fmt_decimal(f, n, options.separators);
+        return fmt_non_normal_decimal(f, n);
     }
 
     let options = options.into_builder()
@@ -138,10 +147,10 @@ fn fmt_fraction(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std
     if expected_format == NumberFormat::Scientific {
         // put the denominator in parentheses to avoid ambiguity
         write!(f, "(")?;
-        integer::fmt_scientific(f, &denominator, options.scientific)?;
+        integer::fmt_scientific(f, &denominator, options)?;
         write!(f, ")")?;
     } else {
-        integer::fmt_decimal(f, &denominator, options.separators)?;
+        integer::fmt_decimal(f, &denominator, options)?;
     }
 
     Ok(())
@@ -185,11 +194,11 @@ const DEC_NUM_NAMES: [&str; 30] = [
 /// TODO: does anyone actually use this? not even tested
 fn fmt_word(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::fmt::Result {
     if !n.is_normal() {
-        return fmt_decimal(f, n, options.separators);
+        return fmt_non_normal_decimal(f, n);
     }
 
     let mut s = String::new();
-    fmt_decimal(&mut s, n, Separator::Never)?;
+    fmt_decimal(&mut s, n, Separator::Never.inside(options))?;
 
     let mut parts = s.split('.');
     if let Some(integer) = parts.next() {
@@ -221,13 +230,13 @@ pub fn fmt(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::fmt
     match options.number {
         NumberFormat::Auto => {
             if should_use_scientific(n) {
-                fmt_scientific(f, n, options.scientific)
+                fmt_scientific(f, n, options)
             } else {
-                fmt_decimal(f, n, options.separators)
+                fmt_decimal(f, n, options)
             }
         }
-        NumberFormat::Decimal => fmt_decimal(f, n, options.separators),
-        NumberFormat::Scientific => fmt_scientific(f, n, options.scientific),
+        NumberFormat::Decimal => fmt_decimal(f, n, options),
+        NumberFormat::Scientific => fmt_scientific(f, n, options),
         NumberFormat::Fraction => fmt_fraction(f, n, options),
         NumberFormat::Word => fmt_word(f, n, options),
     }

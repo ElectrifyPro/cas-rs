@@ -7,7 +7,77 @@ use super::{FormatOptions, NumberFormat, Scientific, Separator};
 /// Returns true if the given integer is large enough that it should be formatted in scientific
 /// notation.
 pub fn should_use_scientific(n: &Integer) -> bool {
-    n >= &1e+12 || n <= &-1e+12
+    *n.as_abs() >= 1_000_000_000_000_i64
+}
+
+/// Rounds an integer in a given [`String`] with the maximum number of precision.
+///
+/// # Panics
+///
+/// Panics if the string contains any characters other than the ASCII digits (`'0'` - `'9'`).
+fn round(mut s: String, max_digits: usize) -> String {
+    // ensure all characters are ASCII digits
+    // '0' - '9' (digits)
+    for (i, byte) in s.as_bytes().iter().copied().enumerate() {
+        if !byte.is_ascii_digit() {
+            panic!(
+                "invalid character in numeric string: '{}' ({}) found at byte position {}",
+                byte as char,
+                byte,
+                i,
+            );
+        }
+    }
+
+    // SAFETY: we ensure the result is valid UTF-8 by only operating on a subset of ASCII
+    let bytes = unsafe { s.as_bytes_mut() };
+
+    // `max_digits` is greater than the number of digits in the string, so no rounding is
+    // necessary
+    if max_digits >= bytes.len() {
+        return s;
+    }
+
+    let start_idx = max_digits;
+
+    // round the number
+    // begin at the "end" of the string (`start_idx`) and round like a human would
+    let mut carry = None;
+
+    // for each digit after `start_idx`, add 1 to the digit if the carry bit is set
+    // if the digit is 9, set it to 0 and continue to the next digit
+    // repeat until the carry bit is unset
+    for byte in bytes.iter_mut().take(start_idx + 1).rev() {
+        match carry {
+            // continue adding 1 to this digit and moving to the next digit if necessary
+            Some(true) => match *byte {
+                b'9' => *byte = b'0',
+                _ => {
+                    *byte += 1;
+                    carry = Some(false);
+                }
+            },
+
+            // no more carrying to do
+            Some(false) => break,
+
+            // first (rightmost) digit, which is one past the set of digits we keep
+            // only use it to determine if we round up or down
+            // later, it will be set to '0' below
+            None => carry = Some(*byte >= b'5'),
+        }
+    }
+
+    // write zeroes after `start_idx` to the end of the slice
+    // SAFETY: `start_idx` is checked to be a valid index within `bytes`, and we are writing valid
+    // UTF-8
+    unsafe {
+        bytes.as_mut_ptr()
+            .add(start_idx)
+            .write_bytes(b'0', bytes.len() - start_idx);
+    }
+
+    s
 }
 
 /// Inserts separators in a string represeting an integer / float.
@@ -25,17 +95,29 @@ pub fn insert_separators(s: &mut String) {
 }
 
 /// Formats an integer in decimal notation.
-pub fn fmt_decimal(f: &mut Formatter<'_>, n: &Integer, separators: Separator) -> std::fmt::Result {
+pub fn fmt_decimal(f: &mut Formatter<'_>, n: &Integer, options: FormatOptions) -> std::fmt::Result {
     let mut s = n.to_string_radix(10);
-    if separators == Separator::Always {
+    if let Some(max_digits) = options.precision {
+        if max_digits < s.len() {
+            // use scientific notation to reduce the number of significant figures
+            return fmt_scientific(f, n, options);
+        }
+
+        // integer has fewer digits than the maximum allowed precision, nothing else to do
+    }
+    if options.separators == Separator::Always {
         insert_separators(&mut s);
     }
     write!(f, "{}", s)
 }
 
 /// Formats an integer in scientific notation.
-pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Integer, scientific_suffix: Scientific) -> std::fmt::Result {
+pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Integer, options: FormatOptions) -> std::fmt::Result {
     let mut s = n.to_string_radix(10);
+
+    if let Some(max_digits) = options.precision {
+        s = round(s, max_digits);
+    }
 
     // locate first non-zero digit, which will be either at index 0 or 1 (if there is a sign)
     let first_non_zero = s.find(|c: char| c.is_ascii_digit() && c != '0').unwrap();
@@ -57,7 +139,7 @@ pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Integer, scientific_suffix: Sci
         let s = s.trim_end_matches('0');
 
         // if the user wants to use scientific notation, we need to add an exponent
-        match scientific_suffix {
+        match options.scientific {
             Scientific::Times => write!(f, "{} × 10 ^ {}", s, exponent),
             Scientific::E => write!(f, "{}E{}", s, exponent),
         }
@@ -135,8 +217,12 @@ pub fn fmt_word_str(f: &mut Formatter<'_>, input: &str) -> std::fmt::Result {
     Ok(())
 }
 
-fn fmt_word(f: &mut Formatter<'_>, n: &Integer) -> std::fmt::Result {
-    fmt_word_str(f, &n.to_string_radix(10))
+fn fmt_word(f: &mut Formatter<'_>, n: &Integer, options: FormatOptions) -> std::fmt::Result {
+    let mut s = n.to_string_radix(10);
+    if let Some(max_digits) = options.precision {
+        s = round(s, max_digits);
+    }
+    fmt_word_str(f, &s)
 }
 
 /// Format an integer using the given formatting options.
@@ -144,13 +230,13 @@ pub fn fmt(f: &mut Formatter<'_>, n: &Integer, options: FormatOptions) -> std::f
     match options.number {
         NumberFormat::Auto => {
             if should_use_scientific(n) {
-                fmt_scientific(f, n, options.scientific)
+                fmt_scientific(f, n, options)
             } else {
-                fmt_decimal(f, n, options.separators)
+                fmt_decimal(f, n, options)
             }
         }
-        NumberFormat::Decimal | NumberFormat::Fraction => fmt_decimal(f, n, options.separators),
-        NumberFormat::Scientific => fmt_scientific(f, n, options.scientific),
-        NumberFormat::Word => fmt_word(f, n),
+        NumberFormat::Decimal | NumberFormat::Fraction => fmt_decimal(f, n, options),
+        NumberFormat::Scientific => fmt_scientific(f, n, options),
+        NumberFormat::Word => fmt_word(f, n, options),
     }
 }

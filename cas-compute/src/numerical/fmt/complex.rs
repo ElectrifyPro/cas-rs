@@ -21,7 +21,7 @@ fn fmt_helper(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::
         || options.number == NumberFormat::Auto && float::should_use_scientific(n)
     {
         write!(f, "(")?;
-        float::fmt_scientific(f, n, options.scientific)?;
+        float::fmt_scientific(f, n, options)?;
         write!(f, ")")?;
     } else {
         float::fmt(f, n, options)?;

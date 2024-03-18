@@ -19,6 +19,23 @@ pub struct FormatOptions {
     /// [`number`]: FormatOptions::number
     pub scientific: Scientific,
 
+    /// The maximum number of digits to show. If [`None`], the number is formatted with full
+    /// precision.
+    ///
+    /// This option might be useful when rendering floating-point numbers. Floating-point numbers
+    /// in `cas-rs` have significantly higher precision than 32-bit / 64-bit floats; however, they
+    /// are still subject to the same issues that can occur when performing floating-point
+    /// arithmetic. The common solution to this is to trim off a small number of digits from the
+    /// result.
+    ///
+    /// Also, integers have arbitrary precision and are usually formatted completely. If this
+    /// option is set and the integer has too many digits, it will be formatted in scientific
+    /// notation as if it were a float.
+    ///
+    /// This option **does not** control the precision of the number during calculation, only the
+    /// number of digits to display during formatting.
+    pub precision: Option<usize>,
+
     /// Whether to display separators for large numbers.
     pub separators: Separator,
 }
@@ -35,8 +52,9 @@ impl FormatOptions {
 pub enum NumberFormat {
     /// Chooses between decimal and scientific notation based on the magnitude of the number.
     ///
-    /// Numbers that are in the ranges `[-1e-6, 1e-6]` and `[-inf, -1e+12] U [1e+12, inf]` are
-    /// scientific notation, while all other numbers are formatted in decimal notation.
+    /// Numbers that are in the ranges `[-1e-6, 1e-6]` U `[-inf, -1e+12] U [1e+12, inf]` will be
+    /// represented in scientific notation, while all other numbers are formatted in decimal
+    /// notation.
     ///
     /// This is the default option.
     #[default]
@@ -66,6 +84,17 @@ pub enum NumberFormat {
     Word,
 }
 
+impl NumberFormat {
+    /// Utility function to create a new [`FormatOptions`] with the same formating options as the
+    /// given [`FormatOptions`], but with the number format set to this value.
+    pub fn inside(self, options: FormatOptions) -> FormatOptions {
+        FormatOptions {
+            number: self,
+            ..options
+        }
+    }
+}
+
 /// The different ways to format the suffix of scientific notation.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum Scientific {
@@ -84,6 +113,17 @@ pub enum Scientific {
     E,
 }
 
+impl Scientific {
+    /// Utility function to create a new [`FormatOptions`] with the same formating options as the
+    /// given [`FormatOptions`], but with the scientific notation format set to this value.
+    pub fn inside(self, options: FormatOptions) -> FormatOptions {
+        FormatOptions {
+            scientific: self,
+            ..options
+        }
+    }
+}
+
 /// Whether to display separators for large numbers.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum Separator {
@@ -96,6 +136,17 @@ pub enum Separator {
     /// This is the default option.
     #[default]
     Never,
+}
+
+impl Separator {
+    /// Utility function to create a new [`FormatOptions`] with the same formating options as the
+    /// given [`FormatOptions`], but with the separator set to this value.
+    pub fn inside(self, options: FormatOptions) -> FormatOptions {
+        FormatOptions {
+            separators: self,
+            ..options
+        }
+    }
 }
 
 /// Helper struct to build a [`FormatOptions`] struct.
@@ -120,6 +171,13 @@ impl FormatOptionsBuilder {
         self
     }
 
+    /// Sets the maximum number of digits to show. If [`None`], the number is formatted with full
+    /// precision. See [`FormatOptions::precision`] for more information.
+    pub fn precision(mut self, precision: Option<usize>) -> Self {
+        self.0.precision = precision;
+        self
+    }
+
     /// Sets whether to display separators for large numbers. See [`Separator`] for more
     /// information.
     pub fn separators(mut self, separators: Separator) -> Self {
@@ -133,7 +191,7 @@ impl FormatOptionsBuilder {
     }
 }
 
-/// Formatter for a value.
+/// Formatter for a [`Value`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ValueFormatter<'a> {
     /// The value to format.
@@ -186,6 +244,7 @@ mod tests {
         let float = eval("2.1 ^ 100");
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
+            .precision(Some(150))
             .build();
         let formatted = format!("{}", float.fmt(opts));
 
@@ -201,6 +260,7 @@ mod tests {
         let float = eval("2^457 / 10^50");
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
+            .precision(Some(150))
             .build();
         let formatted = format!("{}", float.fmt(opts));
 
@@ -221,7 +281,7 @@ mod tests {
 
         assert_eq!(
             formatted,
-            "0.7071067811865475244008443621048490392848359376884740365883398689953662392310535194251937671638207863675069231154561485124624180279253686063220607",
+            "0.707106781186547524400844362104849039284835937688474036588339868995366239231053519425193767163820786367506923115456148512462418027925368606322060748549967929",
         );
     }
 
@@ -236,7 +296,7 @@ mod tests {
 
         assert_eq!(
             formatted,
-            "1.165748750776738805916790773964369524917922798218268987729711508111370170944086870143930638517645160936489928830921910872892159328905556849837005E-507",
+            "1.16574875077673880591679077396436952491792279821826898772971150811137017094408687014393063851764516093648992883092191087289215932890555684983700537703343422E-507",
         );
     }
 
@@ -264,7 +324,7 @@ mod tests {
 
         assert_eq!(
             formatted,
-            "1.734834764334917269540871863578823394365606310443812968931288568335237781473370327926955739134428816797925333326360742727045058167413970732732131 × 10 ^ -274",
+            "1.73483476433491726954087186357882339436560631044381296893128856833523778147337032792695573913442881679792533332636074272704505816741397073273213142735271195 × 10 ^ -274",
         );
     }
 
@@ -278,7 +338,7 @@ mod tests {
 
         assert_eq!(
             formatted,
-            "2.593223248602619662891504891873020665912946504368101020675336527439552653035301608523337205118122116061736472259581293840191752984828642088111493 × 10 ^ -216 - (1.165748750776738805916790773964369524917922798218268987729711508111370170944086870143930638517645160936489928830921910872892159328905556849837005 × 10 ^ -507)i",
+            "2.59322324860261966289150489187302066591294650436810102067533652743955265303530160852333720511812211606173647225958129384019175298482864208811149268313933175 × 10 ^ -216 - (1.16574875077673880591679077396436952491792279821826898772971150811137017094408687014393063851764516093648992883092191087289215932890555684983700537703343422 × 10 ^ -507)i"
         );
     }
 
@@ -320,5 +380,28 @@ mod tests {
             let formatted = format!("{}", complex.fmt(opts));
             assert_eq!(formatted, *output);
         }
+    }
+
+    #[test]
+    fn trailing_zeroes() {
+        let float = eval("37000000.");
+        let opts = FormatOptionsBuilder::new()
+            .separators(Separator::Always)
+            .build();
+        let formatted = format!("{}", float.fmt(opts));
+
+        assert_eq!(formatted, "37,000,000");
+    }
+
+    #[test]
+    fn trailing_zeroes_2() {
+        let float = eval("1400.0010");
+        let opts = FormatOptionsBuilder::new()
+            .precision(Some(10))
+            .separators(Separator::Always)
+            .build();
+        let formatted = format!("{}", float.fmt(opts));
+
+        assert_eq!(formatted, "1,400.001");
     }
 }

@@ -53,7 +53,7 @@ impl<'source> Parse<'source> for While {
                 Err(_) => {
                     // TODO: add error for missing `then` keyword
                     recoverable_errors.push(Error::new(
-                        vec![while_token.span.clone(), input.current_token().unwrap().span.clone()],
+                        vec![while_token.span.clone(), input.span()],
                         kind::MissingIfKeyword {
                             keyword: "then",
                         },
@@ -66,7 +66,7 @@ impl<'source> Parse<'source> for While {
                 .map(|expr| (then_token, expr))
                 .unwrap_or_else(|_| {
                     recoverable_errors.push(Error::new(
-                        vec![while_token.span.clone(), input.current_token().unwrap().span.clone()],
+                        vec![while_token.span.clone(), input.span()],
                         kind::MissingIfBranch {
                             keyword: "then",
                         },

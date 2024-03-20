@@ -57,7 +57,7 @@ impl<'source> Parse<'source> for If {
                 Ok(token) => token,
                 Err(_) => {
                     recoverable_errors.push(Error::new(
-                        vec![if_token.span.clone(), input.current_token().unwrap().span.clone()],
+                        vec![if_token.span.clone(), input.span()],
                         kind::MissingIfKeyword {
                             keyword: "then",
                         },
@@ -70,7 +70,7 @@ impl<'source> Parse<'source> for If {
                 .map(|expr| (then_token, expr))
                 .unwrap_or_else(|_| {
                     recoverable_errors.push(Error::new(
-                        vec![if_token.span.clone(), input.current_token().unwrap().span.clone()],
+                        vec![if_token.span.clone(), input.span()],
                         kind::MissingIfBranch {
                             keyword: "then",
                         },
@@ -87,7 +87,7 @@ impl<'source> Parse<'source> for If {
                 .map(|expr| (Some(else_token), Some(expr)))
                 .unwrap_or_else(|_| {
                     recoverable_errors.push(Error::new(
-                        vec![if_token.span.clone(), input.current_token().unwrap().span.clone()],
+                        vec![if_token.span.clone(), input.span()],
                         kind::MissingIfBranch {
                             keyword: "else",
                         },

@@ -32,7 +32,7 @@ fn eval_integer_operands(
             } else {
                 // otherwise, use the `Float` implementation, which will be faster, but can lose
                 // precision
-                Value::Float(float(left).pow(float(right)))
+                Value::Float(float(left).pow(right))
             }
         },
         BinOpKind::Mul => Value::Integer(left * right),

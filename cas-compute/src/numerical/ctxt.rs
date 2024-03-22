@@ -40,30 +40,42 @@ impl std::fmt::Display for TrigMode {
     }
 }
 
-/// A function available for use in a context.
+/// A user-defined function.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct UserFunc {
+    /// The header of the function.
+    pub header: FuncHeader,
+
+    /// The body of the function.
+    pub body: Expr,
+
+    /// Whether the function is recursive, used to report better errors if the stack overflows
+    /// while evaluating the function.
+    pub recursive: bool,
+}
+
+/// A function available for use in a context.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(untagged))]
 pub enum Func {
     /// A builtin function.
+    #[cfg_attr(feature = "serde", serde(skip))]
     Builtin(Arc<dyn Builtin>),
 
     /// A user-defined function.
-    UserDefined {
-        /// The header of the function.
-        header: FuncHeader,
-
-        /// The body of the function.
-        body: Expr,
-
-        /// Whether the function is recursive, used to report better errors if the stack overflows
-        /// while evaluating the function.
-        recursive: bool,
-    },
+    UserFunc(UserFunc),
 }
 
 impl From<Box<dyn Builtin>> for Func {
     fn from(builtin: Box<dyn Builtin>) -> Self {
         Func::Builtin(builtin.into())
+    }
+}
+
+impl From<UserFunc> for Func {
+    fn from(user_func: UserFunc) -> Self {
+        Func::UserFunc(user_func)
     }
 }
 
@@ -149,7 +161,10 @@ impl Ctxt {
 
     /// Add a function to the context.
     pub fn add_func(&mut self, header: FuncHeader, body: Expr, recursive: bool) {
-        self.funcs.insert(header.name.name.clone(), Func::UserDefined { header, body, recursive });
+        self.funcs.insert(
+            header.name.name.clone(),
+            Func::UserFunc(UserFunc { header, body, recursive }),
+        );
     }
 
     /// Get the header and body of a function in the context.

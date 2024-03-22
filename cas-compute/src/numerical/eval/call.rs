@@ -2,7 +2,7 @@ use cas_parser::parser::ast::{assign::Param, call::Call};
 use crate::eval_break;
 use crate::funcs::combinatoric::Ncr;
 use crate::numerical::{
-    ctxt::{MAX_RECURSION_DEPTH, Ctxt, Func},
+    ctxt::{MAX_RECURSION_DEPTH, Ctxt, Func, UserFunc},
     error::{
         kind::{
             InvalidDerivativeArguments,
@@ -51,7 +51,7 @@ fn compute_derivative(
                 builtin.eval(ctxt, &mut Some(Value::Float(location)).into_iter())
                     .map_err(|err| err.into_error(call))
             },
-            Func::UserDefined { header, body, .. } => {
+            Func::UserFunc(UserFunc { header, body, .. }) => {
                 let symbol = &header.params[0].symbol().name;
                 ctxt.add_var(symbol, Value::Float(location));
                 body.eval(ctxt)
@@ -116,7 +116,7 @@ impl Eval for Call {
                     compute_derivative(self, func, &mut ctxt, args.swap_remove(0))
                 }
             },
-            Func::UserDefined { header, body, recursive } => {
+            Func::UserFunc(UserFunc { header, body, recursive }) => {
                 let mut ctxt = ctxt.clone();
                 if *recursive {
                     ctxt.stack_depth += 1;

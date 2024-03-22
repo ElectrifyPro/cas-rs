@@ -81,9 +81,7 @@ pub enum Precedence {
 
 impl PartialOrd for Precedence {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let left = *self as u8;
-        let right = *other as u8;
-        left.partial_cmp(&right)
+        Some(self.cmp(other))
     }
 }
 

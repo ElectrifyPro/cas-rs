@@ -159,13 +159,13 @@ impl Latex for Call {
 
             fn inner_args(&self, f: &mut fmt::Formatter, call: &Call) -> fmt::Result {
                 match self {
-                    Self::Pow => fmt_pow(f, call.args.get(0), call.args.get(1))?,
+                    Self::Pow => fmt_pow(f, call.args.first(), call.args.get(1))?,
                     Self::Root => {
                         if let Some(arg1) = call.args.get(1) {
                             write!(f, "[{}]", arg1.as_display())?;
                         }
                         write!(f, "{{")?;
-                        if let Some(arg0) = call.args.get(0) {
+                        if let Some(arg0) = call.args.first() {
                             arg0.fmt_latex(f)?;
                         }
                     },

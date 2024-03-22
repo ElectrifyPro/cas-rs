@@ -117,7 +117,7 @@ fn do_root(expr: &Expr, root: usize) -> Option<Expr> {
 /// `sqrt(x^2) = x`, `x >= 0`
 fn sqrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_call(expr, "sqrt", |args| {
-        do_root(args.get(0)?, 2)
+        do_root(args.first()?, 2)
     })?;
 
     // keep the step collection logic outside of the closure to make it implement `Fn`
@@ -128,7 +128,7 @@ fn sqrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Exp
 /// `cbrt(x^3) = x`
 fn cbrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_call(expr, "cbrt", |args| {
-        do_root(args.get(0)?, 3)
+        do_root(args.first()?, 3)
     })?;
 
     step_collector.push(Step::Root);
@@ -139,7 +139,7 @@ fn cbrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Exp
 fn root(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_call(expr, "root", |args| {
         let y = args.get(1)?.as_integer()?;
-        do_root(args.get(0)?, y.to_usize()?)
+        do_root(args.first()?, y.to_usize()?)
     })?;
 
     step_collector.push(Step::Root);

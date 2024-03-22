@@ -63,7 +63,7 @@ fn simplify_trig(arg: Expr, table: &HashMap<&Expr, table::TrigOut>) -> Option<Ex
 /// `sin(x)`
 pub fn sin(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_call(expr, "sin", |args| {
-        simplify_trig(args.get(0).cloned()?, &table::SIN_TABLE)
+        simplify_trig(args.first().cloned()?, &table::SIN_TABLE)
     })?;
 
     // keep the step collection logic outside of the closure to make it implement `Fn`
@@ -74,7 +74,7 @@ pub fn sin(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<
 /// `cos(x)`
 pub fn cos(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_call(expr, "cos", |args| {
-        simplify_trig(args.get(0).cloned()?, &table::COS_TABLE)
+        simplify_trig(args.first().cloned()?, &table::COS_TABLE)
     })?;
 
     step_collector.push(Step::Cos);
@@ -84,7 +84,7 @@ pub fn cos(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<
 /// `tan(x)`
 pub fn tan(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
     let opt = do_call(expr, "tan", |args| {
-        simplify_trig(args.get(0).cloned()?, &table::TAN_TABLE)
+        simplify_trig(args.first().cloned()?, &table::TAN_TABLE)
     })?;
 
     step_collector.push(Step::Tan);

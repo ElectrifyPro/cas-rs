@@ -213,7 +213,7 @@ impl<'source> Parser<'source> {
     /// value is returned. Otherwise, the stream is left unchanged and an error is returned.
     pub fn try_parse_with_state<F, T>(&mut self, modify_state: F) -> ParseResult<T>
     where
-        F: FnOnce(&mut ParserState) -> (),
+        F: FnOnce(&mut ParserState),
         T: Parse<'source>,
     {
         let mut state = self.state.clone();

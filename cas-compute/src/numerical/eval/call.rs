@@ -105,7 +105,7 @@ impl Eval for Call {
 
                 if self.derivatives == 0 {
                     // no eval_break!; cannot break out of loops from within a function
-                    builtin.eval(&mut ctxt, &mut args.into_iter())
+                    builtin.eval(&ctxt, &mut args.into_iter())
                         .map_err(|err| err.into_error(self))
                 } else {
                     if builtin.num_args() != 1 {

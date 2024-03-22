@@ -264,18 +264,18 @@ impl Expr {
 
         impl PartialOrd for PrecedenceExt {
             fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                match (self, other) {
-                    (Self::Primary, Self::Primary) => Some(Ordering::Equal),
-                    (Self::Primary, Self::Op(_)) => Some(Ordering::Greater),
-                    (Self::Op(_), Self::Primary) => Some(Ordering::Less),
-                    (Self::Op(lhs), Self::Op(rhs)) => Some(lhs.cmp(rhs)),
-                }
+                Some(self.cmp(other))
             }
         }
 
         impl Ord for PrecedenceExt {
             fn cmp(&self, other: &Self) -> Ordering {
-                self.partial_cmp(other).unwrap()
+                match (self, other) {
+                    (Self::Primary, Self::Primary) => Ordering::Equal,
+                    (Self::Primary, Self::Op(_)) => Ordering::Greater,
+                    (Self::Op(_), Self::Primary) => Ordering::Less,
+                    (Self::Op(lhs), Self::Op(rhs)) => lhs.cmp(rhs),
+                }
             }
         }
 

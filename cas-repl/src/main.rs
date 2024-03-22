@@ -1,14 +1,14 @@
 mod error;
 
 use cas_compute::numerical::{ctxt::Ctxt, eval::eval_stmts, fmt::{FormatOptionsBuilder, NumberFormat, Scientific, Separator}, value::Value};
-use cas_parser::parser::{ast::stmt::Stmt, Parser};
+use cas_parser::parser::Parser;
 use error::Error;
 use rustyline::{error::ReadlineError, DefaultEditor};
 use std::{fs::File, io::{self, BufReader, IsTerminal, Read}};
 
 /// Parses and evaluates the given input string, returning the results of both operations.
 fn parse_eval(input: &str, ctxt: &mut Ctxt) -> Result<Value, Error> {
-    let ast = Parser::new(input).try_parse_full_many::<Stmt>()?;
+    let ast = Parser::new(input).try_parse_full_many()?;
     let res = eval_stmts(&ast, ctxt)?;
     Ok(res)
 }

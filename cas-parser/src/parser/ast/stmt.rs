@@ -22,7 +22,7 @@ pub struct Stmt {
     ///
     /// When this is [`None`], the statement is an expression, and will return the value of the
     /// expression. Otherwise, the expression is evaluated for side effects, and the statement
-    /// returns [`Value::Unit`].
+    /// returns the unit type `()`.
     pub semicolon: Option<Range<usize>>,
 
     /// The region of the source code that this statement was parsed from.

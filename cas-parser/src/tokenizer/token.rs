@@ -2,7 +2,7 @@ use logos::Logos;
 use std::ops::Range;
 
 /// The different kinds of tokens that can be produced by the tokenizer.
-#[derive(Logos, Clone, Copy, Debug, PartialEq)]
+#[derive(Logos, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenKind {
     #[regex(r"[\n\r]+")]
     NewLine,

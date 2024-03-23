@@ -19,6 +19,7 @@ use crate::{
         Parse,
         Parser,
     },
+    tokenizer::TokenKind,
     return_if_ok,
 };
 use std::{fmt, ops::Range};
@@ -219,13 +220,13 @@ impl<'source> Parse<'source> for Primary {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        // function calls can overlap with literals, so we need to try parsing a function call
-        // first
         let _ = return_if_ok!(input.try_parse().map(Self::If).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::Loop).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::While).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::Break).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::Continue).forward_errors(recoverable_errors));
+        // function calls can overlap with literals, so we need to try parsing a function call
+        // first
         let _ = return_if_ok!(input.try_parse().map(Self::Call).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::Literal).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::Paren).forward_errors(recoverable_errors));

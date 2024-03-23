@@ -352,7 +352,7 @@ impl<'source> Parse<'source> for LitList {
 
         Ok(Self {
             values: surrounded.value.values,
-            span: surrounded.start.span.start..surrounded.end.span.end,
+            span: surrounded.open.span.start..surrounded.close.span.end,
         })
     }
 }

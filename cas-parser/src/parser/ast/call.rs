@@ -78,13 +78,13 @@ impl<'source> Parse<'source> for Call {
         let surrounded = input.try_parse::<ParenDelimited<_>>().forward_errors(recoverable_errors)?;
 
         // use `name` here before it is moved into the struct
-        let span = name.span.start..surrounded.end.span.end;
+        let span = name.span.start..surrounded.close.span.end;
         Ok(Self {
             name,
             derivatives: derivatives as u8,
             args: surrounded.value.values,
             span,
-            paren_span: surrounded.start.span.start..surrounded.end.span.end,
+            paren_span: surrounded.open.span.start..surrounded.close.span.end,
         })
     }
 }

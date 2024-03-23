@@ -110,7 +110,7 @@ impl<'source> Parse<'source> for FuncHeader {
         let name = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
         let surrounded = input.try_parse::<ParenDelimited<_>>().forward_errors(recoverable_errors)?;
 
-        let span = name.span.start..surrounded.end.span.end;
+        let span = name.span.start..surrounded.close.span.end;
         Ok(Self { name, params: surrounded.value.values, span })
     }
 }

@@ -4,7 +4,6 @@ use crate::{
         error::{kind, Error},
         fmt::Latex,
         token::op::{Associativity, UnaryOp},
-        Parse,
         Parser,
         ParseResult,
     },
@@ -28,6 +27,13 @@ fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Resul
 }
 
 /// A unary expression, such as `2!`. Unary expressions can include nested expressions.
+///
+/// Unary expressions do not directly implement [`Parse`] due to performance implications involving
+/// parsing left-associative unary expressions (see [`Unary::parse_left_or_operand`]). Instead, the
+/// a combination of [`Unary::parse_right`] and [`Unary::parse_left_or_operand`] can be used to
+/// parse unary expressions.
+///
+/// [`Parse`]: crate::parser::Parse
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Unary {
@@ -47,53 +53,54 @@ impl Unary {
         self.span.clone()
     }
 
-    /// Parses a unary expression with respect to the given associativity.
-    pub fn parse_with_associativity(
-        input: &mut Parser,
-        associativity: Associativity,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
-        match associativity {
-            Associativity::Left => {
-                // to avoid infinite recursion, parse a terminal expression first
-                let operand: Expr = input.try_parse::<Primary>().forward_errors(recoverable_errors)?.into();
-                let start_span = operand.span().start;
+    /// Parse a unary expression with right-associativity.
+    pub fn parse_right(input: &mut Parser, recoverable_errors: &mut Vec<Error>) -> Result<Self, Vec<Error>> {
+        let op = try_parse_unary_op(input, Associativity::Right)?;
+        let op_precedence = op.precedence();
+        let start_span = op.span.start;
+        let operand = {
+            let lhs = Unary::parse_or_lower(input, recoverable_errors)?;
+            Binary::parse_expr(input, recoverable_errors, lhs, op_precedence)?.0
+        };
+        let end_span = operand.span().end;
+        Ok(Self {
+            operand: Box::new(operand),
+            op,
+            span: start_span..end_span,
+        })
+    }
 
-                // one operator must be present
-                let op = try_parse_unary_op(input, associativity)?;
-                let mut result = Self {
-                    operand: Box::new(operand),
-                    op,
-                    span: start_span..input.prev_token().unwrap().span.end,
-                };
+    /// Parse a unary expression with left-associativity.
+    ///
+    /// By the nature of left-associative operators, we must parse the operand first. This can
+    /// result in enormous backtracking if the operator is not present. To avoid this, this
+    /// function returns the parsed operand as an [`Primary`] if it does determine that there
+    /// is no operator present.
+    pub fn parse_left_or_operand(input: &mut Parser, recoverable_errors: &mut Vec<Error>) -> Result<Expr, Vec<Error>> {
+        let operand = input.try_parse::<Primary>().forward_errors(recoverable_errors)?;
+        let start_span = operand.span().start;
 
-                // iteratively find any other left-associative operators
-                while let Ok(next_op) = try_parse_unary_op(input, associativity) {
-                    result = Self {
-                        operand: Box::new(Expr::Unary(result)),
-                        op: next_op,
-                        span: start_span..input.prev_token().unwrap().span.end,
-                    };
-                }
+        // one operator must be present
+        let op = match try_parse_unary_op(input, Associativity::Left) {
+            Ok(op) => op,
+            Err(_) => return Ok(operand.into()),
+        };
+        let mut result = Self {
+            operand: Box::new(operand.into()),
+            op,
+            span: start_span..input.prev_token().unwrap().span.end,
+        };
 
-                Ok(result)
-            },
-            Associativity::Right => {
-                let op = try_parse_unary_op(input, associativity)?;
-                let op_precedence = op.precedence();
-                let start_span = input.prev_token().unwrap().span.start;
-                let operand = {
-                    let lhs = Unary::parse_or_lower(input, recoverable_errors)?;
-                    Binary::parse_expr(input, recoverable_errors, lhs, op_precedence)?.0
-                };
-                let end_span = operand.span().end;
-                Ok(Self {
-                    operand: Box::new(operand),
-                    op,
-                    span: start_span..end_span,
-                })
-            },
+        // iteratively find any other left-associative operators
+        while let Ok(next_op) = try_parse_unary_op(input, Associativity::Left) {
+            result = Self {
+                operand: Box::new(Expr::Unary(result)),
+                op: next_op,
+                span: start_span..input.prev_token().unwrap().span.end,
+            };
         }
+
+        Ok(Expr::Unary(result))
     }
 
     /// Parses a unary expression, or lower precedence expressions.
@@ -101,26 +108,8 @@ impl Unary {
         input: &mut Parser,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Expr, Vec<Error>> {
-        let _ = return_if_ok!(
-            input.try_parse_with_fn(|input| {
-                Self::parse(input).map(Expr::Unary)
-            }).forward_errors(recoverable_errors)
-        );
-        Primary::parse(input)
-            .map(Into::into)
-            .forward_errors(recoverable_errors)
-    }
-}
-
-impl<'source> Parse<'source> for Unary {
-    fn std_parse(
-        input: &mut Parser<'source>,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
-        let _ = return_if_ok!(
-            Self::parse_with_associativity(input, Associativity::Right, recoverable_errors)
-        );
-        Self::parse_with_associativity(input, Associativity::Left, recoverable_errors)
+        let _ = return_if_ok!(Self::parse_right(input, recoverable_errors).map(Expr::Unary));
+        Self::parse_left_or_operand(input, recoverable_errors)
     }
 }
 

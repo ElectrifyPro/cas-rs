@@ -24,6 +24,9 @@ pub struct ParserState {
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
 /// code into an abstract syntax tree.
+///
+/// The parser contains an [`Arc`] to the tokens representing the source code to be parsed, and
+/// thus is relatively cheap to clone.
 #[derive(Debug, Clone)]
 pub struct Parser<'source> {
     /// The tokens that this parser is currently parsing.
@@ -653,6 +656,63 @@ mod tests {
                 span: 0..3,
             },
             span: 0..11,
+        }));
+    }
+
+    #[test]
+    fn wrong_unary() {
+        let mut parser = Parser::new("!3");
+        assert!(parser.try_parse_full::<Expr>().is_err());
+    }
+
+    #[test]
+    fn unary_complicated() {
+        let mut parser = Parser::new("not 3!! + -4");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Unary(Unary {
+                operand: Box::new(Expr::Unary(Unary {
+                    operand: Box::new(Expr::Unary(Unary {
+                        operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                            value: "3".to_string(),
+                            span: 4..5,
+                        }))),
+                        op: UnaryOp {
+                            kind: UnaryOpKind::Factorial,
+                            span: 5..6,
+                        },
+                        span: 4..6,
+                    })),
+                    op: UnaryOp {
+                        kind: UnaryOpKind::Factorial,
+                        span: 6..7,
+                    },
+                    span: 4..7,
+                })),
+                op: UnaryOp {
+                    kind: UnaryOpKind::Not,
+                    span: 0..3,
+                },
+                span: 0..7,
+            })),
+            op: BinOp {
+                kind: BinOpKind::Add,
+                implicit: false,
+                span: 8..9,
+            },
+            rhs: Box::new(Expr::Unary(Unary {
+                operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "4".to_string(),
+                    span: 11..12,
+                }))),
+                op: UnaryOp {
+                    kind: UnaryOpKind::Neg,
+                    span: 10..11,
+                },
+                span: 10..12,
+            })),
+            span: 0..12,
         }));
     }
 
@@ -1930,6 +1990,13 @@ mod tests {
             }))),
             span: 0..7,
         }));
+    }
+
+    #[test]
+    fn catastrophic_backtracking() {
+        // parsing nested function calls like this used to take exponential time! :sweat:
+        let mut parser = Parser::new("a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a()");
+        assert!(parser.try_parse_full::<Expr>().is_err());
     }
 
     #[test]

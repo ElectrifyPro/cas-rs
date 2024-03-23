@@ -1,4 +1,5 @@
 pub mod op;
+pub mod pair;
 
 use crate::{
     parser::{error::{kind, Error}, garbage::Garbage, Parser, Parse},

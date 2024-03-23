@@ -38,7 +38,7 @@ impl<'source> Parse<'source> for Block {
     ) -> Result<Self, Vec<Error>> {
         let open_curly = input.try_parse::<OpenCurly>().forward_errors(recoverable_errors)?;
         let mut stmts = Vec::new();
-        while let Ok(stmt) = input.try_parse::<Stmt>().forward_errors(recoverable_errors) {
+        while let Ok(stmt) = input.try_parse().forward_errors(recoverable_errors) {
             stmts.push(stmt);
         }
         let close_curly = input.try_parse::<CloseCurly>()

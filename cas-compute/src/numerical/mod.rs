@@ -19,7 +19,7 @@ mod tests {
 
     /// Evaluates the given statements and returns the result.
     fn eval(source: &str) -> Value {
-        let ast = Parser::new(source).try_parse_full_many::<Stmt>().unwrap();
+        let ast = Parser::new(source).try_parse_full_many().unwrap();
         eval_stmts(&ast, &mut Default::default()).unwrap()
     }
 

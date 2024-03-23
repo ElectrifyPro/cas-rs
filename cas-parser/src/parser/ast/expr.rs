@@ -117,7 +117,7 @@ impl<'source> Parse<'source> for Expr {
             return Err(vec![input.error(kind::UnclosedParenthesis { opening: false })]);
         }
 
-        let _ = return_if_ok!(input.try_parse::<Assign>().map(Self::Assign).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Assign).forward_errors(recoverable_errors));
         let lhs = Unary::parse_or_lower(input, recoverable_errors)?;
         Ok(Binary::parse_expr(input, recoverable_errors, lhs, Precedence::Any)?.0)
     }
@@ -221,15 +221,15 @@ impl<'source> Parse<'source> for Primary {
     ) -> Result<Self, Vec<Error>> {
         // function calls can overlap with literals, so we need to try parsing a function call
         // first
-        let _ = return_if_ok!(input.try_parse::<If>().map(Self::If).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<Loop>().map(Self::Loop).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<While>().map(Self::While).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<Break>().map(Self::Break).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<Continue>().map(Self::Continue).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<Call>().map(Self::Call).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<Literal>().map(Self::Literal).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<Paren>().map(Self::Paren).forward_errors(recoverable_errors));
-        input.try_parse::<Block>().map(Self::Block).forward_errors(recoverable_errors)
+        let _ = return_if_ok!(input.try_parse().map(Self::If).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Loop).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::While).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Break).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Continue).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Call).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Literal).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Paren).forward_errors(recoverable_errors));
+        input.try_parse().map(Self::Block).forward_errors(recoverable_errors)
     }
 }
 

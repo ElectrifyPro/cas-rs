@@ -54,7 +54,7 @@ impl<'source> Parse<'source> for Paren {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let open_paren = input.try_parse::<OpenParen>().forward_errors(recoverable_errors)?;
-        let expr = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
+        let expr = input.try_parse().forward_errors(recoverable_errors)?;
         let close_paren = input.try_parse::<CloseParen>()
             .forward_errors(recoverable_errors)
             .unwrap_or_else(|_| {

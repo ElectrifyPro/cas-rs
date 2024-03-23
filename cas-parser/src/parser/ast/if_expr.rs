@@ -51,7 +51,7 @@ impl<'source> Parse<'source> for If {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let if_token = input.try_parse::<IfToken>().forward_errors(recoverable_errors)?;
-        let condition = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
+        let condition = input.try_parse().forward_errors(recoverable_errors)?;
         let (then_token, then_expr) = 'then: {
             let then_token = match input.try_parse::<Then>().forward_errors(recoverable_errors) {
                 Ok(token) => token,

@@ -24,7 +24,7 @@ where
 
         loop {
             // manually catch unrecoverable errors so we can parse zero values
-            let Ok(value) = input.try_parse::<T>().forward_errors(recoverable_errors) else {
+            let Ok(value) = input.try_parse().forward_errors(recoverable_errors) else {
                 break;
             };
             values.push(value);

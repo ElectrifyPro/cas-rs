@@ -46,6 +46,7 @@ pub struct UnexpectedToken {
 }
 
 /// Encountered a keyword when a symbol name was expected.
+// TODO: this error is not currently reported, see `impl Parse for LitSym`
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "expected symbol name",

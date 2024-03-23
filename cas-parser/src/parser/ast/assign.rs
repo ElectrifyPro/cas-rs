@@ -43,7 +43,7 @@ impl<'source> Parse<'source> for Param {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let symbol = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
+        let symbol = input.try_parse().forward_errors(recoverable_errors)?;
 
         if let Ok(assign) = input.try_parse::<AssignOp>().forward_errors(recoverable_errors) {
             if assign.is_compound() {
@@ -52,7 +52,7 @@ impl<'source> Parse<'source> for Param {
                     CompoundAssignmentInHeader,
                 ));
             }
-            let default = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
+            let default = input.try_parse().forward_errors(recoverable_errors)?;
             Ok(Param::Default(symbol, default))
         } else {
             Ok(Param::Symbol(symbol))
@@ -200,8 +200,8 @@ impl<'source> Parse<'source> for AssignTarget {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let _ = return_if_ok!(input.try_parse::<FuncHeader>().map(AssignTarget::Func).forward_errors(recoverable_errors));
-        input.try_parse::<LitSym>().map(AssignTarget::Symbol).forward_errors(recoverable_errors)
+        let _ = return_if_ok!(input.try_parse().map(AssignTarget::Func).forward_errors(recoverable_errors));
+        input.try_parse().map(AssignTarget::Symbol).forward_errors(recoverable_errors)
     }
 }
 
@@ -268,7 +268,7 @@ impl<'source> Parse<'source> for Assign {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let target = input.try_parse::<AssignTarget>().forward_errors(recoverable_errors)?;
+        let target = input.try_parse().forward_errors(recoverable_errors)?;
         let op = input.try_parse::<AssignOp>().forward_errors(recoverable_errors)?;
         if matches!(target, AssignTarget::Func(_)) && op.is_compound() {
             recoverable_errors.push(Error::new(

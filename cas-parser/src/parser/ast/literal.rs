@@ -141,7 +141,7 @@ impl RadixWord {
 
 /// Helper function to ensure the given string represents a valid base for radix notation.
 fn validate_radix_base(num: &Int) -> ParseResult<u8> {
-    match num.lexeme.parse::<u8>() {
+    match num.lexeme.parse() {
         Ok(base) if (2..=64).contains(&base) => ParseResult::Ok(base),
         Ok(base) if base < 2 => ParseResult::Recoverable(
             64, // use base 64 to limit invalid radix digit errors
@@ -174,7 +174,7 @@ impl<'source> Parse<'source> for LitRadix {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let num = input.try_parse::<Int>().forward_errors(recoverable_errors)?;
+        let num = input.try_parse().forward_errors(recoverable_errors)?;
         let quote = input.try_parse::<Quote>().forward_errors(recoverable_errors)?;
 
         let base = validate_radix_base(&num).forward_errors(recoverable_errors)?;
@@ -264,17 +264,19 @@ impl<'source> Parse<'source> for LitSym {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
+        // TODO: it would be nice if we could report an error if the symbol is a keyword
+        //
+        // for example:
+        // break(x) = x
+        // ^^^^^ error: `break` is a keyword and cannot be used as a symbol
+        //
+        // unfortunately this is hard since CalcScript is context-sensitive and we would have to
+        // to parse further ahead to determine if this error should be reported
+        // maybe we should require a `let` keyword to declare variables?
         input.try_parse::<Name>()
-            .map(|name| {
-                if matches!(name.lexeme, "if" | "then" | "else") {
-                    recoverable_errors.push(Error::new(vec![name.span.clone()], kind::ExpectedSymbolName {
-                        keyword: name.lexeme.to_owned(),
-                    }));
-                }
-                Self {
-                    name: name.lexeme.to_owned(),
-                    span: name.span,
-                }
+            .map(|name| Self {
+                name: name.lexeme.to_owned(),
+                span: name.span,
             })
             .forward_errors(recoverable_errors)
     }
@@ -429,12 +431,12 @@ impl<'source> Parse<'source> for Literal {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let _ = return_if_ok!(input.try_parse::<LitRadix>().map(Literal::Radix).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<LitInt>().map(Literal::Integer).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<LitFloat>().map(Literal::Float).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<LitSym>().map(Literal::Symbol).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse::<LitUnit>().map(Literal::Unit).forward_errors(recoverable_errors));
-        input.try_parse::<LitList>().map(Literal::List).forward_errors(recoverable_errors)
+        let _ = return_if_ok!(input.try_parse().map(Literal::Radix).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Literal::Integer).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Literal::Float).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Literal::Symbol).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Literal::Unit).forward_errors(recoverable_errors));
+        input.try_parse().map(Literal::List).forward_errors(recoverable_errors)
     }
 }
 

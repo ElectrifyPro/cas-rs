@@ -298,7 +298,7 @@ impl<'source> Parse<'source> for Binary {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        match input.try_parse::<Expr>().forward_errors(recoverable_errors)? {
+        match input.try_parse().forward_errors(recoverable_errors)? {
             Expr::Binary(binary) => Ok(binary),
             _ => todo!(),
         }

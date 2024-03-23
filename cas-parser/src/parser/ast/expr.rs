@@ -19,7 +19,6 @@ use crate::{
         Parse,
         Parser,
     },
-    tokenizer::TokenKind,
     return_if_ok,
 };
 use std::{fmt, ops::Range};

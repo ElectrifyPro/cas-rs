@@ -13,7 +13,7 @@ pub mod value;
 
 #[cfg(test)]
 mod tests {
-    use cas_parser::parser::{ast::stmt::Stmt, Parser};
+    use cas_parser::parser::Parser;
     use crate::primitive::float;
     use super::{eval::eval_stmts, value::Value};
 

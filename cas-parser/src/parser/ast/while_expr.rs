@@ -61,7 +61,9 @@ impl<'source> Parse<'source> for While {
                     break 'then Garbage::garbage();
                 },
             };
-            input.try_parse::<Expr>()
+            input.try_parse_with_state::<_, Expr>(|state| {
+                state.loop_depth += 1;
+            })
                 .forward_errors(recoverable_errors)
                 .map(|expr| (then_token, expr))
                 .unwrap_or_else(|_| {

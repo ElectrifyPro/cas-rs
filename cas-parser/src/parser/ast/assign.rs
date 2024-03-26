@@ -270,14 +270,31 @@ impl<'source> Parse<'source> for Assign {
     ) -> Result<Self, Vec<Error>> {
         let target = input.try_parse().forward_errors(recoverable_errors)?;
         let op = input.try_parse::<AssignOp>().forward_errors(recoverable_errors)?;
-        if matches!(target, AssignTarget::Func(_)) && op.is_compound() {
-            recoverable_errors.push(Error::new(
-                vec![target.span(), op.span.clone()],
-                InvalidCompoundAssignmentLhs,
-            ));
-        }
 
-        let value = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
+        let value = if matches!(target, AssignTarget::Func(_)) {
+            if op.is_compound() {
+                // can't compound assignment to function, for example:
+                //
+                // f(x) += 5
+                //      ^^
+                recoverable_errors.push(Error::new(
+                    vec![op.span.clone()],
+                    InvalidCompoundAssignmentLhs,
+                ));
+            }
+
+            input.try_parse_with_state::<_, Expr>(|state| {
+                // loop control not allowed inside a function definition inside a loop, for example:
+                //
+                // loop {
+                //     f(x) = break x <-- illegal break
+                //     f(5)
+                // }
+                state.allow_loop_control = false;
+            }).forward_errors(recoverable_errors)?
+        } else {
+            input.try_parse::<Expr>().forward_errors(recoverable_errors)?
+        };
 
         let span = target.span().start..value.span().end;
         Ok(Self {

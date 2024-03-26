@@ -41,7 +41,7 @@ impl<'source> Parse<'source> for Loop {
         let loop_token = input.try_parse::<LoopToken>().forward_errors(recoverable_errors)?;
 
         let body = input.try_parse_with_state::<_, Expr>(|state| {
-            state.loop_depth += 1;
+            state.allow_loop_control = true;
         }).forward_errors(recoverable_errors)?;
         let span = loop_token.span.start..body.span().end;
 
@@ -106,7 +106,7 @@ impl<'source> Parse<'source> for Break {
         };
 
         // `break` expressions can only be used inside loops
-        if input.state.loop_depth == 0 {
+        if !input.state.allow_loop_control {
             recoverable_errors.push(Error::new(
                 vec![break_token.span.clone()],
                 BreakOutsideLoop,
@@ -165,7 +165,7 @@ impl<'source> Parse<'source> for Continue {
             .forward_errors(recoverable_errors)?;
 
         // `continue` expressions can only be used inside loops
-        if input.state.loop_depth == 0 {
+        if !input.state.allow_loop_control {
             recoverable_errors.push(Error::new(
                 vec![continue_token.span.clone()],
                 ContinueOutsideLoop,

@@ -62,7 +62,7 @@ impl<'source> Parse<'source> for While {
                 },
             };
             input.try_parse_with_state::<_, Expr>(|state| {
-                state.loop_depth += 1;
+                state.allow_loop_control = true;
             })
                 .forward_errors(recoverable_errors)
                 .map(|expr| (then_token, expr))

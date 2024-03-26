@@ -17,9 +17,9 @@ use std::{ops::Range, sync::Arc};
 /// The state cannot be mutated directly; it can only be changed when parsing using the [`Parser::try_parse_with_state`] method.
 #[derive(Debug, Clone, Default)]
 pub struct ParserState {
-    /// The current depth of a `loop` expression stack. This is used to detect `break` and
-    /// `continue` outside of a loop.
-    pub loop_depth: usize,
+    /// Whether loop control expressions are allowed in the current context. This is used to
+    /// determine if a `break` or `continue` expression is valid.
+    pub allow_loop_control: bool,
 }
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of

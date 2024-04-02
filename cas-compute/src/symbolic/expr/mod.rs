@@ -443,6 +443,7 @@ impl From<AstExpr> for Expr {
                 Literal::Integer(int) => Self::Primary(Primary::Integer(int_from_str(&int.value))),
                 Literal::Float(float) => Self::Primary(Primary::Float(float_from_str(&float.value))),
                 Literal::Radix(radix) => Self::Primary(Primary::Integer(from_str_radix(&radix.value, radix.base))),
+                Literal::Boolean(_) => todo!(),
                 Literal::Symbol(sym) => Self::Primary(Primary::Symbol(sym.name)),
                 Literal::Unit(_) => todo!(),
                 Literal::List(_) => todo!(),

@@ -13,6 +13,7 @@ impl Eval for Literal {
             Literal::Integer(int) => Ok(Value::Integer(int_from_str(&int.value))),
             Literal::Float(float) => Ok(Value::Float(float_from_str(&float.value))),
             Literal::Radix(radix) => Ok(Value::Integer(from_str_radix(radix.value.as_str(), radix.base))),
+            Literal::Boolean(boolean) => Ok(Value::Boolean(boolean.value)),
             Literal::Symbol(sym) => ctxt.get_var(sym.name.as_str())
                 .ok_or_else(|| Error::new(vec![sym.span.clone()], UndefinedVariable { name: sym.name.clone() })),
             Literal::Unit(_) => Ok(Value::Unit),

@@ -169,6 +169,9 @@ pub enum TokenKind {
     #[regex(r"[0-9]+\.[0-9]*")]
     Float,
 
+    #[regex(r"(true|false)")]
+    Boolean,
+
     #[token(".")]
     Dot,
 

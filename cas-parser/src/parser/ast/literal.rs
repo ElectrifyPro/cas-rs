@@ -3,7 +3,7 @@ use crate::{
         ast::{expr::Expr, helper::SquareDelimited},
         error::{kind, Error},
         fmt::Latex,
-        token::{CloseParen, Float, Name, Int, OpenParen, Quote},
+        token::{Boolean, CloseParen, Float, Name, Int, OpenParen, Quote},
         Parse,
         Parser,
         ParseResult,
@@ -248,6 +248,47 @@ impl Latex for LitRadix {
     }
 }
 
+/// A boolean literal, either `true` or `false`.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct LitBool {
+    /// The value of the boolean literal.
+    pub value: bool,
+
+    /// The region of the source code that this literal was parsed from.
+    pub span: Range<usize>,
+}
+
+impl<'source> Parse<'source> for LitBool {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        input.try_parse::<Boolean>()
+            .map(|boolean| Self {
+                value: match boolean.lexeme {
+                    "true" => true,
+                    "false" => false,
+                    _ => unreachable!(),
+                },
+                span: boolean.span,
+            })
+            .forward_errors(recoverable_errors)
+    }
+}
+
+impl std::fmt::Display for LitBool {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+impl Latex for LitBool {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
 /// A symbol / identifier literal. Symbols are used to represent variables and functions.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -400,6 +441,9 @@ pub enum Literal {
     /// base other than base 10.
     Radix(LitRadix),
 
+    /// A boolean literal, either `true` or `false`.
+    Boolean(LitBool),
+
     /// A symbol / identifier literal. Symbols are used to represent variables and functions.
     Symbol(LitSym),
 
@@ -419,6 +463,7 @@ impl Literal {
             Literal::Integer(int) => int.span.clone(),
             Literal::Float(float) => float.span.clone(),
             Literal::Radix(radix) => radix.span.clone(),
+            Literal::Boolean(boolean) => boolean.span.clone(),
             Literal::Symbol(name) => name.span.clone(),
             Literal::Unit(unit) => unit.span.clone(),
             Literal::List(list) => list.span.clone(),
@@ -431,6 +476,7 @@ impl<'source> Parse<'source> for Literal {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
+        let _ = return_if_ok!(input.try_parse().map(Literal::Boolean).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::Radix).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::Integer).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::Float).forward_errors(recoverable_errors));
@@ -446,6 +492,7 @@ impl std::fmt::Display for Literal {
             Literal::Integer(int) => int.fmt(f),
             Literal::Float(float) => float.fmt(f),
             Literal::Radix(radix) => radix.fmt(f),
+            Literal::Boolean(boolean) => boolean.fmt(f),
             Literal::Symbol(name) => name.fmt(f),
             Literal::Unit(unit) => unit.fmt(f),
             Literal::List(list) => list.fmt(f),
@@ -459,6 +506,7 @@ impl Latex for Literal {
             Literal::Integer(int) => int.fmt_latex(f),
             Literal::Float(float) => float.fmt_latex(f),
             Literal::Radix(radix) => radix.fmt_latex(f),
+            Literal::Boolean(boolean) => boolean.fmt_latex(f),
             Literal::Symbol(name) => name.fmt_latex(f),
             Literal::Unit(unit) => unit.fmt_latex(f),
             Literal::List(list) => list.fmt_latex(f),

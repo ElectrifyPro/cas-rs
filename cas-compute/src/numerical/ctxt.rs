@@ -116,8 +116,6 @@ impl Default for Ctxt {
                 ("phi".to_string(), consts::PHI.clone().into()),
                 ("pi".to_string(), consts::PI.clone().into()),
                 ("tau".to_string(), consts::TAU.clone().into()),
-                ("true".to_string(), true.into()),
-                ("false".to_string(), false.into()),
             ]),
             funcs: crate::funcs::all()
                 .into_iter()

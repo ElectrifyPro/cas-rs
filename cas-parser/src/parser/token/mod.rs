@@ -104,6 +104,7 @@ token_kinds!(
     Semicolon
     Int
     Float
+    Boolean
     Dot
     Symbol
 );

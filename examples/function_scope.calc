@@ -1,4 +1,4 @@
 x = 14
-g() = { x = 9 }
+g() = { x = 9 } // this `x` is a new variable, not the `x` in the outer scope
 g()
 x

@@ -216,7 +216,7 @@ a == b && b == c && c == d && d == f
 This is contrary to some calculators and mathematical literature, which will often treat implicit multiplication as having higher precedence than explicit multiplication. This would have the following behavior:
 
 ```
-!! THIS IS NOT THE BEHAVIOR OF CAS-RS! !!
+// THIS IS NOT THE BEHAVIOR OF CAS-RS!
 
 a = 4
 
@@ -274,6 +274,24 @@ fact(n) = {
 }
 
 fact(14) == 14!
+```
+
+## Comments
+
+Comments in CalcScript are denoted by `//` and continue until the end of the line. Comments can be placed anywhere in the code, and any text following `//` will be ignored by the parser.
+
+Comments are typically used to describe or explain the reasoning behind your code, or to temporarily disable a line of code for debugging purposes:
+
+```
+// the x and y-position of a point, in meters
+x = 2
+y = 3
+
+// computes the distance from the origin
+// distance = sqrt(x^2 + y^2)
+distance = hypot(x, y) // faster than sqrt(x^2 + y^2)
+
+distance
 ```
 
 ## Programming constructs

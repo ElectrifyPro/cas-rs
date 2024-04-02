@@ -10,6 +10,9 @@ pub enum TokenKind {
     #[regex(r"[ \t]+")]
     Whitespace,
 
+    #[regex(r"//.*")]
+    Comment,
+
     #[token("==")]
     Eq,
 
@@ -174,9 +177,9 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
-    /// Returns true if the token represents whitespace.
-    pub fn is_whitespace(self) -> bool {
-        matches!(self, TokenKind::Whitespace | TokenKind::NewLine)
+    /// Returns true if the token represents a token that should be ignored by the parser.
+    pub fn is_ignore(self) -> bool {
+        matches!(self, TokenKind::Whitespace | TokenKind::NewLine | TokenKind::Comment)
     }
 
     /// Returns true if the token represents significant whitespace.
@@ -199,9 +202,9 @@ pub struct Token<'source> {
 }
 
 impl Token<'_> {
-    /// Returns true if the token represents whitespace.
-    pub fn is_whitespace(&self) -> bool {
-        self.kind.is_whitespace()
+    /// Returns true if the token represents a token that should be ignored by the parser.
+    pub fn is_ignore(&self) -> bool {
+        self.kind.is_ignore()
     }
 
     /// Returns true if the token represents significant whitespace, i.e., the token is a newline.

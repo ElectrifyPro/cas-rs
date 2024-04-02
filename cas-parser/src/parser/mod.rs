@@ -107,7 +107,7 @@ impl<'source> Parser<'source> {
     /// valid, it is guaranteed to be non-whitespace.
     pub fn advance_past_whitespace(&mut self) {
         while let Some(token) = self.tokens.get(self.cursor) {
-            if token.is_whitespace() {
+            if token.is_ignore() {
                 self.cursor += 1;
                 continue;
             } else {
@@ -166,7 +166,7 @@ impl<'source> Parser<'source> {
     /// during parsing.
     pub fn advance_past_non_significant_whitespace(&mut self) {
         while let Some(token) = self.tokens.get(self.cursor) {
-            if token.is_whitespace() && !token.is_significant_whitespace() {
+            if token.is_ignore() && !token.is_significant_whitespace() {
                 self.cursor += 1;
                 continue;
             } else {

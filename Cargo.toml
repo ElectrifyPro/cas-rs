@@ -8,6 +8,7 @@ members = [
 	"cas-math",
 	"cas-parser",
 	"cas-repl",
+	"cas-vm",
 ]
 resolver = "2"
 

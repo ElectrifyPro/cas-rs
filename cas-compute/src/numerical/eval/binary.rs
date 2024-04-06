@@ -20,6 +20,7 @@ fn eval_integer_operands(
     let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
         unreachable!()
     };
+    println!("{}, {}", left, right);
     Ok(match op {
         BinOpKind::Exp => {
             // NOTE: there is no implementation of `pow` for `rug::Integer` with `rug::Integer`

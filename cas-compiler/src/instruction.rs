@@ -44,10 +44,13 @@ pub enum Instruction {
     /// Performs the unary operation on the top stack value.
     Unary(UnaryOpKind),
 
-    /// Calls the function with the specified name.
+    /// Calls the function at the given chunk.
     ///
     /// Arguments are passed to the function via the value stack.
-    // Call(String),
+    Call(usize),
+
+    /// Returns from the current function.
+    Return,
 
     /// Jump to the specified label.
     Jump(Label),

@@ -33,7 +33,13 @@ impl Compile for Assign {
                     }
                 }
             },
-            AssignTarget::Func(_) => todo!(),
+            AssignTarget::Func(header) => {
+                // for function assignment, create a new chunk for the function body
+                compiler.new_chunk(&header.name.name, |compiler| {
+                    self.value.compile(compiler);
+                    compiler.add_instr(Instruction::Return);
+                });
+            },
         }
     }
 }

@@ -58,6 +58,7 @@ macro_rules! keywords {
 }
 
 keywords!(
+    (Let, let)
     (If, if)
     (Then, then)
     (Else, else)

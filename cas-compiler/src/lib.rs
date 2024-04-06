@@ -1,13 +1,12 @@
 pub mod expr;
-pub mod frame;
 pub mod instruction;
 pub mod item;
 
-use cas_parser::parser::ast::Stmt;
+use cas_parser::parser::ast::{FuncHeader, Stmt};
 use std::collections::HashMap;
 use expr::compile_stmts;
 pub use instruction::Instruction;
-use item::{Func, Item};
+use item::{Func, Item, Symbol};
 
 /// A label that can be used to reference a specific instruction in the bytecode.
 ///
@@ -48,11 +47,6 @@ pub struct CompilerState {
     /// [`Instruction::StoreVar`] instruction for `y`.
     pub top_level_assign: bool,
 
-    /// Index of the current chunk.
-    ///
-    /// This value is manually updated by the compiler.
-    chunk: usize,
-
     /// Path representing the current scope.
     ///
     /// A new scope is introduced inside each function definition (TODO: block scopes). When this
@@ -89,6 +83,14 @@ pub struct Compiler {
     /// program.
     pub symbols: HashMap<String, Item>,
 
+    /// Index of the current chunk.
+    ///
+    /// This value is manually updated by the compiler.
+    chunk: usize,
+
+    /// Next unique identifier for a symbol.
+    next_symbol_id: usize,
+
     /// Holds state for the current loop.
     state: CompilerState,
 }
@@ -99,6 +101,8 @@ impl Default for Compiler {
             chunks: vec![Chunk::default()], // add main chunk
             labels: Default::default(),
             symbols: Default::default(),
+            chunk: 0,
+            next_symbol_id: 0,
             state: Default::default(),
         }
     }
@@ -139,12 +143,12 @@ impl Compiler {
 
     /// Returns an immutable reference to the current chunk.
     pub fn chunk(&self) -> &Chunk {
-        self.chunks.get(self.state.chunk).unwrap()
+        self.chunks.get(self.chunk).unwrap()
     }
 
     /// Returns a mutable reference to the current chunk.
     pub fn chunk_mut(&mut self) -> &mut Chunk {
-        self.chunks.get_mut(self.state.chunk).unwrap()
+        self.chunks.get_mut(self.chunk).unwrap()
     }
 
     /// Add a symbol to the symbol table.
@@ -168,28 +172,114 @@ impl Compiler {
 
     /// Creates a new chunk and a scope for compilation. All methods that edit instructions will do
     /// so to the new chunk.
-    pub fn new_chunk<F>(&mut self, name: &str, f: F)
+    pub fn new_chunk<F>(&mut self, header: &FuncHeader, f: F)
         where F: FnOnce(&mut Compiler),
     {
-        let old_chunk_idx = self.state.chunk;
-        self.state.path.push(name.to_string());
+        let old_chunk_idx = self.chunk;
+        self.state.path.push(header.name.name.to_string());
         self.chunks.push(Chunk::default());
         let new_chunk_idx = self.chunks.len() - 1;
 
-        self.add_symbol(name, Item::Func(Func {
+        self.add_symbol(&header.name.name, Item::Func(Func {
             chunk: new_chunk_idx,
             symbols: HashMap::new(),
         }));
 
-        self.state.chunk = new_chunk_idx;
+        self.chunk = new_chunk_idx;
         f(self);
-        println!("new chunk end");
         self.state.path.pop().unwrap();
-        self.state.chunk = old_chunk_idx;
+        self.chunk = old_chunk_idx;
+    }
+
+    /// Resolves a path to a symbol, inserting it into the symbol table if it doesn't exist.
+    ///
+    /// Returns the unique identifier for the symbol.
+    pub fn resolve_symbol_or_insert(&mut self, name: &str) -> usize {
+        let mut result = None;
+
+        let mut table = &mut self.symbols;
+
+        // is the symbol in the global scope?
+        if let Some(Item::Symbol(symbol)) = table.get(name) {
+            result = Some(symbol.id);
+        }
+
+        // work our way up to the current scope
+        for component in self.state.path.iter() {
+            // is the symbol in this scope?
+            if let Some(Item::Symbol(symbol)) = table.get(name) {
+                result = Some(symbol.id);
+            }
+
+            // let's check the next scope
+            if table.contains_key(component) {
+                let Item::Func(func) = table.get_mut(component).unwrap() else {
+                    panic!("oops");
+                };
+                table = &mut func.symbols;
+            } else {
+                panic!("oops");
+            }
+        }
+
+        if let Some(Item::Symbol(symbol)) = table.get(name) {
+            // is the symbol in the current scope?
+            symbol.id
+        } else if let Some(symbol) = result {
+            // use the last one we found
+            symbol
+        } else {
+            // if not, insert it
+            let id = self.next_symbol_id;
+            table.insert(name.to_string(), Item::Symbol(Symbol { id }));
+            self.next_symbol_id += 1;
+            id
+        }
+    }
+
+    /// Resolves a path to a symbol without inserting it into the symbol table.
+    ///
+    /// Returns the unique identifier for the symbol.
+    pub fn resolve_symbol(&self, name: &str) -> usize {
+        let mut result = None;
+
+        let mut table = &self.symbols;
+
+        // is the symbol in the global scope?
+        if let Some(Item::Symbol(symbol)) = table.get(name) {
+            result = Some(symbol.id);
+        }
+
+        // work our way up to the current scope
+        for component in self.state.path.iter() {
+            // is the symbol in this scope?
+            if let Some(Item::Symbol(symbol)) = table.get(name) {
+                result = Some(symbol.id);
+            }
+
+            // let's check the next scope
+            if table.contains_key(component) {
+                let Item::Func(func) = table.get(component).unwrap() else {
+                    panic!("oops");
+                };
+                table = &func.symbols;
+            } else {
+                panic!("oops");
+            }
+        }
+
+        // is the symbol in the current scope?
+        if let Some(Item::Symbol(symbol)) = table.get(name) {
+            symbol.id
+        } else {
+            result.unwrap()
+        }
     }
 
     /// Resolves a path to a function.
-    pub fn resolve_path(&self, name: &str) -> usize {
+    ///
+    /// Returns the index of the chunk containing the function.
+    pub fn resolve_function(&self, name: &str) -> usize {
         let mut result = None;
 
         let mut table = &self.symbols;
@@ -210,7 +300,7 @@ impl Compiler {
                 result = Some(func.chunk);
                 table = &func.symbols;
             } else {
-                panic!("oops");
+                break;
             }
         }
 
@@ -250,7 +340,7 @@ impl Compiler {
     pub fn new_end_label(&mut self) -> Label {
         let label = Label(self.labels.len());
         let chunk_instrs = self.chunk().instructions.len();
-        self.labels.insert(label, Some((self.state.chunk, chunk_instrs)));
+        self.labels.insert(label, Some((self.chunk, chunk_instrs)));
         label
     }
 
@@ -259,7 +349,7 @@ impl Compiler {
     /// This is useful for creating labels that point to the end of a loop, for example.
     pub fn set_end_label(&mut self, label: Label) {
         let chunk_instrs = self.chunk().instructions.len();
-        self.labels.insert(label, Some((self.state.chunk, chunk_instrs)));
+        self.labels.insert(label, Some((self.chunk, chunk_instrs)));
     }
 }
 
@@ -287,7 +377,7 @@ mod tests {
         let mut parser = Parser::new(source);
         let stmts = parser.try_parse_full_many::<Stmt>().unwrap();
 
-        Compiler::compile_program(stmts)
+        panic!("{:#?}", Compiler::compile_program(stmts))
     }
 
     #[test]

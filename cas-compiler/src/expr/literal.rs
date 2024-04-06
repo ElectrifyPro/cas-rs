@@ -12,7 +12,7 @@ impl Compile for Literal {
             Literal::Float(float) => compiler.add_instr(Instruction::LoadConst(Value::Float(float_from_str(&float.value)))),
             Literal::Radix(radix) => compiler.add_instr(Instruction::LoadConst(Value::Integer(from_str_radix(radix.value.as_str(), radix.base)))),
             Literal::Boolean(boolean) => compiler.add_instr(Instruction::LoadConst(Value::Boolean(boolean.value))),
-            Literal::Symbol(sym) => compiler.add_instr(Instruction::LoadVar(sym.name.clone())),
+            Literal::Symbol(sym) => compiler.add_instr(Instruction::LoadVar(compiler.resolve_symbol(&sym.name))),
             Literal::Unit(_) => compiler.add_instr(Instruction::LoadConst(Value::Unit)),
             Literal::List(_) => todo!(),
         }

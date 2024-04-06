@@ -3,21 +3,18 @@ use std::collections::HashMap;
 /// An item declaration in the program.
 #[derive(Clone, Debug)]
 pub enum Item {
-    /// A variable declaration.
-    Var(Var),
+    /// A symbol declaration.
+    Symbol(Symbol),
 
     /// A function declaration.
     Func(Func),
 }
 
-/// A variable declaration.
+/// A symbol declaration.
 #[derive(Clone, Debug)]
-pub struct Var {
-    /// The name of the variable.
-    pub name: String,
-
-    /// The scopes in which this variable is accessible.
-    pub scopes: Vec<Item>,
+pub struct Symbol {
+    /// A unique identifier for the symbol.
+    pub id: usize,
 }
 
 /// A function declaration.

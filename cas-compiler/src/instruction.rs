@@ -17,21 +17,21 @@ pub enum Instruction {
     LoadConst(Value),
 
     /// Load a value stored in a variable onto the stack.
-    LoadVar(String),
+    LoadVar(usize),
 
     /// Store the top value on the stack in the current stack frame. This value is **not** removed
     /// from the stack.
     ///
     /// This behavior is important since assignment expressions can be used as subexpressions in
     /// larger expressions.
-    StoreVar(String),
+    StoreVar(usize),
 
     /// Store the top value on the stack in the current stack frame. This value **is** removed from
     /// the stack.
     ///
     /// This is used for assignment statements, where the value being assigned is not used in any
     /// further expressions.
-    AssignVar(String),
+    AssignVar(usize),
 
     /// Drops the top value from the stack.
     ///

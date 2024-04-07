@@ -513,6 +513,17 @@ mod tests {
     }
 
     #[test]
+    fn literal_float_2() {
+        let mut parser = Parser::new(".75");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::Float(LitFloat {
+            value: ".75".to_string(),
+            span: 0..3,
+        })));
+    }
+
+    #[test]
     fn literal_radix_base_2() {
         let mut parser = Parser::new("2'10000110000");
         let expr = parser.try_parse_full::<Expr>().unwrap();

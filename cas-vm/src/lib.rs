@@ -1,10 +1,12 @@
 mod frame;
 mod instruction;
 
-use cas_compute::numerical::value::Value;
+use cas_compute::{funcs::all, numerical::{builtin::Builtin, ctxt::TrigMode, value::Value}};
 use cas_parser::parser::ast::Stmt;
 use cas_compiler::{
+    error::Error as CompileError,
     instruction::Instruction,
+    item::Func,
     Chunk,
     Compile,
     Compiler,
@@ -27,27 +29,27 @@ pub struct Vm {
 
 impl Vm {
     /// Creates a [`Vm`] by compiling the given source AST.
-    pub fn compile<T: Compile>(expr: T) -> Self {
-        let compiler = Compiler::compile(expr);
-        Self {
+    pub fn compile<T: Compile>(expr: T) -> Result<Self, CompileError> {
+        let compiler = Compiler::compile(expr)?;
+        Ok(Self {
             chunks: compiler.chunks,
             labels: compiler.labels
                 .into_iter()
                 .map(|(label, location)| (label, location.unwrap()))
                 .collect(),
-        }
+        })
     }
 
     /// Creates a [`Vm`] by compiling multiple statements.
-    pub fn compile_program(stmts: Vec<Stmt>) -> Self {
-        let compiler = Compiler::compile_program(stmts);
-        Self {
+    pub fn compile_program(stmts: Vec<Stmt>) -> Result<Self, CompileError> {
+        let compiler = Compiler::compile_program(stmts)?;
+        Ok(Self {
             chunks: compiler.chunks,
             labels: compiler.labels
                 .into_iter()
                 .map(|(label, location)| (label, location.unwrap()))
                 .collect(),
-        }
+        })
     }
 
     /// Executes the bytecode instructions.
@@ -85,9 +87,19 @@ impl Vm {
                 Instruction::Binary(op) => exec_binary_instruction(*op, &mut value_stack),
                 Instruction::Unary(op) => exec_unary_instruction(*op, &mut value_stack),
                 Instruction::Call(chunk) => {
-                    call_stack.push(Frame::new((instruction_pointer.0, instruction_pointer.1 + 1)));
-                    instruction_pointer = (*chunk, 0);
-                    continue;
+                    match chunk {
+                        Func::UserFunc(chunk) => {
+                            call_stack.push(Frame::new((instruction_pointer.0, instruction_pointer.1 + 1)));
+                            instruction_pointer = (*chunk, 0);
+                            continue;
+                        },
+                        Func::Builtin(name, arity) => {
+                            let builtin = all().get(name).unwrap();
+                            let args = value_stack.split_off(value_stack.len() - *arity);
+                            let value = builtin.eval(TrigMode::Radians, &mut args.into_iter()).unwrap();
+                            value_stack.push(value);
+                        },
+                    }
                 },
                 Instruction::Return => {
                     let frame = call_stack.pop().unwrap();
@@ -133,23 +145,23 @@ mod tests {
     use cas_parser::parser::{ast::stmt::Stmt, Parser};
 
     /// Compile the given source code and execute the resulting bytecode.
-    fn run_program(source: &str) -> Value {
+    fn run_program(source: &str) -> Result<Value, CompileError> {
         let mut parser = Parser::new(source);
         let stmts = parser.try_parse_full_many::<Stmt>().unwrap();
 
-        let vm = Vm::compile_program(stmts);
-        vm.run()
+        let vm = Vm::compile_program(stmts)?;
+        Ok(vm.run())
     }
 
     #[test]
     fn exec_literal_number() {
-        let result = run_program("42");
+        let result = run_program("42").unwrap();
         assert_eq!(result, Value::Integer(int(42)));
     }
 
     #[test]
     fn exec_multiple_assignment() {
-        let result = run_program("x=y=z=5");
+        let result = run_program("x=y=z=5").unwrap();
         assert_eq!(result, Value::Integer(int(5)));
     }
 
@@ -158,7 +170,7 @@ mod tests {
         let result = run_program("i = 0
 while i < 10 then {
     i += 1
-}; i");
+}; i").unwrap();
         assert_eq!(result, Value::Integer(int(10)));
     }
 
@@ -173,14 +185,14 @@ while i < 10 && j < 15 then {
         i += 1
         j = -j + 4
     }
-}; j");
+}; j").unwrap();
         assert_eq!(result, Value::Integer(int(2)));
     }
 
     #[test]
     fn exec_simple_program() {
         let result = run_program("x = 4.5
-3x + 45 (x + 2) (1 + 3)");
+3x + 45 (x + 2) (1 + 3)").unwrap();
         assert_eq!(result, Value::Float(float(1183.5)));
     }
 
@@ -191,7 +203,7 @@ loop {
     n -= 1
     result *= n
     if n <= 1 then break result
-}");
+}").unwrap();
         assert_eq!(result, Value::Integer(int(40320)));
     }
 
@@ -204,7 +216,7 @@ while i < n then {
     i += 1
     if i & 1 == 1 then continue
     sum += i
-}; sum");
+}; sum").unwrap();
         assert_eq!(result, Value::Integer(int(10100)));
     }
 
@@ -212,7 +224,33 @@ while i < n then {
     fn exec_call_func() {
         let result = run_program("g() = 6
 f(x) = x^2 + 5x + g()
-f(32)");
+f(32)").unwrap();
         assert_eq!(result, Value::Integer(int(1190)));
+    }
+
+    #[test]
+    fn exec_scoping() {
+        let err = run_program("f() = j + 6
+g() = {
+    j = 10
+    f()
+}").unwrap_err();
+
+        // error is in the definition of `f`
+        // variable `j` is defined in `g`, so `f` can only access it if `x` is passed as an
+        // argument, or `j` is in a higher scope
+        assert_eq!(err.spans[0], 6..7);
+    }
+
+    #[test]
+    fn exec_define_and_call() {
+        let result = run_program("f(x) = 2/sqrt(x)
+g(x, y) = f(x) + f(y)
+g(2, 3)").unwrap();
+
+        let left = int(6) * float(2).sqrt();
+        let right = int(4) * float(3).sqrt();
+        let value = (left + right) / 6;
+        assert_eq!(result, Value::Float(value));
     }
 }

@@ -1,12 +1,15 @@
 pub mod expr;
+pub mod error;
 pub mod instruction;
 pub mod item;
 
-use cas_parser::parser::ast::{FuncHeader, Stmt};
+use cas_compute::funcs::all;
+use cas_parser::parser::ast::{FuncHeader, LitSym, Stmt};
+use error::{kind, Error};
 use std::collections::HashMap;
 use expr::compile_stmts;
 pub use instruction::Instruction;
-use item::{Func, Item, Symbol};
+use item::{Func, FuncDecl, Item, Symbol};
 
 /// A label that can be used to reference a specific instruction in the bytecode.
 ///
@@ -115,30 +118,31 @@ impl Compiler {
     }
 
     /// Compiles the given type into a sequence of [`Instruction`]s.
-    pub fn compile<T: Compile>(expr: T) -> Self {
+    pub fn compile<T: Compile>(expr: T) -> Result<Self, Error> {
         let mut compiler = Self::new();
-        expr.compile(&mut compiler);
-        compiler
+        expr.compile(&mut compiler)?;
+        Ok(compiler)
     }
 
     /// Compiles multiple statements into a sequence of [`Instruction`]s.
-    pub fn compile_program(stmts: Vec<Stmt>) -> Self {
+    pub fn compile_program(stmts: Vec<Stmt>) -> Result<Self, Error> {
         let mut compiler = Self::new();
-        compile_stmts(&stmts, &mut compiler);
-        compiler
+        compile_stmts(&stmts, &mut compiler)?;
+        Ok(compiler)
     }
 
     /// Creates a new compilation scope with the given modified state. Compilation that occurs in
     /// this scope will then use the modified state.
-    pub fn with_state<F, G>(&mut self, modify_state: F, compile: G)
+    pub fn with_state<F, G>(&mut self, modify_state: F, compile: G) -> Result<(), Error>
     where
         F: FnOnce(&mut CompilerState),
-        G: FnOnce(&mut Self),
+        G: FnOnce(&mut Self) -> Result<(), Error>,
     {
         let old_state = self.state.clone();
         modify_state(&mut self.state);
-        compile(&mut *self);
+        compile(&mut *self)?;
         self.state = old_state;
+        Ok(())
     }
 
     /// Returns an immutable reference to the current chunk.
@@ -172,42 +176,45 @@ impl Compiler {
 
     /// Creates a new chunk and a scope for compilation. All methods that edit instructions will do
     /// so to the new chunk.
-    pub fn new_chunk<F>(&mut self, header: &FuncHeader, f: F)
-        where F: FnOnce(&mut Compiler),
+    pub fn new_chunk<F>(&mut self, header: &FuncHeader, f: F) -> Result<(), Error>
+        where F: FnOnce(&mut Compiler) -> Result<(), Error>
     {
         let old_chunk_idx = self.chunk;
         self.state.path.push(header.name.name.to_string());
         self.chunks.push(Chunk::default());
         let new_chunk_idx = self.chunks.len() - 1;
 
-        self.add_symbol(&header.name.name, Item::Func(Func {
+        self.add_symbol(&header.name.name, Item::Func(FuncDecl {
             chunk: new_chunk_idx,
             symbols: HashMap::new(),
         }));
 
         self.chunk = new_chunk_idx;
-        f(self);
+        f(self)?;
         self.state.path.pop().unwrap();
         self.chunk = old_chunk_idx;
+
+        Ok(())
     }
 
     /// Resolves a path to a symbol, inserting it into the symbol table if it doesn't exist.
     ///
-    /// Returns the unique identifier for the symbol.
-    pub fn resolve_symbol_or_insert(&mut self, name: &str) -> usize {
+    /// Returns the unique identifier for the symbol, which can be used to reference the symbol in
+    /// the bytecode.
+    pub fn resolve_symbol_or_insert(&mut self, symbol: &LitSym) -> usize {
         let mut result = None;
 
         let mut table = &mut self.symbols;
 
         // is the symbol in the global scope?
-        if let Some(Item::Symbol(symbol)) = table.get(name) {
+        if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
             result = Some(symbol.id);
         }
 
         // work our way up to the current scope
         for component in self.state.path.iter() {
             // is the symbol in this scope?
-            if let Some(Item::Symbol(symbol)) = table.get(name) {
+            if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
                 result = Some(symbol.id);
             }
 
@@ -222,7 +229,7 @@ impl Compiler {
             }
         }
 
-        if let Some(Item::Symbol(symbol)) = table.get(name) {
+        if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
             // is the symbol in the current scope?
             symbol.id
         } else if let Some(symbol) = result {
@@ -231,7 +238,7 @@ impl Compiler {
         } else {
             // if not, insert it
             let id = self.next_symbol_id;
-            table.insert(name.to_string(), Item::Symbol(Symbol { id }));
+            table.insert(symbol.name.to_string(), Item::Symbol(Symbol { id }));
             self.next_symbol_id += 1;
             id
         }
@@ -239,21 +246,22 @@ impl Compiler {
 
     /// Resolves a path to a symbol without inserting it into the symbol table.
     ///
-    /// Returns the unique identifier for the symbol.
-    pub fn resolve_symbol(&self, name: &str) -> usize {
+    /// Returns the unique identifier for the symbol, or an error if the symbol is not found within
+    /// the current scope.
+    pub fn resolve_symbol(&self, symbol: &LitSym) -> Result<usize, Error> {
         let mut result = None;
 
         let mut table = &self.symbols;
 
         // is the symbol in the global scope?
-        if let Some(Item::Symbol(symbol)) = table.get(name) {
+        if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
             result = Some(symbol.id);
         }
 
         // work our way up to the current scope
         for component in self.state.path.iter() {
             // is the symbol in this scope?
-            if let Some(Item::Symbol(symbol)) = table.get(name) {
+            if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
                 result = Some(symbol.id);
             }
 
@@ -268,18 +276,23 @@ impl Compiler {
             }
         }
 
-        // is the symbol in the current scope?
-        if let Some(Item::Symbol(symbol)) = table.get(name) {
-            symbol.id
+        if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
+            // is the symbol in the current scope?
+            Ok(symbol.id)
+        } else if let Some(symbol) = result {
+            // use the last one we found
+            Ok(symbol)
         } else {
-            result.unwrap()
+            Err(Error::new(vec![symbol.span.clone()], kind::UnknownVariable {
+                name: symbol.name.clone(),
+            }))
         }
     }
 
     /// Resolves a path to a function.
     ///
     /// Returns the index of the chunk containing the function.
-    pub fn resolve_function(&self, name: &str) -> usize {
+    pub fn resolve_function(&self, name: &str) -> Result<Func, Error> {
         let mut result = None;
 
         let mut table = &self.symbols;
@@ -297,18 +310,28 @@ impl Compiler {
                 let Item::Func(func) = table.get(component).unwrap() else {
                     panic!("oops");
                 };
-                result = Some(func.chunk);
+                // result = Some(func.chunk); // TODO what??
                 table = &func.symbols;
             } else {
                 break;
             }
         }
 
-        // is the function in the current scope?
         if let Some(Item::Func(func)) = table.get(name) {
-            func.chunk
+            // is the function in the current scope?
+            Ok(Func::UserFunc(func.chunk))
+        } else if let Some(chunk) = result {
+            // use the last one we found
+            Ok(Func::UserFunc(chunk))
         } else {
-            result.unwrap()
+            // is there a native function with this name?
+            all()
+                .get(name)
+                .map(|builtin| Func::Builtin(builtin.name(), builtin.num_args()))
+                .ok_or_else(|| Error::new(vec![], kind::UnknownFunction {
+                    name: name.to_string(),
+                    suggestions: Vec::new(), // TODO
+                }))
         }
     }
 
@@ -364,7 +387,7 @@ impl Compiler {
 /// struct that implements the [`Visitor`](crate::visitor::Visitor) trait.
 pub trait Compile {
     /// Compiles the type into a sequence of [`Instruction`]s.
-    fn compile(&self, compiler: &mut Compiler);
+    fn compile(&self, compiler: &mut Compiler) -> Result<(), Error>;
 }
 
 #[cfg(test)]
@@ -373,11 +396,11 @@ mod tests {
     use cas_parser::parser::{ast::stmt::Stmt, Parser};
 
     /// Compile the given source code.
-    fn compile(source: &str) -> Compiler {
+    fn compile(source: &str) -> Result<Compiler, Error> {
         let mut parser = Parser::new(source);
         let stmts = parser.try_parse_full_many::<Stmt>().unwrap();
 
-        panic!("{:#?}", Compiler::compile_program(stmts))
+        Compiler::compile_program(stmts)
     }
 
     #[test]
@@ -387,6 +410,28 @@ mod tests {
     x % 3 == 0 && g(x)
 }
 
-f(18)");
+f(18)").unwrap();
+    }
+
+    #[test]
+    fn scoping() {
+        let err = compile("f() = j + 6
+g() = {
+    j = 10
+    f()
+}
+g()").unwrap_err();
+
+        // error is in the definition of `f`
+        // variable `j` is defined in `g`, so `f` can only access it if `x` is passed as an
+        // argument, or `j` is in a higher scope
+        assert_eq!(err.spans[0], 6..7);
+    }
+
+    #[test]
+    fn define_and_call() {
+        compile("f(x) = x + 1/sqrt(x)
+g(x, y) = f(x) + f(y)
+g(2, 3)").unwrap();
     }
 }

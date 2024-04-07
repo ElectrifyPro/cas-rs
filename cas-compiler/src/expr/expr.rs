@@ -1,9 +1,9 @@
 use cas_parser::parser::ast::expr::Expr;
-use crate::{Compiler, Compile};
+use crate::{error::Error, Compile, Compiler};
 use super::stmt::compile_stmts;
 
 impl Compile for Expr {
-    fn compile(&self, compiler: &mut Compiler) {
+    fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
         match self {
             Expr::Literal(literal) => literal.compile(compiler),
             Expr::Paren(paren) => paren.expr.compile(compiler),

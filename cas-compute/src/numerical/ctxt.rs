@@ -117,10 +117,11 @@ impl Default for Ctxt {
                 ("pi".to_string(), consts::PI.clone().into()),
                 ("tau".to_string(), consts::TAU.clone().into()),
             ]),
-            funcs: crate::funcs::all()
-                .into_iter()
-                .map(|(name, func)| (name.to_string(), func.into()))
-                .collect(),
+            funcs: HashMap::new(),
+            // funcs: crate::funcs::all()
+            //     .into_iter()
+            //     .map(|(name, func)| (name.to_string(), (func).into()))
+            //     .collect(),
             trig_mode: TrigMode::default(),
             break_loop: false,
             stack_depth: 0,

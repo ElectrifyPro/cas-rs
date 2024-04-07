@@ -48,7 +48,7 @@ fn compute_derivative(
     let eval = |ctxt: &mut Ctxt, location: Float| -> Result<Value, Error> {
         match implementation {
             Func::Builtin(builtin) => {
-                builtin.eval(ctxt, &mut Some(Value::Float(location)).into_iter())
+                builtin.eval(ctxt.trig_mode, &mut Some(Value::Float(location)).into_iter())
                     .map_err(|err| err.into_error(call))
             },
             Func::UserFunc(UserFunc { header, body, .. }) => {
@@ -105,7 +105,7 @@ impl Eval for Call {
 
                 if self.derivatives == 0 {
                     // no eval_break!; cannot break out of loops from within a function
-                    builtin.eval(&ctxt, &mut args.into_iter())
+                    builtin.eval(ctxt.trig_mode, &mut args.into_iter())
                         .map_err(|err| err.into_error(self))
                 } else {
                     if builtin.num_args() != 1 {

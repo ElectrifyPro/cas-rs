@@ -346,7 +346,7 @@ impl Builtin {
                 let trig_convert_expr = if radian == Radian::Input {
                     Some(quote! {
                         .map(|arg| {
-                            if ctxt.trig_mode == crate::numerical::ctxt::TrigMode::Degrees {
+                            if trig_mode == crate::numerical::ctxt::TrigMode::Degrees {
                                 arg.into_radians()
                             } else {
                                 arg
@@ -426,7 +426,7 @@ impl Builtin {
 
         if radian == Radian::Output {
             quote! {
-                if ctxt.trig_mode == crate::numerical::ctxt::TrigMode::Degrees {
+                if trig_mode == crate::numerical::ctxt::TrigMode::Degrees {
                     Ok(#make_value.into_degrees())
                 } else {
                     Ok(#make_value)
@@ -444,18 +444,20 @@ impl Builtin {
 
     /// Generate the implementation of the `Builtin` trait for the function.
     fn impl_builtin(&self, radian: Radian) -> TokenStream2 {
-        let Self { pascal_name, params, .. } = self;
+        let Self { name, pascal_name, params, .. } = self;
         let arg_count = params.len();
         let type_checkers = self.generate_check_stmts(radian);
         let call = self.generate_call(radian);
 
         quote! {
             impl crate::numerical::builtin::Builtin for #pascal_name {
+                fn name(&self) -> &'static str { stringify!(#name) }
+
                 fn num_args(&self) -> usize { #arg_count }
 
                 fn eval(
                     &self,
-                    ctxt: &crate::numerical::ctxt::Ctxt,
+                    trig_mode: crate::numerical::ctxt::TrigMode,
                     args: &mut dyn Iterator<Item = crate::numerical::value::Value>,
                 ) -> Result<crate::numerical::value::Value, crate::numerical::builtin::error::BuiltinError> {
                     let mut arg_count = 0;

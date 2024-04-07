@@ -1,8 +1,8 @@
 use cas_parser::parser::ast::{loop_expr::Loop, while_expr::While};
-use crate::{Compiler, Compile, Instruction};
+use crate::{error::Error, Compile, Compiler, Instruction};
 
 impl Compile for Loop {
-    fn compile(&self, compiler: &mut Compiler) {
+    fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
         let loop_start = compiler.new_end_label();
         let loop_end = compiler.new_unassociated_label();
         compiler.with_state(|state| {
@@ -11,18 +11,20 @@ impl Compile for Loop {
             state.loop_start = Some(loop_start);
             state.loop_end = Some(loop_end);
         }, |compiler| {
-            self.body.compile(compiler);
+            self.body.compile(compiler)?;
             compiler.add_instr(Instruction::Drop);
-        });
+            Ok(())
+        })?;
         compiler.add_instr(Instruction::Jump(loop_start));
         compiler.set_end_label(loop_end);
+        Ok(())
     }
 }
 
 impl Compile for While {
-    fn compile(&self, compiler: &mut Compiler) {
+    fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
         let condition_start = compiler.new_end_label();
-        self.condition.compile(compiler);
+        self.condition.compile(compiler)?;
 
         let loop_end = compiler.new_unassociated_label();
         compiler.add_instr(Instruction::JumpIfFalse(loop_end));
@@ -32,12 +34,14 @@ impl Compile for While {
             state.loop_start = Some(condition_start);
             state.loop_end = Some(loop_end);
         }, |compiler| {
-            self.body.compile(compiler);
+            self.body.compile(compiler)?;
             compiler.add_instr(Instruction::Drop);
-        });
+            Ok(())
+        })?;
 
         compiler.add_instr(Instruction::Jump(condition_start));
         compiler.set_end_label(loop_end);
+        Ok(())
     }
 }
 

@@ -1,6 +1,6 @@
 use cas_compute::numerical::value::Value;
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
-use crate::Label;
+use crate::{item::Func, Label};
 
 /// Bytecode instructions emitted by the compiler.
 ///
@@ -47,7 +47,7 @@ pub enum Instruction {
     /// Calls the function at the given chunk.
     ///
     /// Arguments are passed to the function via the value stack.
-    Call(usize),
+    Call(Func),
 
     /// Returns from the current function.
     Return,

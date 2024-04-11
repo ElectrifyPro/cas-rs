@@ -289,9 +289,23 @@ pub struct Builtin {
 }
 
 impl Builtin {
+    /// Returns a string representation of the function's signature.
+    pub fn signature(&self) -> String {
+        let params = self.params.iter().map(|param| {
+            let ty = param.ty.typename();
+            if param.ty.optional {
+                format!("{}: {} (optional)", param.ident, ty)
+            } else {
+                format!("{}: {}", param.ident, ty)
+            }
+        }).collect::<Vec<_>>().join(", ");
+        format!("{}({})", self.name, params)
+    }
+
     /// Generates the statements that typecheck the arguments.
     pub fn generate_check_stmts(&self, radian: Radian) -> TokenStream2 {
         let Self { name, .. } = self;
+        let signature = self.signature();
         let num_params = self.params.len();
 
         // for each parameter, we generate a binding with three patterns to typecheck the arguments, and
@@ -328,6 +342,7 @@ impl Builtin {
                                 index: #i,
                                 expected: #num_params,
                                 given: crate::funcs::helper::count_all_args(args, &mut arg_count),
+                                signature: #signature.to_owned(),
                             }))?;
                     };
                 }
@@ -374,6 +389,7 @@ impl Builtin {
                                 index: #i,
                                 expected: #num_params,
                                 given: crate::funcs::helper::count_all_args(args, &mut arg_count),
+                                signature: #signature.to_owned(),
                             }));
                         },
                     )
@@ -390,6 +406,7 @@ impl Builtin {
                                 index: #i,
                                 expected: #user_ty,
                                 given: bad_value.typename(),
+                                signature: #signature.to_owned(),
                             }));
                         },
                         None => { #none_branch },
@@ -404,6 +421,7 @@ impl Builtin {
                     name: stringify!(#name).to_owned(),
                     expected: #num_params,
                     given: crate::funcs::helper::count_all_args(args, &mut arg_count),
+                    signature: #signature.to_owned(),
                 }));
             }
         }

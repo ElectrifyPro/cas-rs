@@ -103,7 +103,8 @@ pub struct UndefinedFunction {
         (&self.name).fg(EXPR),
         self.expected,
         self.given
-    )
+    ),
+    note = format!("function signature: {}", self.signature),
 )]
 pub struct TooManyArguments {
     /// The name of the function that was called.
@@ -114,6 +115,9 @@ pub struct TooManyArguments {
 
     /// The number of arguments that were given.
     pub given: usize,
+
+    /// The signature of the function.
+    pub signature: String,
 }
 
 /// An argument to a function call is missing.
@@ -126,7 +130,8 @@ pub struct TooManyArguments {
         (&self.name).fg(EXPR),
         self.expected,
         self.given
-    )
+    ),
+    note = format!("function signature: {}", self.signature),
 )]
 pub struct MissingArgument {
     /// The name of the function that was called.
@@ -140,6 +145,9 @@ pub struct MissingArgument {
 
     /// The number of arguments that were given.
     pub given: usize,
+
+    /// The signature of the function.
+    pub signature: String,
 }
 
 /// An argument to a function call has the wrong type.
@@ -156,6 +164,7 @@ pub struct MissingArgument {
         format!("this argument has type `{}`", self.given),
     ],
     help = format!("should be of type `{}`", self.expected),
+    note = format!("function signature: {}", self.signature),
 )]
 pub struct TypeMismatch {
     /// The name of the function that was called.
@@ -169,6 +178,9 @@ pub struct TypeMismatch {
 
     /// The type of the argument that was given.
     pub given: &'static str,
+
+    /// The signature of the function.
+    pub signature: String,
 }
 
 /// The stack overflowed while evaluating a function call.

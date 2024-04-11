@@ -16,6 +16,7 @@ pub struct ErrorArgs {
     pub message: Option<Expr>,
     pub labels: Option<Expr>,
     pub help: Option<Expr>,
+    pub note: Option<Expr>,
 }
 
 impl ErrorArgs {
@@ -29,6 +30,7 @@ impl ErrorArgs {
             "message" => self.message = Some(input.parse()?),
             "labels" => self.labels = Some(input.parse()?),
             "help" => self.help = Some(input.parse()?),
+            "note" => self.note = Some(input.parse()?),
             _ => return Err(syn::Error::new_spanned(ident, format!("unknown tag `{}`", ident_str))),
         }
 
@@ -119,10 +121,11 @@ impl Parse for ErrorKindTarget {
 
 impl ToTokens for ErrorKindTarget {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let (name, message, help) = (
+        let (name, message, help, note) = (
             &self.name,
             self.error_args.message.as_ref(),
             self.error_args.help.as_ref().map(|e| quote! { builder.set_help(#e); }),
+            self.error_args.note.as_ref().map(|e| quote! { builder.set_note(#e); }),
         );
         let labels = self.generate_labels();
 
@@ -138,6 +141,7 @@ impl ToTokens for ErrorKindTarget {
                         .with_labels(#labels);
 
                     #help
+                    #note
                     builder.finish()
                 }
             }

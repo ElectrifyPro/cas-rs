@@ -153,6 +153,7 @@ impl Eval for Call {
                             name: self.name.name.clone(),
                             expected: header.params.len(),
                             given: self.args.len(),
+                            signature: header.to_string(),
                         })),
 
                         // no argument was given for this parameter
@@ -167,6 +168,7 @@ impl Eval for Call {
                                         index,
                                         expected: header.params.len(),
                                         given: self.args.len(),
+                                        signature: header.to_string(),
                                     },
                                 )),
                                 Param::Default(_, expr) => expr.eval(&mut ctxt),

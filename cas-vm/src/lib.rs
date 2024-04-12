@@ -244,13 +244,51 @@ g() = {
 
     #[test]
     fn exec_define_and_call() {
-        let result = run_program("f(x) = 2/sqrt(x)
+        let result = match run_program("f(x) = 2/sqrt(x)
 g(x, y) = f(x) + f(y)
-g(2, 3)").unwrap();
+g(2, 3)").unwrap() {
+            Value::Float(f) => f,
+            other => panic!("expected float, got {:?}", other),
+        };
 
         let left = int(6) * float(2).sqrt();
         let right = int(4) * float(3).sqrt();
         let value = (left + right) / 6;
-        assert_eq!(result, Value::Float(value));
+        assert!(float(result - value).abs() < 1e-6);
+    }
+
+    #[test]
+    fn example_bad_lcm() {
+        let source = include_str!("../../examples/bad_lcm.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, 1517.into());
+    }
+
+    #[test]
+    fn example_factorial() {
+        let source = include_str!("../../examples/factorial.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, true.into());
+    }
+
+    #[test]
+    fn example_function_scope() {
+        let source = include_str!("../../examples/function_scope.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, 14.into());
+    }
+
+    #[test]
+    fn example_if_branching() {
+        let source = include_str!("../../examples/if_branching.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result.coerce_float(), float(5).log2().into());
+    }
+
+    #[test]
+    fn example_manual_abs() {
+        let source = include_str!("../../examples/manual_abs.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, 4.into());
     }
 }

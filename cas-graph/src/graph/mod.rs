@@ -76,6 +76,7 @@ pub use opts::GraphOptions;
 
 /// The extents of the edge labels. The corresponding field of each label can be `None` if the
 /// label if it is not visible / drawn.
+#[derive(Clone, Debug, Default)]
 struct EdgeExtents {
     /// The extents of the top edge label.
     pub top: Option<TextExtents>,
@@ -288,7 +289,11 @@ impl Graph {
         self.draw_grid_lines(&context)?;
         self.draw_origin_axes(&context, origin_canvas)?;
 
-        let edges = self.draw_edge_labels(&context, origin_canvas)?;
+        let edges = if self.options.label_canvas_boundaries {
+            self.draw_boundary_labels(&context, origin_canvas)?
+        } else {
+            EdgeExtents::default()
+        };
         self.draw_grid_line_numbers(&context, origin_canvas, edges)?;
 
         self.draw_expressions(&context)?;
@@ -541,10 +546,10 @@ impl Graph {
         Ok(())
     }
 
-    /// Draw the edge labels (the values at the edge of the canvas).
+    /// Draw the canvas boundary labels (the values at the edge of the canvas).
     ///
     /// Returns the extents of each edge label, which is used to mask minor grid line numbers.
-    fn draw_edge_labels(
+    fn draw_boundary_labels(
         &self,
         context: &Context,
         origin_canvas: CanvasPoint<f64>,

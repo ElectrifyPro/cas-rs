@@ -32,6 +32,11 @@ pub struct GraphOptions {
     /// The default value is `false`.
     pub square_scale: bool,
 
+    /// Whether to label the canvas boundaries with their corresponding graph values.
+    ///
+    /// The default value is `false`.
+    pub label_canvas_boundaries: bool,
+
     /// The number of graph units between each minor grid line, given as a pair of `(x, y)` units.
     ///
     /// For example, to have a minor grid line every `3.0` units on the x-axis and every `2.0` units
@@ -55,7 +60,10 @@ pub struct GraphOptions {
 /// - [`canvas_size`](GraphOptions::canvas_size): `(1000, 1000)`
 /// - [`center`](GraphOptions::center): `(0.0, 0.0)`
 /// - [`scale`](GraphOptions::scale): `(10.0, 10.0)`
+/// - [`square_scale`](GraphOptions::square_scale): `false`
+/// - [`label_canvas_boundaries`](GraphOptions::label_canvas_boundaries): `false`
 /// - [`minor_grid_spacing`](GraphOptions::minor_grid_spacing): `(2.0, 2.0)`
+/// - [`minor_grid_divisions`](GraphOptions::minor_grid_divisions): `(4, 4)`
 impl Default for GraphOptions {
     fn default() -> GraphOptions {
         GraphOptions {
@@ -63,6 +71,7 @@ impl Default for GraphOptions {
             center: GraphPoint(0.0, 0.0),
             scale: GraphPoint(10.0, 10.0),
             square_scale: false,
+            label_canvas_boundaries: false,
             minor_grid_spacing: GraphPoint(2.0, 2.0),
             minor_grid_divisions: (4, 4),
         }

@@ -447,6 +447,7 @@ impl From<AstExpr> for Expr {
                 Literal::Symbol(sym) => Self::Primary(Primary::Symbol(sym.name)),
                 Literal::Unit(_) => todo!(),
                 Literal::List(_) => todo!(),
+                Literal::ListRepeat(_) => todo!(),
             },
             AstExpr::Paren(paren) => Self::from(paren.into_innermost()),
             AstExpr::Block(_) => todo!(),

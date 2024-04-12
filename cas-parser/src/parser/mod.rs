@@ -600,6 +600,56 @@ mod tests {
     }
 
     #[test]
+    fn literal_list() {
+        let mut parser = Parser::new("[1, 2,i, 4, e]");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::List(LitList {
+            values: vec![
+                Expr::Literal(Literal::Integer(LitInt {
+                    value: "1".to_string(),
+                    span: 1..2,
+                })),
+                Expr::Literal(Literal::Integer(LitInt {
+                    value: "2".to_string(),
+                    span: 4..5,
+                })),
+                Expr::Literal(Literal::Symbol(LitSym {
+                    name: "i".to_string(),
+                    span: 6..7,
+                })),
+                Expr::Literal(Literal::Integer(LitInt {
+                    value: "4".to_string(),
+                    span: 9..10,
+                })),
+                Expr::Literal(Literal::Symbol(LitSym {
+                    name: "e".to_string(),
+                    span: 12..13,
+                })),
+            ],
+            span: 0..14,
+        })));
+    }
+
+    #[test]
+    fn literal_list_repeat() {
+        let mut parser = Parser::new("[1; 5]");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::ListRepeat(LitListRepeat {
+            value: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "1".to_string(),
+                span: 1..2,
+            }))),
+            count: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "5".to_string(),
+                span: 4..5,
+            }))),
+            span: 0..6,
+        })));
+    }
+
+    #[test]
     fn unary_left_associativity() {
         let mut parser = Parser::new("3!!");
         let expr = parser.try_parse_full::<Expr>().unwrap();

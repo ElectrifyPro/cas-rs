@@ -24,6 +24,7 @@ impl Eval for Literal {
                 }
                 Ok(Value::List(values))
             },
+            Literal::ListRepeat(_) => todo!(),
         }
     }
 }

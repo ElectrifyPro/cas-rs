@@ -1,9 +1,19 @@
 use crate::{
     parser::{
-        ast::{expr::Expr, helper::SquareDelimited},
+        ast::{expr::Expr, helper::{SquareDelimited, Surrounded}},
         error::{kind, Error},
         fmt::Latex,
-        token::{Boolean, CloseParen, Float, Name, Int, OpenParen, Quote},
+        token::{
+            Boolean,
+            CloseParen,
+            Float,
+            Name,
+            Int,
+            OpenParen,
+            OpenSquare,
+            Semicolon,
+            Quote,
+        },
         Parse,
         Parser,
         ParseResult,
@@ -372,8 +382,8 @@ impl Latex for LitUnit {
     }
 }
 
-/// A list type, consisting of a list of expressions surrounded by square brackets and delimited by
-/// commas.
+/// The list type, consisting of a list of expressions surrounded by square brackets and delimited by
+/// commas: `[expr1, expr2, ...]`.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitList {
@@ -424,6 +434,70 @@ impl Latex for LitList {
     }
 }
 
+/// The list type, formed by repeating the given expression `n` times: `[expr; n]`.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct LitListRepeat {
+    /// The expression to repeat.
+    pub value: Box<Expr>,
+
+    /// The number of times to repeat the expression.
+    pub count: Box<Expr>,
+
+    /// The region of the source code that this literal was parsed from.
+    pub span: Range<usize>,
+}
+
+impl<'source> Parse<'source> for LitListRepeat {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        /// Inner struct representing the contents of a repeated list so that we can use the
+        /// [`Surrounded`] helper with it.
+        #[derive(Debug)]
+        struct LitListRepeatInner {
+            /// The expression to repeat.
+            value: Expr,
+
+            /// The number of times to repeat the expression.
+            count: Expr,
+        }
+
+        impl<'source> Parse<'source> for LitListRepeatInner {
+            fn std_parse(
+                input: &mut Parser<'source>,
+                recoverable_errors: &mut Vec<Error>
+            ) -> Result<Self, Vec<Error>> {
+                let value = input.try_parse().forward_errors(recoverable_errors)?;
+                input.try_parse::<Semicolon>().forward_errors(recoverable_errors)?;
+                let count = input.try_parse().forward_errors(recoverable_errors)?;
+                Ok(Self { value, count })
+            }
+        }
+
+        let inner = input.try_parse::<Surrounded<OpenSquare, LitListRepeatInner>>().forward_errors(recoverable_errors)?;
+
+        Ok(Self {
+            value: Box::new(inner.value.value),
+            count: Box::new(inner.value.count),
+            span: inner.open.span.start..inner.close.span.end,
+        })
+    }
+}
+
+impl std::fmt::Display for LitListRepeat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{}; {}]", self.value, self.count)
+    }
+}
+
+impl Latex for LitListRepeat {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{}; {}]", self.value, self.count)
+    }
+}
+
 /// Represents a literal value in CalcScript.
 ///
 /// A literal is any value that can is written directly into the source code. For example, the
@@ -451,9 +525,12 @@ pub enum Literal {
     /// not return a value.
     Unit(LitUnit),
 
-    /// A list type, consisting of a list of expressions surrounded by square brackets and delimited
-    /// by commas.
+    /// The list type, consisting of a list of expressions surrounded by square brackets and
+    /// delimited by commas: `[expr1, expr2, ...]`.
     List(LitList),
+
+    /// The list type, formed by repeating the given expression `n` times: `[expr; n]`.
+    ListRepeat(LitListRepeat),
 }
 
 impl Literal {
@@ -467,6 +544,7 @@ impl Literal {
             Literal::Symbol(name) => name.span.clone(),
             Literal::Unit(unit) => unit.span.clone(),
             Literal::List(list) => list.span.clone(),
+            Literal::ListRepeat(repeat) => repeat.span.clone(),
         }
     }
 }
@@ -482,7 +560,8 @@ impl<'source> Parse<'source> for Literal {
         let _ = return_if_ok!(input.try_parse().map(Literal::Float).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::Symbol).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::Unit).forward_errors(recoverable_errors));
-        input.try_parse().map(Literal::List).forward_errors(recoverable_errors)
+        let _ = return_if_ok!(input.try_parse().map(Literal::List).forward_errors(recoverable_errors));
+        input.try_parse().map(Literal::ListRepeat).forward_errors(recoverable_errors)
     }
 }
 
@@ -496,6 +575,7 @@ impl std::fmt::Display for Literal {
             Literal::Symbol(name) => name.fmt(f),
             Literal::Unit(unit) => unit.fmt(f),
             Literal::List(list) => list.fmt(f),
+            Literal::ListRepeat(repeat) => repeat.fmt(f),
         }
     }
 }
@@ -510,6 +590,7 @@ impl Latex for Literal {
             Literal::Symbol(name) => name.fmt_latex(f),
             Literal::Unit(unit) => unit.fmt_latex(f),
             Literal::List(list) => list.fmt_latex(f),
+            Literal::ListRepeat(repeat) => repeat.fmt_latex(f),
         }
     }
 }

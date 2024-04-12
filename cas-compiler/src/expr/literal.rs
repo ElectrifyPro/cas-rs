@@ -15,6 +15,7 @@ impl Compile for Literal {
             Literal::Symbol(sym) => compiler.add_instr(Instruction::LoadVar(compiler.resolve_symbol(sym)?)),
             Literal::Unit(_) => compiler.add_instr(Instruction::LoadConst(Value::Unit)),
             Literal::List(_) => todo!(),
+            Literal::ListRepeat(_) => todo!(),
         };
 
         Ok(())

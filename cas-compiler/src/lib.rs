@@ -430,7 +430,7 @@ g()").unwrap_err();
 
     #[test]
     fn define_and_call() {
-        compile("f(x) = x + 1/sqrt(x)
+        compile("f(x) = return x + 1/sqrt(x)
 g(x, y) = f(x) + f(y)
 g(2, 3)").unwrap();
     }

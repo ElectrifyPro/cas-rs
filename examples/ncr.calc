@@ -1,0 +1,31 @@
+my_ncr(n, k) = {
+	partial_factorial(n, k) = {
+		result = 1
+		while n > k then {
+			result *= n
+			n -= 1
+		}
+		result
+	}
+
+	// NOTE: `return` expression must be clearly terminated
+	// or surrounded by {}, (), or []; otherwise, the
+	// assignment expression will be considered as the
+	// return value.
+	if k > n then { return }
+
+	sub = n - k
+
+	// ncr(n, k) = n! / (k! * (n - k)!)
+	if k > sub then {
+		partial_factorial(n, k) / partial_factorial(sub, 1)
+	} else {
+		partial_factorial(n, sub) / partial_factorial(k, 1)
+	}
+}
+
+// partial_factorial() is only available in my_ncr()
+// if you uncomment this line, a compilation error will occur
+// partial_factorial(5, 3)
+
+my_ncr(5, 3) == ncr(5, 3)

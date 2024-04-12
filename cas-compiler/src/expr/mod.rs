@@ -7,6 +7,7 @@ mod expr;
 mod if_expr;
 mod literal;
 mod loops;
+mod return_expr;
 mod stmt;
 mod unary;
 

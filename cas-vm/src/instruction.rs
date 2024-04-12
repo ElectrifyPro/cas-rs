@@ -1,7 +1,7 @@
 use cas_compute::{
     funcs::miscellaneous::Factorial,
-    numerical::value::Value,
-    primitive::{int_from_float, complex, float},
+    numerical::{error::{kind::InvalidBinaryOperation, Error}, value::Value},
+    primitive::{complex, float, int_from_float},
 };
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
 use rug::ops::Pow;
@@ -161,30 +161,37 @@ fn eval_unit_operands(
     })
 }
 
-/// Helper to execute binary evaluation instructions.
-pub fn exec_binary_instruction(op: BinOpKind, value_stack: &mut Vec<Value>) {
+/// Helper to execute binary evaluation instructions. The result is pushed onto the value stack.
+pub fn exec_binary_instruction(op: BinOpKind, value_stack: &mut Vec<Value>) -> Result<(), InvalidBinaryOperation> {
     let right = value_stack.pop().unwrap();
     let left = value_stack.pop().unwrap();
 
     if left.is_integer() && right.is_integer() {
-        return value_stack.push(eval_integer_operands(op, left.coerce_integer(), right.coerce_integer()).unwrap());
+        return Ok(value_stack.push(eval_integer_operands(op, left.coerce_integer(), right.coerce_integer()).unwrap()));
     }
 
     if left.is_real() && right.is_real() {
-        return value_stack.push(eval_real_operands(op, left.coerce_float(), right.coerce_float()).unwrap());
+        return Ok(value_stack.push(eval_real_operands(op, left.coerce_float(), right.coerce_float()).unwrap()));
     }
 
     if left.is_complex() && right.is_complex() {
-        return value_stack.push(eval_complex_operands(op, left.coerce_complex(), right.coerce_complex()).unwrap());
+        return Ok(value_stack.push(eval_complex_operands(op, left.coerce_complex(), right.coerce_complex()).unwrap()));
     }
 
     if left.is_boolean() && right.is_boolean() {
-        return value_stack.push(eval_bool_operands(op, left, right).unwrap());
+        return Ok(value_stack.push(eval_bool_operands(op, left, right).unwrap()));
     }
 
     if left.is_unit() && right.is_unit() {
-        return value_stack.push(eval_unit_operands(op, left, right).unwrap());
+        return Ok(value_stack.push(eval_unit_operands(op, left, right).unwrap()));
     }
+
+    Err(InvalidBinaryOperation {
+        op,
+        implicit: false, // TODO
+        left: left.typename(),
+        right: right.typename(),
+    })
 }
 
 /// Helper to execute unary evaluation instructions.

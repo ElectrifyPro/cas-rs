@@ -1,10 +1,20 @@
+use cas_compute::numerical::value::Value;
 use cas_parser::parser::ast::{loop_expr::Loop, while_expr::While};
 use crate::{error::Error, Compile, Compiler, Instruction};
 
 impl Compile for Loop {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
+        // TODO: this is a hack to ensure the loop always returns something so that the
+        // automatically generated `Drop` instruction drops this value if the loop doesn't end up
+        // producing anything
+        //
+        // the ideal solution would be to not emit this `LoadConst` if the loop body contains a
+        // `break` expression
+        compiler.add_instr(Instruction::LoadConst(Value::Unit));
+
         let loop_start = compiler.new_end_label();
         let loop_end = compiler.new_unassociated_label();
+
         compiler.with_state(|state| {
             // in case `continue` and `break` expressions are inside, we need the loop start and
             // end labels for their jumps
@@ -15,6 +25,7 @@ impl Compile for Loop {
             compiler.add_instr(Instruction::Drop);
             Ok(())
         })?;
+
         compiler.add_instr(Instruction::Jump(loop_start));
         compiler.set_end_label(loop_end);
         Ok(())
@@ -23,6 +34,9 @@ impl Compile for Loop {
 
 impl Compile for While {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
+        // TODO: see above
+        compiler.add_instr(Instruction::LoadConst(Value::Unit));
+
         let condition_start = compiler.new_end_label();
         self.condition.compile(compiler)?;
 

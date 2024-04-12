@@ -89,6 +89,7 @@ impl<'a> Iterator for ExprIter<'a> {
                     }
                 },
                 Expr::Continue(_) => return self.visit(),
+                Expr::Return(_) => return self.visit(),
                 Expr::Call(call) => {
                     if call.args.is_empty() || self.is_last_visited(call.args.last().unwrap()) {
                         return self.visit();

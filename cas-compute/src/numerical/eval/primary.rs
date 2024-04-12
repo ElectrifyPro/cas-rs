@@ -12,6 +12,7 @@ impl Eval for Primary {
             Primary::While(while_expr) => while_expr.eval(ctxt),
             Primary::Break(break_expr) => break_expr.eval(ctxt),
             Primary::Continue(continue_expr) => continue_expr.eval(ctxt),
+            Primary::Return(_) => todo!(),
             Primary::Call(call) => call.eval(ctxt),
         }
     }

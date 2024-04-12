@@ -1,7 +1,7 @@
 mod frame;
 mod instruction;
 
-use cas_compute::{funcs::all, numerical::{builtin::Builtin, ctxt::TrigMode, value::Value}};
+use cas_compute::{funcs::all, numerical::{builtin::Builtin, ctxt::TrigMode, error::Error as EvalError, value::Value}};
 use cas_parser::parser::ast::Stmt;
 use cas_compiler::{
     error::Error as CompileError,
@@ -53,7 +53,7 @@ impl Vm {
     }
 
     /// Executes the bytecode instructions.
-    pub fn run(&self) -> Value {
+    pub fn run(&self) -> Result<Value, EvalError> {
         println!("{:#?}", self.chunks.iter().enumerate().collect::<Vec<_>>());
         println!("{:#?}", self);
         let mut call_stack = vec![Frame::new((0, 0))];
@@ -62,6 +62,9 @@ impl Vm {
 
         while instruction_pointer.1 < self.chunks[instruction_pointer.0].instructions.len() {
             let instruction = &self.chunks[instruction_pointer.0].instructions[instruction_pointer.1];
+            println!("value stack: {:?}", value_stack.iter().map(|v: &Value| v.to_string()).collect::<Vec<_>>());
+            println!("call stack: {:?}", call_stack);
+            println!("instruction to execute: {:?}", instruction);
             match instruction {
                 Instruction::LoadConst(value) => value_stack.push(value.clone()),
                 Instruction::LoadVar(id) => {
@@ -84,7 +87,7 @@ impl Vm {
                 Instruction::Drop => {
                     value_stack.pop(); // TODO: maybe add .unwrap()?
                 },
-                Instruction::Binary(op) => exec_binary_instruction(*op, &mut value_stack),
+                Instruction::Binary(op) => exec_binary_instruction(*op, &mut value_stack).unwrap(),
                 Instruction::Unary(op) => exec_unary_instruction(*op, &mut value_stack),
                 Instruction::Call(chunk) => {
                     match chunk {
@@ -127,14 +130,11 @@ impl Vm {
                 },
                 Instruction::Output => todo!(),
             }
-            println!("executed instruction: {:?}", instruction);
-            println!("value stack: {:?}", value_stack.iter().map(|v| v.to_string()).collect::<Vec<_>>());
-            println!("call stack: {:?}", call_stack);
 
             instruction_pointer.1 += 1;
         }
         assert!(value_stack.len() <= 1);
-        value_stack.pop().unwrap_or(Value::Unit)
+        Ok(value_stack.pop().unwrap_or(Value::Unit))
     }
 }
 
@@ -150,7 +150,7 @@ mod tests {
         let stmts = parser.try_parse_full_many::<Stmt>().unwrap();
 
         let vm = Vm::compile_program(stmts)?;
-        Ok(vm.run())
+        Ok(vm.run().unwrap())
     }
 
     #[test]
@@ -208,6 +208,21 @@ loop {
     }
 
     #[test]
+    fn exec_partial_factorial() {
+        let result = run_program("partial_factorial(n, k) = {
+    result = 1
+    while n > k then {
+        result *= n
+        n -= 1
+    }
+    result
+}
+
+partial_factorial(10, 7)").unwrap();
+        assert_eq!(result, Value::Integer(int(720)));
+    }
+
+    #[test]
     fn exec_sum_even() {
         let result = run_program("n = 200
 i = 0
@@ -258,6 +273,16 @@ g(2, 3)").unwrap() {
     }
 
     #[test]
+    fn exec_branching_return() {
+        let result = run_program("f(x) = {
+    if x < 0 then return -x
+    x
+}
+f(-5)").unwrap();
+        assert_eq!(result, Value::Integer(int(5)));
+    }
+
+    #[test]
     fn example_bad_lcm() {
         let source = include_str!("../../examples/bad_lcm.calc");
         let result = run_program(source).unwrap();
@@ -290,5 +315,12 @@ g(2, 3)").unwrap() {
         let source = include_str!("../../examples/manual_abs.calc");
         let result = run_program(source).unwrap();
         assert_eq!(result, 4.into());
+    }
+
+    #[test]
+    fn example_ncr() {
+        let source = include_str!("../../examples/ncr.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, true.into());
     }
 }

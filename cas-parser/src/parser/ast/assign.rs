@@ -162,6 +162,11 @@ impl AssignTarget {
         }
     }
 
+    /// Returns true if the assignment target is a function.
+    pub fn is_func(&self) -> bool {
+        matches!(self, AssignTarget::Func(_))
+    }
+
     /// Tries to convert a general [`Expr`] into an [`AssignTarget`]. This is used when parsing
     /// assignment expressions, such as `x = 1` or `f(x) = x^2`.
     pub fn try_from_with_op(expr: Expr, op: &AssignOp) -> ParseResult<Self> {
@@ -291,6 +296,7 @@ impl<'source> Parse<'source> for Assign {
                 //     f(5)
                 // }
                 state.allow_loop_control = false;
+                state.allow_return = true;
             }).forward_errors(recoverable_errors)?
         } else {
             input.try_parse::<Expr>().forward_errors(recoverable_errors)?

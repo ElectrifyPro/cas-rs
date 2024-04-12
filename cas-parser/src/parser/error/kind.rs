@@ -234,6 +234,15 @@ pub struct TooManyDerivatives {
     pub derivatives: usize,
 }
 
+/// Cannot use `return` outside of a function.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "cannot use `return` keyword here",
+    labels = [""],
+    help = "`return` can only be used within a function definition"
+)]
+pub struct ReturnOutsideFunction;
+
 /// Missing `then` or `else` keyword in an `if` expression.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

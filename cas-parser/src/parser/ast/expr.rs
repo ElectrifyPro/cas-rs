@@ -9,6 +9,7 @@ use crate::{
             literal::Literal,
             loop_expr::{Break, Continue, Loop},
             paren::Paren,
+            return_expr::Return,
             unary::Unary,
             while_expr::While,
         },
@@ -59,6 +60,9 @@ pub enum Expr {
     /// A continue expression, used to skip the rest of a loop iteration.
     Continue(Continue),
 
+    /// A return expression, as in `return x`, used to return a value from a function.
+    Return(Return),
+
     /// A function call, such as `abs(-1)`.
     Call(Call),
 
@@ -84,6 +88,7 @@ impl Expr {
             Expr::While(while_expr) => while_expr.span(),
             Expr::Break(break_expr) => break_expr.span(),
             Expr::Continue(continue_expr) => continue_expr.span(),
+            Expr::Return(return_expr) => return_expr.span(),
             Expr::Call(call) => call.span(),
             Expr::Unary(unary) => unary.span(),
             Expr::Binary(binary) => binary.span(),
@@ -134,6 +139,7 @@ impl std::fmt::Display for Expr {
             Expr::While(while_expr) => while_expr.fmt(f),
             Expr::Break(break_expr) => break_expr.fmt(f),
             Expr::Continue(continue_expr) => continue_expr.fmt(f),
+            Expr::Return(return_expr) => return_expr.fmt(f),
             Expr::Call(call) => call.fmt(f),
             Expr::Unary(unary) => unary.fmt(f),
             Expr::Binary(binary) => binary.fmt(f),
@@ -153,6 +159,7 @@ impl Latex for Expr {
             Expr::While(while_expr) => while_expr.fmt_latex(f),
             Expr::Break(break_expr) => break_expr.fmt_latex(f),
             Expr::Continue(continue_expr) => continue_expr.fmt_latex(f),
+            Expr::Return(return_expr) => return_expr.fmt_latex(f),
             Expr::Call(call) => call.fmt_latex(f),
             Expr::Unary(unary) => unary.fmt_latex(f),
             Expr::Binary(binary) => binary.fmt_latex(f),
@@ -193,6 +200,9 @@ pub enum Primary {
     /// A continue expression, used to skip the rest of a loop iteration.
     Continue(Continue),
 
+    /// A return expression, as in `return x`, used to return a value from a function.
+    Return(Return),
+
     /// A function call, such as `abs(-1)`.
     Call(Call),
 }
@@ -209,6 +219,7 @@ impl Primary {
             Primary::While(while_expr) => while_expr.span(),
             Primary::Break(break_expr) => break_expr.span(),
             Primary::Continue(continue_expr) => continue_expr.span(),
+            Primary::Return(return_expr) => return_expr.span(),
             Primary::Call(call) => call.span(),
         }
     }
@@ -224,6 +235,7 @@ impl<'source> Parse<'source> for Primary {
         let _ = return_if_ok!(input.try_parse().map(Self::While).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::Break).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::Continue).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Return).forward_errors(recoverable_errors));
         // function calls can overlap with literals, so we need to try parsing a function call
         // first
         let _ = return_if_ok!(input.try_parse().map(Self::Call).forward_errors(recoverable_errors));
@@ -244,6 +256,7 @@ impl From<Primary> for Expr {
             Primary::While(while_expr) => Self::While(while_expr),
             Primary::Break(break_expr) => Self::Break(break_expr),
             Primary::Continue(continue_expr) => Self::Continue(continue_expr),
+            Primary::Return(return_expr) => Self::Return(return_expr),
             Primary::Call(call) => Self::Call(call),
         }
     }

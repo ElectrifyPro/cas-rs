@@ -455,6 +455,7 @@ impl From<AstExpr> for Expr {
             AstExpr::While(_) => todo!(),
             AstExpr::Break(_) => todo!(),
             AstExpr::Continue(_) => todo!(),
+            AstExpr::Return(_) => todo!(),
             AstExpr::Call(call) => {
                 let args = call.args.into_iter().map(Self::from).collect();
                 Self::Primary(Primary::Call(call.name.name, args))

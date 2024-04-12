@@ -13,6 +13,7 @@ impl Compile for Expr {
             Expr::While(while_expr) => while_expr.compile(compiler),
             Expr::Break(break_expr) => break_expr.compile(compiler),
             Expr::Continue(continue_expr) => continue_expr.compile(compiler),
+            Expr::Return(return_expr) => return_expr.compile(compiler),
             Expr::Call(call) => call.compile(compiler),
             Expr::Unary(unary) => unary.compile(compiler),
             Expr::Binary(binary) => binary.compile(compiler),

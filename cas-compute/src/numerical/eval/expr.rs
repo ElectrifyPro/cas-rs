@@ -12,6 +12,7 @@ impl Eval for Expr {
             Expr::While(while_expr) => while_expr.eval(ctxt),
             Expr::Break(break_expr) => break_expr.eval(ctxt),
             Expr::Continue(continue_expr) => continue_expr.eval(ctxt),
+            Expr::Return(_) => todo!(),
             Expr::Call(call) => call.eval(ctxt),
             Expr::Unary(unary) => unary.eval(ctxt),
             Expr::Binary(binary) => binary.eval(ctxt),

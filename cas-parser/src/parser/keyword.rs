@@ -66,4 +66,5 @@ keywords!(
     (While, while)
     (Break, break)
     (Continue, continue)
+    (Return, return)
 );

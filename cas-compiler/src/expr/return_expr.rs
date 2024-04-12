@@ -1,17 +1,15 @@
 use cas_compute::numerical::value::Value;
-use cas_parser::parser::ast::loop_expr::Break;
+use cas_parser::parser::ast::return_expr::Return;
 use crate::{error::Error, Compile, Compiler, Instruction};
 
-impl Compile for Break {
+impl Compile for Return {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
-        if let Some(value) = &self.value {
-            value.compile(compiler)?;
+        if let Some(expr) = &self.value {
+            expr.compile(compiler)?;
         } else {
             compiler.add_instr(Instruction::LoadConst(Value::Unit));
         }
-
-        let loop_end = compiler.state.loop_end.unwrap();
-        compiler.add_instr(Instruction::Jump(loop_end));
+        compiler.add_instr(Instruction::Return);
         Ok(())
     }
 }

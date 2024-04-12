@@ -20,6 +20,10 @@ pub struct ParserState {
     /// Whether loop control expressions are allowed in the current context. This is used to
     /// determine if a `break` or `continue` expression is valid.
     pub allow_loop_control: bool,
+
+    /// Whether a `return` expression is allowed in the current context. This is used to determine
+    /// if a `return` expression is valid.
+    pub allow_return: bool,
 }
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
@@ -1819,7 +1823,7 @@ mod tests {
 
     #[test]
     fn assign_to_complicated_function() {
-        let mut parser = Parser::new("discrim(a = 1, b = 5, c) = b^2 - 4a * c");
+        let mut parser = Parser::new("discrim(a = 1, b = 5, c) = return b^2 - 4a * c");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Assign(Assign {
@@ -1862,59 +1866,63 @@ mod tests {
                 kind: AssignOpKind::Assign,
                 span: 25..26,
             },
-            value: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
-                        name: "b".to_string(),
-                        span: 27..28,
-                    }))),
-                    op: BinOp {
-                        kind: BinOpKind::Exp,
-                        implicit: false,
-                        span: 28..29,
-                    },
-                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
-                        value: "2".to_string(),
-                        span: 29..30,
-                    }))),
-                    span: 27..30,
-                })),
-                op: BinOp {
-                    kind: BinOpKind::Sub,
-                    implicit: false,
-                    span: 31..32,
-                },
-                rhs: Box::new(Expr::Binary(Binary {
+            value: Box::new(Expr::Return(Return {
+                value: Some(Box::new(Expr::Binary(Binary {
                     lhs: Box::new(Expr::Binary(Binary {
-                        lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
-                            value: "4".to_string(),
-                            span: 33..34,
-                        }))),
-                        op: BinOp {
-                            kind: BinOpKind::Mul,
-                            implicit: true,
-                            span: 34..34,
-                        },
-                        rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
-                            name: "a".to_string(),
+                        lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                            name: "b".to_string(),
                             span: 34..35,
                         }))),
-                        span: 33..35,
+                        op: BinOp {
+                            kind: BinOpKind::Exp,
+                            implicit: false,
+                            span: 35..36,
+                        },
+                        rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                            value: "2".to_string(),
+                            span: 36..37,
+                        }))),
+                        span: 34..37,
                     })),
                     op: BinOp {
-                        kind: BinOpKind::Mul,
+                        kind: BinOpKind::Sub,
                         implicit: false,
-                        span: 36..37,
-                    },
-                    rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
-                        name: "c".to_string(),
                         span: 38..39,
-                    }))),
-                    span: 33..39,
-                })),
-                span: 27..39,
+                    },
+                    rhs: Box::new(Expr::Binary(Binary {
+                        lhs: Box::new(Expr::Binary(Binary {
+                            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                                value: "4".to_string(),
+                                span: 40..41,
+                            }))),
+                            op: BinOp {
+                                kind: BinOpKind::Mul,
+                                implicit: true,
+                                span: 41..41,
+                            },
+                            rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                name: "a".to_string(),
+                                span: 41..42,
+                            }))),
+                            span: 40..42,
+                        })),
+                        op: BinOp {
+                            kind: BinOpKind::Mul,
+                            implicit: false,
+                            span: 43..44,
+                        },
+                        rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                            name: "c".to_string(),
+                            span: 45..46,
+                        }))),
+                        span: 40..46,
+                    })),
+                    span: 34..46,
+                }))),
+                span: 27..46,
+                return_span: 27..33,
             })),
-            span: 0..39,
+            span: 0..46,
         }));
     }
 
@@ -1995,7 +2003,7 @@ mod tests {
     #[test]
     fn catastrophic_backtracking() {
         // parsing nested function calls like this used to take exponential time! :sweat:
-        let mut parser = Parser::new("a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a()");
+        let mut parser = Parser::new("a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a()");
         assert!(parser.try_parse_full::<Expr>().is_err());
     }
 

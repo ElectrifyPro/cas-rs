@@ -37,34 +37,26 @@ impl Compile for Assign {
             },
             AssignTarget::Index(index) => {
                 // assignment to index of list
-
-                // first, load the (hopefully) list value onto the stack
-                index.target.compile(compiler)?;
-
                 match self.op.kind {
                     AssignOpKind::Assign => {
-                        // load the index value onto the stack
-                        index.index.compile(compiler)?;
-
-                        // load the value to assign onto the stack
+                        // load new value
                         self.value.compile(compiler)?;
-
-                        compiler.add_instr(Instruction::StoreIndexed);
                     },
                     compound => {
-                        // load the index value onto the stack
-                        index.index.compile(compiler)?;
-
-                        // duplicate the list value on the stack
+                        // compute the new value to assign
                         compiler.add_instr(Instruction::LoadIndexed);
-
-                        // load the value to assign onto the stack
                         self.value.compile(compiler)?;
-
                         compiler.add_instr(Instruction::Binary(compound.into()));
-                        compiler.add_instr(Instruction::StoreIndexed);
                     }
                 }
+
+                // load the (hopefully) list value
+                index.target.compile(compiler)?;
+
+                // load value to index by
+                index.index.compile(compiler)?;
+
+                compiler.add_instr(Instruction::StoreIndexed);
             },
             AssignTarget::Func(header) => {
                 // for function assignment, create a new chunk for the function body

@@ -42,10 +42,10 @@ pub enum Instruction {
     /// further expressions.
     AssignVar(usize),
 
-    /// Store the top value on the stack in the list at the index. The index and the value are then
-    /// both removed from the stack, while the **list remains**.
+    /// Store the top value on the stack in the list at the index. The list and index are then both
+    /// removed from the stack, while the value **is retained**.
     ///
-    /// The list, index, and value are specified by the third-to-top, second-to-top, and top values
+    /// The value, list, and index are specified by the third-to-top, second-to-top, and top values
     /// on the stack, respectively.
     StoreIndexed,
 

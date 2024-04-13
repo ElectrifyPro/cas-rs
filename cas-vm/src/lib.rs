@@ -115,9 +115,9 @@ impl Vm {
                     last_frame.add_variable(id.to_owned(), value_stack.pop().unwrap());
                 },
                 Instruction::StoreIndexed => {
-                    let value = value_stack.pop().unwrap();
                     let index = value_stack.pop().unwrap();
-                    let list = value_stack.last().unwrap();
+                    let list = value_stack.pop().unwrap();
+                    let value = value_stack.last().cloned().unwrap();
                     if let Value::List(list) = list {
                         list.borrow_mut()[index.into_usize().unwrap()] = value;
                     } else {
@@ -247,7 +247,7 @@ mod tests {
         let mut parser = Parser::new(source);
         let stmts = parser.try_parse_full_many::<Stmt>().unwrap();
 
-        let vm = Vm::compile_program(stmts)?;
+        let mut vm = Vm::compile_program(stmts)?;
         Ok(vm.run().unwrap())
     }
 
@@ -434,6 +434,13 @@ f(-5)").unwrap();
         let source = include_str!("../../examples/manual_abs.calc");
         let result = run_program(source).unwrap();
         assert_eq!(result, 4.into());
+    }
+
+    #[test]
+    fn example_memoized_fib() {
+        let source = include_str!("../../examples/memoized_fib.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, 6_557_470_319_842.into());
     }
 
     #[test]

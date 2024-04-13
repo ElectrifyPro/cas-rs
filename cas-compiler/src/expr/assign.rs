@@ -1,3 +1,4 @@
+use cas_compute::numerical::value::Value;
 use cas_parser::parser::{
     ast::assign::{Assign, AssignTarget},
     token::op::AssignOpKind,
@@ -47,6 +48,12 @@ impl Compile for Assign {
                     compiler.add_instr(Instruction::Return);
                     Ok(())
                 })?;
+
+                // TODO: function assignment needs to return something so the automatically
+                // generated `Drop` instruction drops this value instead of something else
+                // important in the stack
+                // also, in the future, we might want to make functions their own type
+                compiler.add_instr(Instruction::LoadConst(Value::Unit));
             },
         };
 

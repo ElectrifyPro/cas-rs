@@ -84,8 +84,10 @@ impl Vm {
                     let last_frame = call_stack.last_mut().unwrap();
                     last_frame.add_variable(id.to_owned(), value_stack.pop().unwrap());
                 },
+                // .unwrap() helps us verify that exactly the right number of values are produced
+                // and popped through the program
                 Instruction::Drop => {
-                    value_stack.pop(); // TODO: maybe add .unwrap()?
+                    value_stack.pop().unwrap(); // TODO: maybe add .unwrap()?
                 },
                 Instruction::Binary(op) => exec_binary_instruction(*op, &mut value_stack).unwrap(),
                 Instruction::Unary(op) => exec_unary_instruction(*op, &mut value_stack),

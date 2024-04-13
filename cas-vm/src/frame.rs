@@ -21,6 +21,17 @@ impl Frame {
         }
     }
 
+    /// Creates a new [`Frame`] with the given return instruction and variables.
+    pub fn with_variables(
+        return_instruction: (usize, usize),
+        variables: HashMap<usize, Value>,
+    ) -> Self {
+        Self {
+            return_instruction,
+            variables,
+        }
+    }
+
     /// Adds a variable to the frame.
     pub fn add_variable(&mut self, index: usize, value: Value) {
         self.variables.insert(index, value);

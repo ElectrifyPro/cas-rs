@@ -6,7 +6,7 @@ impl Compile for Call {
         for arg in self.args.iter() {
             arg.compile(compiler)?;
         }
-        compiler.add_instr(Instruction::Call(compiler.resolve_function(&self.name.name, self.args.len())?));
+        compiler.add_instr(Instruction::Call(compiler.resolve_function(self)?));
         Ok(())
     }
 }

@@ -4,7 +4,7 @@ pub mod instruction;
 pub mod item;
 
 use cas_compute::funcs::all;
-use cas_parser::parser::ast::{FuncHeader, LitSym, Stmt};
+use cas_parser::parser::ast::{Call, FuncHeader, LitSym, Stmt};
 use error::{kind, Error};
 use std::collections::HashMap;
 use expr::compile_stmts;
@@ -293,13 +293,13 @@ impl Compiler {
     /// with.
     ///
     /// Returns the index of the chunk containing the function.
-    pub fn resolve_function(&self, name: &str, num_args: usize) -> Result<Func, Error> {
+    pub fn resolve_function(&self, call: &Call) -> Result<Func, Error> {
         let mut result = None;
 
         let mut table = &self.symbols;
 
         // is the function in the global scope?
-        if let Some(Item::Func(func)) = table.get(name) {
+        if let Some(Item::Func(func)) = table.get(&call.name.name) {
             result = Some(func.chunk);
             table = &func.symbols;
         }
@@ -318,7 +318,7 @@ impl Compiler {
             }
         }
 
-        if let Some(Item::Func(func)) = table.get(name) {
+        if let Some(Item::Func(func)) = table.get(&call.name.name) {
             // is the function in the current scope?
             Ok(Func::UserFunc(func.chunk))
         } else if let Some(chunk) = result {
@@ -327,10 +327,10 @@ impl Compiler {
         } else {
             // is there a native function with this name?
             all()
-                .get(name)
-                .map(|builtin| Func::Builtin(builtin.name(), num_args)) // TODO: use `builtin.num_args() to report error if mismatch
-                .ok_or_else(|| Error::new(vec![], kind::UnknownFunction {
-                    name: name.to_string(),
+                .get(&*call.name.name)
+                .map(|builtin| Func::Builtin(builtin.name(), call.args.len())) // TODO: use `builtin.num_args() to report error if mismatch
+                .ok_or_else(|| Error::new(vec![call.name.span.clone()], kind::UnknownFunction {
+                    name: call.name.name.to_string(),
                     suggestions: Vec::new(), // TODO
                 }))
         }

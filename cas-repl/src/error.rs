@@ -1,4 +1,5 @@
 use ariadne::Source;
+use cas_compiler::error::Error as CompileError;
 use cas_compute::numerical::error::Error as EvalError;
 use cas_parser::parser::error::Error as ParseError;
 
@@ -6,6 +7,9 @@ use cas_parser::parser::error::Error as ParseError;
 pub enum Error {
     /// Errors that occurred while parsing.
     ParseError(Vec<ParseError>),
+
+    /// Error that occurred during compilation.
+    CompileError(CompileError),
 
     /// An error that occurred while evaluating.
     EvalError(EvalError),
@@ -22,6 +26,10 @@ impl Error {
                 let report = err.build_report();
                 report.eprint(("input", Source::from(input))).unwrap();
             }),
+            Self::CompileError(err) => {
+                let report = err.build_report();
+                report.eprint(("input", Source::from(input))).unwrap();
+            },
             Self::EvalError(err) => std::iter::once(err).for_each(|err| {
                 let report = err.build_report();
                 report.eprint(("input", Source::from(input))).unwrap();
@@ -33,6 +41,12 @@ impl Error {
 impl From<Vec<ParseError>> for Error {
     fn from(errs: Vec<ParseError>) -> Self {
         Self::ParseError(errs)
+    }
+}
+
+impl From<CompileError> for Error {
+    fn from(err: CompileError) -> Self {
+        Self::CompileError(err)
     }
 }
 

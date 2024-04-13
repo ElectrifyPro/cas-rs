@@ -5,7 +5,7 @@ use cas_error::EXPR;
 /// The variable is undefined.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("`{}` is not defined", self.name),
+    message = format!("unknown variable: `{}`", self.name),
     labels = ["this variable"],
     help = format!("to define it, type: {} = {}", (&self.name).fg(EXPR), "<expression>".fg(EXPR)),
 )]
@@ -17,7 +17,7 @@ pub struct UnknownVariable {
 /// The function is undefined.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = format!("the `{}` function does not exist", self.name),
+    message = format!("unknown function: `{}`", self.name),
     labels = ["this function"],
     help = if self.suggestions.is_empty() {
         "see the documentation for a list of available functions".to_string()

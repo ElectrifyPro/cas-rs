@@ -21,6 +21,7 @@ trait ConditionalLoop {
                 Expr::Continue(_) => continue,
                 Expr::Return(_) => todo!(),
                 Expr::Call(call) => call.eval(ctxt),
+                Expr::Index(index) => index.eval(ctxt),
                 Expr::Unary(unary) => unary.eval(ctxt),
                 Expr::Binary(binary) => binary.eval(ctxt),
                 Expr::Assign(assign) => assign.eval(ctxt),

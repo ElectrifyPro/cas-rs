@@ -1,6 +1,6 @@
 use crate::{
     parser::{
-        ast::{expr::Expr, helper::ParenDelimited, literal::{Literal, LitSym}},
+        ast::{expr::Expr, helper::ParenDelimited, index::Index, literal::{Literal, LitSym}},
         error::{kind::{CompoundAssignmentInHeader, InvalidAssignmentLhs, InvalidCompoundAssignmentLhs}, Error},
         fmt::Latex,
         garbage::Garbage,
@@ -142,14 +142,17 @@ impl Latex for FuncHeader {
     }
 }
 
-/// An assignment target, such as `x` or `f(x)`.
+/// An assignment target, such as `x`, `list[0]`, or `f(x)`.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum AssignTarget {
     /// A symbol, such as `x`.
     Symbol(LitSym),
 
-    /// A function, such as `f(x)`.
+    /// A list index, such as `list[0]`.
+    Index(Index),
+
+    /// A function header, such as `f(x)`.
     Func(FuncHeader),
 }
 
@@ -158,6 +161,7 @@ impl AssignTarget {
     pub fn span(&self) -> Range<usize> {
         match self {
             AssignTarget::Symbol(symbol) => symbol.span.clone(),
+            AssignTarget::Index(index) => index.span(),
             AssignTarget::Func(func) => func.span(),
         }
     }
@@ -173,6 +177,7 @@ impl AssignTarget {
         let op_span = op.span.clone();
         match expr {
             Expr::Literal(Literal::Symbol(symbol)) => ParseResult::Ok(AssignTarget::Symbol(symbol)),
+            Expr::Index(index) => ParseResult::Ok(AssignTarget::Index(index)),
             Expr::Call(call) => {
                 let spans = vec![call.span.clone(), op_span.clone()];
                 let error = if op.is_compound() {
@@ -214,6 +219,7 @@ impl std::fmt::Display for AssignTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AssignTarget::Symbol(symbol) => write!(f, "{}", symbol),
+            AssignTarget::Index(index) => write!(f, "{}", index),
             AssignTarget::Func(func) => write!(f, "{}", func),
         }
     }
@@ -223,6 +229,7 @@ impl Latex for AssignTarget {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             AssignTarget::Symbol(symbol) => symbol.fmt_latex(f),
+            AssignTarget::Index(index) => index.fmt_latex(f),
             AssignTarget::Func(func) => func.fmt_latex(f),
         }
     }

@@ -153,6 +153,16 @@ impl Ctxt {
         self.vars.get(name).cloned()
     }
 
+    /// Gets immutable access to a variable in the context.
+    pub fn get_var_ref(&self, name: &str) -> Option<&Value> {
+        self.vars.get(name)
+    }
+
+    /// Gets mutable access to a variable in the context.
+    pub fn get_var_mut(&mut self, name: &str) -> Option<&mut Value> {
+        self.vars.get_mut(name)
+    }
+
     /// Returns the variables in the context.
     pub fn get_vars(&self) -> &HashMap<String, Value> {
         &self.vars

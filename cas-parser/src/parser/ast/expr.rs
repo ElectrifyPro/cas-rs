@@ -6,6 +6,7 @@ use crate::{
             block::Block,
             call::Call,
             if_expr::If,
+            index::Index,
             literal::Literal,
             loop_expr::{Break, Continue, Loop},
             paren::Paren,
@@ -66,6 +67,9 @@ pub enum Expr {
     /// A function call, such as `abs(-1)`.
     Call(Call),
 
+    /// List indexing, such as `list[0]`.
+    Index(Index),
+
     /// A unary operation, such as `-1` or `!true`.
     Unary(Unary),
 
@@ -90,6 +94,7 @@ impl Expr {
             Expr::Continue(continue_expr) => continue_expr.span(),
             Expr::Return(return_expr) => return_expr.span(),
             Expr::Call(call) => call.span(),
+            Expr::Index(index) => index.span(),
             Expr::Unary(unary) => unary.span(),
             Expr::Binary(binary) => binary.span(),
             Expr::Assign(assign) => assign.span(),
@@ -110,6 +115,21 @@ impl Expr {
             inner = &paren.expr;
         }
         inner
+    }
+
+    /// Returns true if the given expression can be used as a target for implicit multiplication.
+    pub fn is_implicit_mul_target(&self) -> bool {
+        // TODO: there may be more reasonable targets
+        matches!(self,
+            Expr::Literal(Literal::Integer(_))
+                | Expr::Literal(Literal::Float(_))
+                | Expr::Literal(Literal::Radix(_))
+                | Expr::Literal(Literal::Symbol(_))
+                | Expr::Literal(Literal::Unit(_))
+                | Expr::Paren(_)
+                | Expr::Call(_)
+                | Expr::Unary(_)
+        )
     }
 }
 
@@ -141,6 +161,7 @@ impl std::fmt::Display for Expr {
             Expr::Continue(continue_expr) => continue_expr.fmt(f),
             Expr::Return(return_expr) => return_expr.fmt(f),
             Expr::Call(call) => call.fmt(f),
+            Expr::Index(index) => index.fmt(f),
             Expr::Unary(unary) => unary.fmt(f),
             Expr::Binary(binary) => binary.fmt(f),
             Expr::Assign(assign) => assign.fmt(f),
@@ -161,6 +182,7 @@ impl Latex for Expr {
             Expr::Continue(continue_expr) => continue_expr.fmt_latex(f),
             Expr::Return(return_expr) => return_expr.fmt_latex(f),
             Expr::Call(call) => call.fmt_latex(f),
+            Expr::Index(index) => index.fmt_latex(f),
             Expr::Unary(unary) => unary.fmt_latex(f),
             Expr::Binary(binary) => binary.fmt_latex(f),
             Expr::Assign(assign) => assign.fmt_latex(f),
@@ -205,6 +227,9 @@ pub enum Primary {
 
     /// A function call, such as `abs(-1)`.
     Call(Call),
+
+    /// List indexing, such as `list[0]`.
+    Index(Index),
 }
 
 impl Primary {
@@ -221,6 +246,7 @@ impl Primary {
             Primary::Continue(continue_expr) => continue_expr.span(),
             Primary::Return(return_expr) => return_expr.span(),
             Primary::Call(call) => call.span(),
+            Primary::Index(index) => index.span(),
         }
     }
 }
@@ -236,6 +262,7 @@ impl<'source> Parse<'source> for Primary {
         let _ = return_if_ok!(input.try_parse().map(Self::Break).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::Continue).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Self::Return).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(Index::parse_or_lower(input, recoverable_errors));
         // function calls can overlap with literals, so we need to try parsing a function call
         // first
         let _ = return_if_ok!(input.try_parse().map(Self::Call).forward_errors(recoverable_errors));
@@ -258,6 +285,7 @@ impl From<Primary> for Expr {
             Primary::Continue(continue_expr) => Self::Continue(continue_expr),
             Primary::Return(return_expr) => Self::Return(return_expr),
             Primary::Call(call) => Self::Call(call),
+            Primary::Index(index) => Self::Index(index),
         }
     }
 }

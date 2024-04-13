@@ -650,6 +650,88 @@ mod tests {
     }
 
     #[test]
+    fn list_indexing() {
+        let mut parser = Parser::new("(list[x + 2] + list[x + 5])[1][2]");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Index(Index {
+            target: Box::new(Expr::Index(Index {
+                target: Box::new(Expr::Paren(Paren {
+                    expr: Box::new(Expr::Binary(Binary {
+                        lhs: Box::new(Expr::Index(Index {
+                            target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                name: "list".to_string(),
+                                span: 1..5,
+                            }))),
+                            index: Box::new(Expr::Binary(Binary {
+                                lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                    name: "x".to_string(),
+                                    span: 6..7,
+                                }))),
+                                op: BinOp {
+                                    kind: BinOpKind::Add,
+                                    implicit: false,
+                                    span: 8..9,
+                                },
+                                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                                    value: "2".to_string(),
+                                    span: 10..11,
+                                }))),
+                                span: 6..11,
+                            })),
+                            span: 1..12,
+                            bracket_span: 5..12,
+                        })),
+                        op: BinOp {
+                            kind: BinOpKind::Add,
+                            implicit: false,
+                            span: 13..14,
+                        },
+                        rhs: Box::new(Expr::Index(Index {
+                            target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                name: "list".to_string(),
+                                span: 15..19,
+                            }))),
+                            index: Box::new(Expr::Binary(Binary {
+                                lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                    name: "x".to_string(),
+                                    span: 20..21,
+                                }))),
+                                op: BinOp {
+                                    kind: BinOpKind::Add,
+                                    implicit: false,
+                                    span: 22..23,
+                                },
+                                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                                    value: "5".to_string(),
+                                    span: 24..25,
+                                }))),
+                                span: 20..25,
+                            })),
+                            span: 15..26,
+                            bracket_span: 19..26,
+                        })),
+                        span: 1..26,
+                    })),
+                    span: 0..27,
+                })),
+                index: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "1".to_string(),
+                    span: 28..29,
+                }))),
+                span: 0..30,
+                bracket_span: 27..30,
+            })),
+            index: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "2".to_string(),
+                span: 31..32,
+            }))),
+            span: 0..33,
+            bracket_span: 30..33,
+        }));
+    }
+
+    #[test]
     fn unary_left_associativity() {
         let mut parser = Parser::new("3!!");
         let expr = parser.try_parse_full::<Expr>().unwrap();
@@ -1218,6 +1300,54 @@ mod tests {
                 span: 7..14,
             })),
             span: 0..14,
+        }));
+    }
+
+    #[test]
+    fn implicit_multiplication_4() {
+        let mut parser = Parser::new("im(2sqrt(-1))");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Call(Call {
+            name: LitSym {
+                name: "im".to_string(),
+                span: 0..2,
+            },
+            derivatives: 0,
+            args: vec![Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "2".to_string(),
+                    span: 3..4,
+                }))),
+                op: BinOp {
+                    kind: BinOpKind::Mul,
+                    implicit: true,
+                    span: 4..4,
+                },
+                rhs: Box::new(Expr::Call(Call {
+                    name: LitSym {
+                        name: "sqrt".to_string(),
+                        span: 4..8,
+                    },
+                    derivatives: 0,
+                    args: vec![Expr::Unary(Unary {
+                        operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                            value: "1".to_string(),
+                            span: 10..11,
+                        }))),
+                        op: UnaryOp {
+                            kind: UnaryOpKind::Neg,
+                            span: 9..10,
+                        },
+                        span: 9..11,
+                    })],
+                    span: 4..12,
+                    paren_span: 8..12,
+                })),
+                span: 3..12,
+            })],
+            span: 0..13,
+            paren_span: 2..13,
         }));
     }
 
@@ -2053,7 +2183,7 @@ mod tests {
     #[test]
     fn catastrophic_backtracking() {
         // parsing nested function calls like this used to take exponential time! :sweat:
-        let mut parser = Parser::new("a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a()");
+        let mut parser = Parser::new("a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a()");
         assert!(parser.try_parse_full::<Expr>().is_err());
     }
 
@@ -2097,6 +2227,31 @@ mod tests {
             span: 0..23,
             while_span: 0..5,
             then_span: 12..16,
+        }));
+    }
+
+    #[test]
+    fn index_into_function() {
+        let mut parser = Parser::new("abs()[0]");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Index(Index {
+            target: Box::new(Expr::Call(Call {
+                name: LitSym {
+                    name: "abs".to_string(),
+                    span: 0..3,
+                },
+                derivatives: 0,
+                args: vec![],
+                span: 0..5,
+                paren_span: 3..5,
+            })),
+            index: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "0".to_string(),
+                span: 6..7,
+            }))),
+            span: 0..8,
+            bracket_span: 5..8,
         }));
     }
 

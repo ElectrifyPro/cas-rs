@@ -6,7 +6,7 @@ use crate::eval_break;
 use crate::numerical::{
     ctxt::Ctxt,
     error::{kind::UndefinedVariable, Error},
-    eval::{binary::eval_operands, Eval},
+    eval::{binary::eval_operands, index::check_index, Eval},
     value::Value,
 };
 
@@ -45,6 +45,15 @@ impl Eval for Assign {
             AssignTarget::Symbol(symbol) => {
                 // variable assignment
                 assign_to_symbol(symbol, self, self.op.kind, ctxt)
+            },
+            AssignTarget::Index(index) => {
+                // assignment to list index
+                // TODO: it would be more ideal to check the index before evaluating the value
+                // this is just easier for now
+                let rhs = eval_break!(self.value, ctxt);
+                let (list, index) = check_index(index, ctxt)?;
+                list[index] = rhs.clone();
+                Ok(rhs)
             },
             AssignTarget::Func(header) => {
                 // function assignment

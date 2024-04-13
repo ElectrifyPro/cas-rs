@@ -1,6 +1,6 @@
 use cas_compute::{
     funcs::miscellaneous::Factorial,
-    numerical::{error::{kind::InvalidBinaryOperation, Error}, value::Value},
+    numerical::{error::kind::InvalidBinaryOperation, value::Value},
     primitive::{complex, float, int_from_float},
 };
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};

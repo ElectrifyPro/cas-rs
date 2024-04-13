@@ -1,7 +1,7 @@
 use crate::consts::PI;
 use crate::primitive::{complex, float};
 use rug::{Complex, Float, Integer};
-use std::fmt::{Display, Formatter};
+use std::{cell::RefCell, fmt::{Display, Formatter}, rc::Rc};
 use super::fmt::{FormatOptions, ValueFormatter};
 
 #[cfg(feature = "serde")]
@@ -27,7 +27,21 @@ pub enum Value {
     Unit,
 
     /// A list of values.
-    List(Vec<Value>),
+    ///
+    /// In `cas-rs`, a list is a reference to a vector of values. This is done to allow efficient
+    /// cloning of lists, as well as mutation of lists in-place. References are passed around
+    /// by default, which can result in somewhat confusing behavior, for example:
+    ///
+    /// ```text
+    /// a = [1, 2, 3]
+    /// b = a
+    /// b[0] = 4
+    /// print(a) // prints [4, 2, 3]
+    /// ```
+    ///
+    /// TODO: In the future, a `clone` method may be added to `cas-rs` to allow the user to
+    /// explicitly clone the list instead of copying the reference.
+    List(Rc<RefCell<Vec<Value>>>),
 }
 
 #[cfg(test)]
@@ -89,6 +103,15 @@ impl Value {
                 Value::Integer(c.into_real_imag().0.to_integer().unwrap())
             }
             _ => self,
+        }
+    }
+
+    /// Converts the value to a `usize`, if possible. If the value is not an integer, or if the
+    /// integer is negative, this function returns `None`.
+    pub fn into_usize(self) -> Option<usize> {
+        match self.coerce_integer() {
+            Value::Integer(n) if n >= 0 => n.to_usize(),
+            _ => None,
         }
     }
 
@@ -192,6 +215,11 @@ impl Value {
         matches!(self, Value::Unit)
     }
 
+    /// Returns true if this value is a list.
+    pub fn is_list(&self) -> bool {
+        matches!(self, Value::List(_))
+    }
+
     /// Returns true if this value is truthy.
     pub fn is_truthy(&self) -> bool {
         match self {
@@ -200,7 +228,7 @@ impl Value {
             Value::Complex(c) => !c.is_zero(),
             Value::Boolean(b) => *b,
             Value::Unit => false,
-            Value::List(l) => !l.is_empty(),
+            Value::List(l) => !l.borrow().is_empty(),
         }
     }
 
@@ -252,6 +280,12 @@ impl From<bool> for Value {
 impl From<()> for Value {
     fn from(_: ()) -> Self {
         Value::Unit
+    }
+}
+
+impl From<Vec<Value>> for Value {
+    fn from(values: Vec<Value>) -> Self {
+        Value::List(Rc::new(RefCell::new(values)))
     }
 }
 

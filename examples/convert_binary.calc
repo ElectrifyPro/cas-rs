@@ -1,0 +1,51 @@
+// Converts an integer into its 32-bit binary representation. The result is a
+// list of 32 elements, representing the bits of the number from most
+// significant to least significant.
+to_bin(n) = {
+    n = round(n)
+    out = [0; 32]
+
+    if n >= 0 && n <= 2^32 - 1 then {
+        i = 31
+        while n > 0 then {
+            out[i] = n % 2
+            n = floor(n / 2)
+            i -= 1
+            if i < 0 then {
+                break
+            }
+        }
+        out
+    }
+}
+
+// Converts a 32-bit binary representation into an integer.
+from_bin(b) = {
+    out = 0
+    i = 0
+    while i < 32 then {
+        out = out * 2 + b[i]
+        i += 1
+    }
+    out
+}
+
+tests = [
+    2'0,             // 0
+    2'100010,        // 34
+    2'11111111,      // 255
+    2'100111101,     // 317
+    2'111001010,     // 458
+    2'1000000000,    // 512
+    2'1101110010111, // 7063
+]
+
+results = [false; 7]
+
+t = 0
+while t < 7 then {
+    results[t] = from_bin(to_bin(tests[t])) == tests[t]
+    t += 1
+}
+
+results

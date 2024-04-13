@@ -4,7 +4,6 @@ use crate::{error::Error, Compile, Compiler, Instruction};
 
 impl Compile for If {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
-        let condition_start = compiler.new_end_label();
         self.condition.compile(compiler)?;
 
         let else_start = compiler.new_unassociated_label();

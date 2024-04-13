@@ -2,7 +2,7 @@ pub mod error;
 pub mod func_specific;
 
 use error::BuiltinError;
-use super::{ctxt::{Ctxt, TrigMode}, value::Value};
+use super::{ctxt::TrigMode, value::Value};
 
 type Result = std::result::Result<Value, BuiltinError>;
 

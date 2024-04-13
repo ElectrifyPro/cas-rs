@@ -158,7 +158,7 @@ impl Compiler {
     /// Add a symbol to the symbol table.
     pub fn add_symbol(&mut self, name: &str, item: Item) {
         let mut table = &mut self.symbols;
-        let (last_path, path) = self.state.path.as_slice().split_last().unwrap();
+        let (_, path) = self.state.path.as_slice().split_last().unwrap();
         for component in path.iter() {
             if table.contains_key(component) {
                 let Item::Func(func) = table.get_mut(component).unwrap() else {
@@ -289,10 +289,11 @@ impl Compiler {
         }
     }
 
-    /// Resolves a path to a function.
+    /// Resolves a path to a function, given its name and the number of args we want to call it
+    /// with.
     ///
     /// Returns the index of the chunk containing the function.
-    pub fn resolve_function(&self, name: &str) -> Result<Func, Error> {
+    pub fn resolve_function(&self, name: &str, num_args: usize) -> Result<Func, Error> {
         let mut result = None;
 
         let mut table = &self.symbols;
@@ -327,7 +328,7 @@ impl Compiler {
             // is there a native function with this name?
             all()
                 .get(name)
-                .map(|builtin| Func::Builtin(builtin.name(), builtin.num_args()))
+                .map(|builtin| Func::Builtin(builtin.name(), num_args)) // TODO: use `builtin.num_args() to report error if mismatch
                 .ok_or_else(|| Error::new(vec![], kind::UnknownFunction {
                     name: name.to_string(),
                     suggestions: Vec::new(), // TODO
@@ -433,5 +434,12 @@ g()").unwrap_err();
         compile("f(x) = return x + 1/sqrt(x)
 g(x, y) = f(x) + f(y)
 g(2, 3)").unwrap();
+    }
+
+    #[test]
+    fn list_index() {
+        compile("arr = [1, 2, 3]
+arr[0] = 5
+arr[0] + arr[1] + arr[2] == 10").unwrap();
     }
 }

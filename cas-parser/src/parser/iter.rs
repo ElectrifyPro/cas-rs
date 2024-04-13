@@ -98,6 +98,13 @@ impl<'a> Iterator for ExprIter<'a> {
                         self.stack.push(arg);
                     }
                 },
+                Expr::Index(index) => {
+                    if self.is_last_visited(&index.index) {
+                        return self.visit();
+                    }
+                    self.stack.push(&index.index);
+                    self.stack.push(&index.target);
+                },
                 Expr::Unary(unary) => {
                     if self.is_last_visited(&unary.operand) {
                         return self.visit();

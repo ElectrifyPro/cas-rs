@@ -5,6 +5,7 @@ mod call;
 mod continue_expr;
 mod expr;
 mod if_expr;
+mod index;
 mod literal;
 mod loops;
 mod return_expr;

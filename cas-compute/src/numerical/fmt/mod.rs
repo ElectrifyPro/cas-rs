@@ -211,7 +211,7 @@ impl Display for ValueFormatter<'_> {
             Value::Unit => write!(f, "()"),
             Value::List(l) => {
                 write!(f, "[")?;
-                for (i, item) in l.iter().enumerate() {
+                for (i, item) in l.borrow().iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
                     }

@@ -7,9 +7,11 @@ mod continue_expr;
 mod error;
 mod expr;
 mod if_expr;
+mod index;
 mod literal;
 mod loops;
 mod primary;
+mod return_expr;
 mod stmt;
 mod unary;
 
@@ -153,7 +155,7 @@ mod tests {
 
     #[test]
     fn builtin_func_arg_check() {
-        assert_eq!(Abs.eval(&Ctxt::default(), &mut [Value::from(4.0)].into_iter()).unwrap().coerce_float(), 4.0.into());
-        assert!(Abs.eval(&Ctxt::default(), &mut [Value::Unit].into_iter()).is_err());
+        assert_eq!(Abs.eval(Default::default(), &mut [Value::from(4.0)].into_iter()).unwrap().coerce_float(), 4.0.into());
+        assert!(Abs.eval(Default::default(), &mut [Value::Unit].into_iter()).is_err());
     }
 }

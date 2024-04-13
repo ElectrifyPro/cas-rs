@@ -14,6 +14,7 @@ impl Eval for Primary {
             Primary::Continue(continue_expr) => continue_expr.eval(ctxt),
             Primary::Return(_) => todo!(),
             Primary::Call(call) => call.eval(ctxt),
+            Primary::Index(index) => index.eval(ctxt),
         }
     }
 }

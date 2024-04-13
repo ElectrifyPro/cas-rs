@@ -14,8 +14,25 @@ impl Compile for Literal {
             Literal::Boolean(boolean) => compiler.add_instr(Instruction::LoadConst(Value::Boolean(boolean.value))),
             Literal::Symbol(sym) => compiler.add_instr(Instruction::LoadVar(compiler.resolve_symbol(sym)?)),
             Literal::Unit(_) => compiler.add_instr(Instruction::LoadConst(Value::Unit)),
-            Literal::List(_) => todo!(),
-            Literal::ListRepeat(_) => todo!(),
+            Literal::List(list) => {
+                // compile the elements of the list
+                for element in list.values.iter() {
+                    element.compile(compiler)?;
+                }
+
+                // create a list with the number of elements on the stack
+                compiler.add_instr(Instruction::CreateList(list.values.len()));
+            },
+            Literal::ListRepeat(list_repeat) => {
+                // compile the element to repeat
+                list_repeat.value.compile(compiler)?;
+
+                // compile the number of times to repeat the element
+                list_repeat.count.compile(compiler)?;
+
+                // create a list with the number of elements on the stack
+                compiler.add_instr(Instruction::CreateListRepeat);
+            },
         };
 
         Ok(())

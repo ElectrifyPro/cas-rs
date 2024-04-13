@@ -16,6 +16,15 @@ pub enum Instruction {
     /// Load a constant value (one known at compile time) onto the stack.
     LoadConst(Value),
 
+    /// Create a new list with the specified number of elements pulled from the stack.
+    CreateList(usize),
+
+    /// Create a new list by repeating the top value on the stack `count` times.
+    ///
+    /// The value to repeat and the count are specified by the second-to-top and the top values on
+    /// the stack, respectively.
+    CreateListRepeat,
+
     /// Load a value stored in a variable onto the stack.
     LoadVar(usize),
 
@@ -32,6 +41,20 @@ pub enum Instruction {
     /// This is used for assignment statements, where the value being assigned is not used in any
     /// further expressions.
     AssignVar(usize),
+
+    /// Store the top value on the stack in the list at the index. The index and the value are then
+    /// both removed from the stack, while the **list remains**.
+    ///
+    /// The list, index, and value are specified by the third-to-top, second-to-top, and top values
+    /// on the stack, respectively.
+    StoreIndexed,
+
+    /// Load the value at the specified index in the list onto the stack. The list and index are
+    /// then both removed from the stack.
+    ///
+    /// The list and index are specified by the second-to-top and the top values on the stack,
+    /// respectively.
+    LoadIndexed,
 
     /// Drops the top value from the stack.
     ///

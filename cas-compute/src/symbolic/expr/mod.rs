@@ -461,6 +461,7 @@ impl From<AstExpr> for Expr {
                 let args = call.args.into_iter().map(Self::from).collect();
                 Self::Primary(Primary::Call(call.name.name, args))
             },
+            AstExpr::Index(_) => todo!(),
             AstExpr::Unary(unary) => {
                 match unary.op.kind {
                     UnaryOpKind::Neg => {

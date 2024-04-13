@@ -6,6 +6,7 @@ use crate::numerical::{
     value::Value,
 };
 use crate::primitive::{from_str_radix, float_from_str, int_from_str};
+use std::{cell::RefCell, rc::Rc};
 
 impl Eval for Literal {
     fn eval(&self, ctxt: &mut Ctxt) -> Result<Value, Error> {
@@ -22,7 +23,7 @@ impl Eval for Literal {
                 for value in &list.values {
                     values.push(value.eval(ctxt)?);
                 }
-                Ok(Value::List(values))
+                Ok(Value::List(Rc::new(RefCell::new(values))))
             },
             Literal::ListRepeat(_) => todo!(),
         }

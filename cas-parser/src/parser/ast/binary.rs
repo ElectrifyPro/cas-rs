@@ -281,7 +281,12 @@ impl Binary {
                 let Ok(rhs) = Unary::parse_or_lower(input, recoverable_errors) else {
                     break;
                 };
-                lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::ImplicitMultiplication, rhs)?;
+
+                if rhs.is_implicit_mul_target() {
+                    lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::ImplicitMultiplication, rhs.into())?;
+                } else {
+                    break;
+                }
             } else {
                 break;
             }

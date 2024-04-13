@@ -15,6 +15,7 @@ impl Compile for Expr {
             Expr::Continue(continue_expr) => continue_expr.compile(compiler),
             Expr::Return(return_expr) => return_expr.compile(compiler),
             Expr::Call(call) => call.compile(compiler),
+            Expr::Index(index) => index.compile(compiler),
             Expr::Unary(unary) => unary.compile(compiler),
             Expr::Binary(binary) => binary.compile(compiler),
             Expr::Assign(assign) => assign.compile(compiler),

@@ -209,3 +209,68 @@ pub struct NonNumericDerivative {
     /// The type of the expression that was differentiated.
     pub expr_type: &'static str,
 }
+
+/// Cannot index into a non-list type.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "cannot index into this type",
+    labels = [format!("this expression evaluated to `{}`", self.expr_type)],
+    help = "only lists can be indexed into",
+)]
+pub struct InvalidIndexTarget {
+    /// The type of the expression that was used as the target.
+    pub expr_type: &'static str,
+}
+
+/// Unsupported index target type.
+///
+/// Currently, only assigning to symbols (e.g. `list[0] = 5`) is supported.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "unsupported index target type",
+    labels = ["this expression"],
+    help = "at the moment, the index target must be a symbol containing a list (e.g. `list[0] = 5`)"
+)]
+pub struct UnsupportedIndexTarget;
+
+/// Index must be an integer.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "list index must be an integer",
+    labels = [
+        "for this list".to_string(),
+        format!("this expression evaluated to `{}`", self.expr_type),
+    ],
+)]
+pub struct InvalidIndexType {
+    /// The type of the expression that was used as an index.
+    pub expr_type: &'static str,
+}
+
+/// The index is too large to fit into a `usize`.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "list index is out of range",
+    labels = ["for this list", "out of range"],
+    help = "the index must be positive and less than or equal to: `2^64 - 1`"
+)]
+pub struct IndexOutOfRange;
+
+/// The index is out of bounds for the given list.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "list index is out of bounds",
+    labels = ["for this list".to_string(), format!("out of bounds (index: {})", self.index)],
+    help = match self.len {
+        0 => "list is empty, so all indexing operations will fail".to_string(),
+        1 => "list has length `1`, so the index must be `0`".to_string(),
+        n => format!("list has length `{}`, so the index must be between `0-{}` (inclusive)", n, n - 1),
+    }
+)]
+pub struct IndexOutOfBounds {
+    /// The length of the list that was indexed into.
+    pub len: usize,
+
+    /// The index that was attempted to be accessed.
+    pub index: usize,
+}

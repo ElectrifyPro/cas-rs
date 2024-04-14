@@ -1,9 +1,24 @@
 use cas_compute::numerical::value::Value;
 use cas_parser::parser::{
-    ast::assign::{Assign, AssignTarget},
+    ast::{assign::{Assign, AssignTarget}, LitSym},
     token::op::AssignOpKind,
 };
-use crate::{error::Error, Compile, Compiler, Instruction};
+use crate::{
+    error::{kind, Error},
+    item::Symbol,
+    Compile,
+    Compiler,
+    Instruction,
+};
+
+/// Extracts the user symbol ID from a [`Symbol`], returning an error if the symbol is not a
+/// user-defined symbol.
+fn extract_user_symbol(lit: &LitSym, symbol: Symbol) -> Result<usize, Error> {
+    symbol.index()
+        .map_err(|name| Error::new(vec![lit.span.clone()], kind::OverrideBuiltinConstant {
+            name: name.to_string(),
+        }))
+}
 
 impl Compile for Assign {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
@@ -18,7 +33,7 @@ impl Compile for Assign {
                             self.value.compile(compiler)
                         })?;
 
-                        let symbol_id = compiler.resolve_symbol_or_insert(symbol);
+                        let symbol_id = compiler.resolve_user_symbol_or_insert(symbol)?;
                         compiler.add_instr(Instruction::StoreVar(symbol_id));
                     },
                     compound => {
@@ -31,7 +46,8 @@ impl Compile for Assign {
                         })?;
 
                         compiler.add_instr(Instruction::Binary(compound.into()));
-                        compiler.add_instr(Instruction::StoreVar(compiler.resolve_symbol(symbol)?));
+                        let symbol_id = extract_user_symbol(&symbol, compiler.resolve_symbol(symbol)?)?;
+                        compiler.add_instr(Instruction::StoreVar(symbol_id));
                     }
                 }
             },
@@ -64,7 +80,7 @@ impl Compile for Assign {
                     // arguments to function are placed on the stack, so we need to go through the
                     // parameters in reverse order to store them in the correct order
                     for param in header.params.iter().rev() {
-                        let symbol_id = compiler.resolve_symbol_or_insert(param.symbol());
+                        let symbol_id = compiler.resolve_user_symbol_or_insert(param.symbol())?;
                         compiler.add_instr(Instruction::AssignVar(symbol_id));
                     }
                     self.value.compile(compiler)?;

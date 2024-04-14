@@ -1,6 +1,6 @@
 use cas_compute::numerical::value::Value;
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
-use crate::{item::Func, Label};
+use crate::{item::{Func, Symbol}, Label};
 
 /// Bytecode instructions emitted by the compiler.
 ///
@@ -26,7 +26,7 @@ pub enum Instruction {
     CreateListRepeat,
 
     /// Load a value stored in a variable onto the stack.
-    LoadVar(usize),
+    LoadVar(Symbol),
 
     /// Store the top value on the stack in the current stack frame. This value is **not** removed
     /// from the stack.

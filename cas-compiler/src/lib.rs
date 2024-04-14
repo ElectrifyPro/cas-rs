@@ -3,13 +3,13 @@ pub mod error;
 pub mod instruction;
 pub mod item;
 
-use cas_compute::funcs::all;
+use cas_compute::{consts::all as all_consts, funcs::all as all_funcs};
 use cas_parser::parser::ast::{Call, FuncHeader, LitSym, Stmt};
 use error::{kind, Error};
 use std::collections::HashMap;
 use expr::compile_stmts;
 pub use instruction::Instruction;
-use item::{Func, FuncDecl, Item, Symbol};
+use item::{Func, FuncDecl, Item, Symbol, SymbolDecl};
 
 /// A label that can be used to reference a specific instruction in the bytecode.
 ///
@@ -155,8 +155,43 @@ impl Compiler {
         self.chunks.get_mut(self.chunk).unwrap()
     }
 
-    /// Add a symbol to the symbol table at the current scope.
-    pub fn add_symbol(&mut self, name: &str, item: Item) {
+    /// Add an item to the symbol table at the current scope.
+    ///
+    /// If the item to add matches that of a builtin item, one of the following will occur:
+    ///
+    /// - If this function is called from the global scope, an [`kind::OverrideBuiltinConstant`] or
+    /// [`kind::OverrideBuiltinFunction`] error is returned.
+    /// - If this function is called anywhere else, the symbol table will successfully be updated
+    /// with the new item. This item shadows the existing builtin, meaning the builtin will not be
+    /// accessible until the scope in which this item was declared, ends.
+    pub fn add_item(&mut self, symbol: &LitSym, item: Item) -> Result<(), Error> {
+        // if we are in the global scope, ensure we don't accidentally override builtin constants
+        // and functions. this is because there would be no way to access the builtin constants and
+        // functions after they are overridden
+
+        // it's ok to allow overriding in deeper scopes, as the user will still be able to access
+        // the builtin constants and functions afterward
+
+        // TODO: shadowing should probably be explicit (i.e. with `let` keyword)
+        if self.state.path.is_empty() {
+            match &item {
+                Item::Symbol(_) => {
+                    if all_consts().contains(&*symbol.name) {
+                        return Err(Error::new(vec![symbol.span.clone()], kind::OverrideBuiltinConstant {
+                            name: symbol.name.to_string(),
+                        }));
+                    }
+                },
+                Item::Func(_) => {
+                    if all_funcs().contains_key(&*symbol.name) {
+                        return Err(Error::new(vec![symbol.span.clone()], kind::OverrideBuiltinFunction {
+                            name: symbol.name.to_string(),
+                        }));
+                    }
+                },
+            }
+        }
+
         let mut table = &mut self.symbols;
         for component in self.state.path.iter() {
             if table.contains_key(component) {
@@ -170,7 +205,8 @@ impl Compiler {
         }
 
         // add to this final table
-        table.insert(name.to_string(), item);
+        table.insert(symbol.name.to_string(), item);
+        Ok(())
     }
 
     /// Creates a new chunk and a scope for compilation. All methods that edit instructions will do
@@ -182,10 +218,10 @@ impl Compiler {
         self.chunks.push(Chunk::default());
         let new_chunk_idx = self.chunks.len() - 1;
 
-        self.add_symbol(&header.name.name, Item::Func(FuncDecl {
+        self.add_item(&header.name, Item::Func(FuncDecl {
             chunk: new_chunk_idx,
             symbols: HashMap::new(),
-        }));
+        }))?;
 
         self.chunk = new_chunk_idx;
         self.state.path.push(header.name.name.to_string());
@@ -196,13 +232,32 @@ impl Compiler {
         Ok(())
     }
 
-    /// Resolves a path to a symbol, inserting it into the symbol table if it doesn't exist.
+    /// Resolves a path to a user-created symbol, inserting it into the symbol table if it doesn't
+    /// exist.
+    ///
+    /// If the symbol name matches that of a builtin constant, one of the following will occur:
+    ///
+    /// - If this function is called from the global scope, an [`kind::OverrideBuiltinConstant`]
+    /// error is returned.
+    /// - If this function is called anywhere else, the symbol table will successfully be updated
+    /// with the new symbol. This symbol shadows the existing builtin constant, meaning the builtin
+    /// will not be accessible until the scope in which this symbol was declared, ends.
     ///
     /// Returns the unique identifier for the symbol, which can be used to reference the symbol in
     /// the bytecode.
-    pub fn resolve_symbol_or_insert(&mut self, symbol: &LitSym) -> usize {
+    pub fn resolve_user_symbol_or_insert(&mut self, symbol: &LitSym) -> Result<usize, Error> {
+        if self.state.path.is_empty() {
+            if all_consts().contains(&*symbol.name) {
+                return Err(Error::new(vec![symbol.span.clone()], kind::OverrideBuiltinConstant {
+                    name: symbol.name.to_string(),
+                }));
+            }
+        }
+
+        // check for builtin constants
         let mut result = None;
 
+        // then check the symbol table (including possibly variables that shadow the constant)
         let mut table = &mut self.symbols;
 
         // is the symbol in the global scope?
@@ -230,16 +285,16 @@ impl Compiler {
 
         if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
             // is the symbol in the current scope?
-            symbol.id
+            Ok(symbol.id)
         } else if let Some(symbol) = result {
             // use the last one we found
-            symbol
+            Ok(symbol)
         } else {
             // if not, insert it
             let id = self.next_symbol_id;
-            table.insert(symbol.name.to_string(), Item::Symbol(Symbol { id }));
+            table.insert(symbol.name.to_string(), Item::Symbol(SymbolDecl { id }));
             self.next_symbol_id += 1;
-            id
+            Ok(id)
         }
     }
 
@@ -247,21 +302,25 @@ impl Compiler {
     ///
     /// Returns the unique identifier for the symbol, or an error if the symbol is not found within
     /// the current scope.
-    pub fn resolve_symbol(&self, symbol: &LitSym) -> Result<usize, Error> {
-        let mut result = None;
+    pub fn resolve_symbol(&self, symbol: &LitSym) -> Result<Symbol, Error> {
+        // check for builtin constants
+        let mut result = all_consts()
+            .get(&*symbol.name)
+            .map(|name| Symbol::Builtin(name));
 
+        // then check the symbol table (including possibly variables that shadow the constant)
         let mut table = &self.symbols;
 
         // is the symbol in the global scope?
         if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-            result = Some(symbol.id);
+            result = Some(Symbol::User(symbol.id));
         }
 
         // work our way up to the current scope
         for component in self.state.path.iter() {
             // is the symbol in this scope?
             if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-                result = Some(symbol.id);
+                result = Some(Symbol::User(symbol.id));
             }
 
             // let's check the next scope
@@ -277,11 +336,12 @@ impl Compiler {
 
         if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
             // is the symbol in the current scope?
-            Ok(symbol.id)
+            Ok(Symbol::User(symbol.id))
         } else if let Some(symbol) = result {
             // use the last one we found
             Ok(symbol)
         } else {
+            // not found
             Err(Error::new(vec![symbol.span.clone()], kind::UnknownVariable {
                 name: symbol.name.clone(),
             }))
@@ -293,13 +353,17 @@ impl Compiler {
     ///
     /// Returns the index of the chunk containing the function.
     pub fn resolve_function(&self, call: &Call) -> Result<Func, Error> {
-        let mut result = None;
+        // check for native functions
+        let mut result = all_funcs()
+            .get(&*call.name.name)
+            .map(|func| Func::Builtin(func.name(), call.args.len()));
 
+        // then check the symbol table (including possibly functions that shadow native functions)
         let mut table = &self.symbols;
 
         // is the function in the global scope?
         if let Some(Item::Func(func)) = table.get(&call.name.name) {
-            result = Some(func.chunk);
+            result = Some(Func::User(func.chunk));
             table = &func.symbols;
         }
 
@@ -310,7 +374,7 @@ impl Compiler {
                 let Item::Func(func) = table.get(component).unwrap() else {
                     panic!("oops");
                 };
-                // result = Some(func.chunk); // TODO what??
+                // result = Some(Func::User(func.chunk)); // TODO what??
                 table = &func.symbols;
             } else {
                 break;
@@ -319,19 +383,16 @@ impl Compiler {
 
         if let Some(Item::Func(func)) = table.get(&call.name.name) {
             // is the function in the current scope?
-            Ok(Func::UserFunc(func.chunk))
-        } else if let Some(chunk) = result {
+            Ok(Func::User(func.chunk))
+        } else if let Some(func) = result {
             // use the last one we found
-            Ok(Func::UserFunc(chunk))
+            Ok(func)
         } else {
-            // is there a native function with this name?
-            all()
-                .get(&*call.name.name)
-                .map(|builtin| Func::Builtin(builtin.name(), call.args.len())) // TODO: use `builtin.num_args() to report error if mismatch
-                .ok_or_else(|| Error::new(vec![call.name.span.clone()], kind::UnknownFunction {
-                    name: call.name.name.to_string(),
-                    suggestions: Vec::new(), // TODO
-                }))
+            // not found
+            Err(Error::new(vec![call.name.span.clone()], kind::UnknownFunction {
+                name: call.name.name.to_string(),
+                suggestions: Vec::new(), // TODO
+            }))
         }
     }
 
@@ -435,6 +496,12 @@ g()").unwrap_err();
         // variable `j` is defined in `g`, so `f` can only access it if `x` is passed as an
         // argument, or `j` is in a higher scope
         assert_eq!(err.spans[0], 6..7);
+    }
+
+    #[test]
+    fn shadowing() {
+        compile("pi = 5").unwrap_err();
+        compile("f() = pi = 5").unwrap(); // implicit shadowing occurs in non-global scopes
     }
 
     #[test]

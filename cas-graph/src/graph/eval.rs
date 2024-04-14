@@ -1,4 +1,4 @@
-use cas_compiler::{item::{Item, Symbol}, Compile, Compiler};
+use cas_compiler::{item::{Item, SymbolDecl}, Compile, Compiler};
 use cas_compute::numerical::value::Value;
 use cas_vm::Vm;
 use super::{analyzed::{AnalyzedExpr, Variable}, GraphOptions, GraphPoint};
@@ -7,12 +7,15 @@ use super::{analyzed::{AnalyzedExpr, Variable}, GraphOptions, GraphPoint};
 fn create_vm(analyzed: &AnalyzedExpr) -> Vm {
     let mut compiler = Compiler::new();
 
-    // make the compiler think there is already a symbol declared at the start so that no compile
-    // error is thrown on the first run
-    compiler.add_symbol(
-        analyzed.independent.as_str(),
-        Item::Symbol(Symbol { id: 0 }),
-    );
+    // TODO: make the compiler think there is already a symbol declared at the start so that no
+    // compile error is thrown on the first run
+    compiler.add_item(
+        &cas_parser::parser::ast::LitSym {
+            name: analyzed.independent.as_str().to_string(),
+            span: 0..0,
+        },
+        Item::Symbol(SymbolDecl { id: 0 }),
+    ).unwrap();
     analyzed.expr.compile(&mut compiler).unwrap();
     Vm::from(compiler)
 }

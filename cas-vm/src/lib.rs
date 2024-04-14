@@ -1,13 +1,22 @@
 mod frame;
 mod instruction;
 
-use cas_compute::{funcs::all, numerical::{ctxt::TrigMode, error::Error as EvalError, value::Value}};
+use cas_compute::{
+    consts::{E, I, PHI, PI, TAU},
+    funcs::all,
+    numerical::{
+        ctxt::TrigMode,
+        error::Error as EvalError,
+        value::Value,
+    },
+    primitive::{complex, float},
+};
 use cas_parser::parser::ast::Stmt;
 use cas_compiler::{
     error::Error as CompileError,
     expr::compile_stmts,
     instruction::Instruction,
-    item::{Func, Item},
+    item::{Func, Item, Symbol},
     Chunk,
     Compile,
     Compiler,
@@ -121,12 +130,26 @@ impl Vm {
                     value_stack.push(Value::List(Rc::new(RefCell::new(list))));
                 },
                 Instruction::LoadVar(id) => {
-                    let value = call_stack.iter()
-                        .rev()
-                        .find_map(|frame| frame.get_variable(*id))
-                        .cloned()
-                        .unwrap();
-                    value_stack.push(value);
+                    match id {
+                        Symbol::User(id) => {
+                            let value = call_stack.iter()
+                                .rev()
+                                .find_map(|frame| frame.get_variable(*id))
+                                .cloned()
+                                .unwrap();
+                            value_stack.push(value);
+                        },
+                        Symbol::Builtin(name) => {
+                            value_stack.push(match *name {
+                                "i" => Value::Complex(complex(&*I)),
+                                "e" => Value::Float(float(&*E)),
+                                "phi" => Value::Float(float(&*PHI)),
+                                "pi" => Value::Float(float(&*PI)),
+                                "tau" => Value::Float(float(&*TAU)),
+                                _ => unreachable!(),
+                            });
+                        },
+                    }
                 },
                 Instruction::StoreVar(id) => {
                     let last_frame = call_stack.last_mut().unwrap();
@@ -166,7 +189,7 @@ impl Vm {
                 Instruction::Unary(op) => exec_unary_instruction(*op, &mut value_stack),
                 Instruction::Call(chunk) => {
                     match chunk {
-                        Func::UserFunc(chunk) => {
+                        Func::User(chunk) => {
                             call_stack.push(Frame::new((instruction_pointer.0, instruction_pointer.1 + 1)));
                             instruction_pointer = (*chunk, 0);
                             continue;

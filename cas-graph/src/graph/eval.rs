@@ -1,5 +1,21 @@
-use cas_compute::numerical::{ctxt::Ctxt, eval::Eval, value::Value};
+use cas_compiler::{item::{Item, Symbol}, Compile, Compiler};
+use cas_compute::numerical::value::Value;
+use cas_vm::Vm;
 use super::{analyzed::{AnalyzedExpr, Variable}, GraphOptions, GraphPoint};
+
+/// Creates a VM ready to evaluate the given expression.
+fn create_vm(analyzed: &AnalyzedExpr) -> Vm {
+    let mut compiler = Compiler::new();
+
+    // make the compiler think there is already a symbol declared at the start so that no compile
+    // error is thrown on the first run
+    compiler.add_symbol(
+        analyzed.independent.as_str(),
+        Item::Symbol(Symbol { id: 0 }),
+    );
+    analyzed.expr.compile(&mut compiler).unwrap();
+    Vm::from(compiler)
+}
 
 /// Evaluate the given expression and returns the points to draw.
 ///
@@ -19,7 +35,7 @@ pub(crate) fn evaluate_expr(
     analyzed: &AnalyzedExpr,
     options: GraphOptions,
 ) -> Vec<GraphPoint<f64>> {
-    let mut ctxt = Ctxt::default();
+    let mut vm = create_vm(analyzed);
     let mut points = Vec::new();
 
     let mut last_point = None;
@@ -48,8 +64,12 @@ pub(crate) fn evaluate_expr(
     let mut last_slope: Option<f64> = None;
 
     while current_trace <= bounds.1 {
-        ctxt.add_var(analyzed.independent.as_str(), current_trace.into());
-        if let Ok(Value::Float(float)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_float()) {
+        let Item::Symbol(symbol) = vm.symbols.get_mut(analyzed.independent.as_str()).unwrap() else {
+            unreachable!("symbol must exist");
+        };
+        vm.variables.insert(symbol.id, current_trace.into());
+
+        if let Ok(Value::Float(float)) = vm.run().map(|v| v.coerce_float()) {
             let point = match analyzed.independent {
                 Variable::X => GraphPoint(current_trace, float.to_f64()),
                 Variable::Y => GraphPoint(float.to_f64(), current_trace),

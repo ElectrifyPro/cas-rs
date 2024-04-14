@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 cairo-rs = { version = "0.18.2", features = ["png"] }
+cas-compiler = { path = "../cas-compiler" }
 cas-compute = { path = "../cas-compute" }
 cas-parser = { path = "../cas-parser" }
+cas-vm = { path = "../cas-vm" }
 rayon = "1.7.0"

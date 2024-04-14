@@ -155,11 +155,10 @@ impl Compiler {
         self.chunks.get_mut(self.chunk).unwrap()
     }
 
-    /// Add a symbol to the symbol table.
+    /// Add a symbol to the symbol table at the current scope.
     pub fn add_symbol(&mut self, name: &str, item: Item) {
         let mut table = &mut self.symbols;
-        let (_, path) = self.state.path.as_slice().split_last().unwrap();
-        for component in path.iter() {
+        for component in self.state.path.iter() {
             if table.contains_key(component) {
                 let Item::Func(func) = table.get_mut(component).unwrap() else {
                     panic!("oops");
@@ -180,7 +179,6 @@ impl Compiler {
         where F: FnOnce(&mut Compiler) -> Result<(), Error>
     {
         let old_chunk_idx = self.chunk;
-        self.state.path.push(header.name.name.to_string());
         self.chunks.push(Chunk::default());
         let new_chunk_idx = self.chunks.len() - 1;
 
@@ -190,6 +188,7 @@ impl Compiler {
         }));
 
         self.chunk = new_chunk_idx;
+        self.state.path.push(header.name.name.to_string());
         f(self)?;
         self.state.path.pop().unwrap();
         self.chunk = old_chunk_idx;
@@ -391,6 +390,12 @@ pub trait Compile {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error>;
 }
 
+impl<T: Compile> Compile for &T {
+    fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
+        (*self).compile(compiler)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -407,7 +412,10 @@ mod tests {
     #[test]
     fn function_declaration() {
         compile("f(x) = {
-    g(x) = x % 2 == 0
+    g(x) = {
+        h(x) = x
+        h(x) % 2 == 0
+    }
     x % 3 == 0 && g(x)
 }
 

@@ -222,17 +222,6 @@ pub struct InvalidIndexTarget {
     pub expr_type: &'static str,
 }
 
-/// Unsupported index target type.
-///
-/// Currently, only assigning to symbols (e.g. `list[0] = 5`) is supported.
-#[derive(Debug, Clone, ErrorKind, PartialEq)]
-#[error(
-    message = "unsupported index target type",
-    labels = ["this expression"],
-    help = "at the moment, the index target must be a symbol containing a list (e.g. `list[0] = 5`)"
-)]
-pub struct UnsupportedIndexTarget;
-
 /// Index must be an integer.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
@@ -250,7 +239,7 @@ pub struct InvalidIndexType {
 /// The index is too large to fit into a `usize`.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
-    message = "list index is out of range",
+    message = "list index is out of valid range",
     labels = ["for this list", "out of range"],
     help = "the index must be positive and less than or equal to: `2^64 - 1`"
 )]
@@ -260,7 +249,7 @@ pub struct IndexOutOfRange;
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "list index is out of bounds",
-    labels = ["for this list".to_string(), format!("out of bounds (index: {})", self.index)],
+    labels = ["for this list".to_string(), format!("out of bounds (tried to index: {})", self.index)],
     help = match self.len {
         0 => "list is empty, so all indexing operations will fail".to_string(),
         1 => "list has length `1`, so the index must be `0`".to_string(),
@@ -274,3 +263,23 @@ pub struct IndexOutOfBounds {
     /// The index that was attempted to be accessed.
     pub index: usize,
 }
+
+/// Length of a list must be an integer.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "length of list must be an integer",
+    labels = [format!("this expression evaluated to `{}`", self.expr_type)],
+)]
+pub struct InvalidLengthType {
+    /// The type of the expression that was used as an index.
+    pub expr_type: &'static str,
+}
+
+/// The list length is too large to fit into a `usize`.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "length of list is out of valid range",
+    labels = ["out of range"],
+    help = "the length must be positive and less than or equal to: `2^64 - 1`"
+)]
+pub struct LengthOutOfRange;

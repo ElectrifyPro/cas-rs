@@ -106,15 +106,6 @@ impl Value {
         }
     }
 
-    /// Converts the value to a `usize`, if possible. If the value is not an integer, or if the
-    /// integer is negative, this function returns `None`.
-    pub fn into_usize(self) -> Option<usize> {
-        match self.coerce_integer() {
-            Value::Integer(n) if n >= 0 => n.to_usize(),
-            _ => None,
-        }
-    }
-
     /// Consumes and attempts to coerce the value to a real number or an integer, preferring
     /// integers if possible. **This coercion is lossless**.
     ///

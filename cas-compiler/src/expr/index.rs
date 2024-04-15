@@ -10,7 +10,10 @@ impl Compile for Index {
         self.index.compile(compiler)?;
 
         // load the value at the index onto the stack
-        compiler.add_instr(InstructionKind::LoadIndexed);
+        compiler.add_instr_with_spans(
+            InstructionKind::LoadIndexed,
+            vec![self.target.span(), self.index.span()],
+        );
         Ok(())
     }
 }

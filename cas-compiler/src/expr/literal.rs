@@ -31,7 +31,10 @@ impl Compile for Literal {
                 list_repeat.count.compile(compiler)?;
 
                 // create a list with the number of elements on the stack
-                compiler.add_instr(InstructionKind::CreateListRepeat);
+                compiler.add_instr_with_spans(
+                    InstructionKind::CreateListRepeat,
+                    vec![list_repeat.count.span()],
+                );
             },
         };
 

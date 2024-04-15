@@ -60,7 +60,10 @@ impl Compile for Assign {
                     },
                     compound => {
                         // compute the new value to assign
-                        compiler.add_instr(InstructionKind::LoadIndexed);
+                        compiler.add_instr_with_spans(
+                            InstructionKind::LoadIndexed,
+                            vec![index.target.span(), index.index.span()],
+                        );
                         self.value.compile(compiler)?;
                         compiler.add_instr(InstructionKind::Binary(compound.into()));
                     }
@@ -72,7 +75,10 @@ impl Compile for Assign {
                 // load value to index by
                 index.index.compile(compiler)?;
 
-                compiler.add_instr(InstructionKind::StoreIndexed);
+                compiler.add_instr_with_spans(
+                    InstructionKind::StoreIndexed,
+                    vec![index.target.span(), index.index.span()],
+                );
             },
             AssignTarget::Func(header) => {
                 // for function assignment, create a new chunk for the function body

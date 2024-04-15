@@ -1,4 +1,4 @@
-lcm(a, b) = {
+bad_lcm(a, b) = {
     i = 0
     loop {
         i += 1
@@ -8,4 +8,4 @@ lcm(a, b) = {
     }
 }
 
-lcm(37, 41)
+bad_lcm(37, 41)

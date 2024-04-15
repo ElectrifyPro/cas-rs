@@ -319,22 +319,22 @@ mod tests {
 
     #[test]
     fn exec_loop() {
-        let result = run_program("i = 0
-while i < 10 then {
-    i += 1
-}; i").unwrap();
+        let result = run_program("a = 0
+while a < 10 then {
+    a += 1
+}; a").unwrap();
         assert_eq!(result, Value::Integer(int(10)));
     }
 
     #[test]
     fn exec_loop_with_conditions() {
-        let result = run_program("i = 0
+        let result = run_program("a = 0
 j = 2
-while i < 10 && j < 15 then {
-    if i < 5 then {
-        i += 2
+while a < 10 && j < 15 then {
+    if a < 5 then {
+        a += 2
     } else {
-        i += 1
+        a += 1
         j = -j + 4
     }
 }; j").unwrap();
@@ -377,12 +377,12 @@ partial_factorial(10, 7)").unwrap();
     #[test]
     fn exec_sum_even() {
         let result = run_program("n = 200
-i = 0
+c = 0
 sum = 0
-while i < n then {
-    i += 1
-    if i & 1 == 1 then continue
-    sum += i
+while c < n then {
+    c += 1
+    if c & 1 == 1 then continue
+    sum += c
 }; sum").unwrap();
         assert_eq!(result, Value::Integer(int(10100)));
     }

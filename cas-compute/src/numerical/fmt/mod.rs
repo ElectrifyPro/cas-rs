@@ -38,6 +38,11 @@ pub struct FormatOptions {
 
     /// Whether to display separators for large numbers.
     pub separators: Separator,
+
+    /// Whether to print addresses of reference types, such as lists.
+    ///
+    /// This is useful for debugging, but can be confusing to an uninitiated user.
+    pub show_refs: ShowRefs,
 }
 
 impl FormatOptions {
@@ -149,6 +154,20 @@ impl Separator {
     }
 }
 
+/// Whether to print addresses of reference types, such as lists.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub enum ShowRefs {
+    /// Always print the address of reference types. This is useful for debugging, but can be
+    /// confusing to an uninitiated user.
+    ///
+    /// This is the default option.
+    #[default]
+    Always,
+
+    /// Never print the address of reference types.
+    Never,
+}
+
 /// Helper struct to build a [`FormatOptions`] struct.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct FormatOptionsBuilder(FormatOptions);
@@ -185,6 +204,13 @@ impl FormatOptionsBuilder {
         self
     }
 
+    /// Sets whether to print addresses of reference types, such as lists. See [`ShowRefs`] for
+    /// more information.
+    pub fn show_refs(mut self, show_refs: ShowRefs) -> Self {
+        self.0.show_refs = show_refs;
+        self
+    }
+
     /// Builds the [`FormatOptions`] struct.
     pub fn build(self) -> FormatOptions {
         self.0
@@ -210,7 +236,11 @@ impl Display for ValueFormatter<'_> {
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Unit => write!(f, "()"),
             Value::List(l) => {
-                write!(f, "[")?;
+                if self.options.show_refs == ShowRefs::Always {
+                    write!(f, "({:p}: [", l.as_ptr())?;
+                } else {
+                    write!(f, "[")?;
+                }
                 for (i, item) in l.borrow().iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
@@ -220,7 +250,11 @@ impl Display for ValueFormatter<'_> {
                         options: self.options,
                     })?;
                 }
-                write!(f, "]")
+                if self.options.show_refs == ShowRefs::Always {
+                    write!(f, "])")
+                } else {
+                    write!(f, "]")
+                }
             },
         }
     }

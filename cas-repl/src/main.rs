@@ -20,8 +20,8 @@ fn execute(input: &str) -> Result<Value, Error> {
 }
 
 /// Executes the given input string in a new VM, printing the results.
-fn execute_and_print(input: &str, fmt: FormatOptions) {
-    output(input, execute(input), fmt);
+fn execute_and_print(source_name: &str, input: &str, fmt: FormatOptions) {
+    output(source_name, input, execute(input), fmt);
 }
 
 /// Executes the given input string in the REPL VM, returning the results of the execution.
@@ -33,17 +33,17 @@ fn repl_execute(input: &str, vm: &mut ReplVm) -> Result<Value, Error> {
 }
 
 /// Executes the given input string in the REPL VM, printing the results.
-fn repl_execute_and_print(input: &str, vm: &mut ReplVm, fmt: FormatOptions) {
-    output(input, repl_execute(input, vm), fmt);
+fn repl_execute_and_print(source_name: &str, input: &str, vm: &mut ReplVm, fmt: FormatOptions) {
+    output(source_name, input, repl_execute(input, vm), fmt);
 }
 
 /// Prints the result of the execution.
 #[inline]
-fn output(input: &str, res: Result<Value, Error>, fmt: FormatOptions) {
+fn output(source_name: &str, input: &str, res: Result<Value, Error>, fmt: FormatOptions) {
     match res {
         Ok(Value::Unit) => (), // intentionally print nothing
         Ok(res) => println!("{}", res.fmt(fmt)),
-        Err(err) => err.report_to_stderr(input),
+        Err(err) => err.report_to_stderr(source_name, input),
     }
 }
 
@@ -60,23 +60,25 @@ fn main() {
 
     if let Some(filename) = args.next() {
         // run source file
-        let mut file = BufReader::new(File::open(filename).unwrap());
+        let mut file = BufReader::new(File::open(&filename).unwrap());
         let mut input = String::new();
         file.read_to_string(&mut input).unwrap();
 
-        execute_and_print(&input, fmt);
+        execute_and_print(&filename, &input, fmt);
     } else if !io::stdin().is_terminal() {
         // read source from stdin
         let mut input = String::new();
         io::stdin().read_to_string(&mut input).unwrap();
 
-        execute_and_print(&input, fmt);
+        execute_and_print("stdin", &input, fmt);
     } else {
         // run the repl / interactive mode
+        let mut entry = 0;
         let mut rl = DefaultEditor::new().unwrap();
         let mut vm = ReplVm::new();
 
         fn process_line(
+            entry: usize,
             rl: &mut DefaultEditor,
             vm: &mut ReplVm,
             fmt: FormatOptions,
@@ -88,12 +90,15 @@ fn main() {
 
             rl.add_history_entry(&input)?;
 
-            repl_execute_and_print(&input, vm, fmt);
+            let source_name = format!("repl:{}", entry);
+            repl_execute_and_print(&source_name, &input, vm, fmt);
             Ok(())
         }
 
         loop {
-            if let Err(err) = process_line(&mut rl, &mut vm, fmt) {
+            entry += 1;
+
+            if let Err(err) = process_line(entry, &mut rl, &mut vm, fmt) {
                 match err {
                     ReadlineError::Eof | ReadlineError::Interrupted => (),
                     _ => eprintln!("{}", err),

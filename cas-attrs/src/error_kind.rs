@@ -128,11 +128,11 @@ impl ToTokens for ErrorKindTarget {
 
         tokens.extend(quote! {
             impl cas_error::ErrorKind for #name {
-                fn build_report(
+                fn build_report<'a>(
                     &self,
-                    src_id: &'static str,
+                    src_id: &'a str,
                     spans: &[std::ops::Range<usize>],
-                ) -> ariadne::Report<(&'static str, std::ops::Range<usize>)> {
+                ) -> ariadne::Report<(&'a str, std::ops::Range<usize>)> {
                     let mut builder = ariadne::Report::build(ariadne::ReportKind::Error, src_id, spans[0].start)
                         .with_message(#message)
                         .with_labels(#labels);

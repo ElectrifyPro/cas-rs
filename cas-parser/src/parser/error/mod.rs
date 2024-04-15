@@ -21,7 +21,7 @@ impl Error {
     }
 
     /// Build a report from this error kind.
-    pub fn build_report(&self) -> Report<(&'static str, Range<usize>)> {
-        self.kind.build_report("input", &self.spans)
+    pub fn build_report<'a>(&self, src_id: &'a str) -> Report<(&'a str, Range<usize>)> {
+        self.kind.build_report(src_id, &self.spans)
     }
 }

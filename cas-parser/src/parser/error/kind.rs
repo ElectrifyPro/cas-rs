@@ -96,11 +96,11 @@ pub struct InvalidRadixDigit {
 
 // manual ErrorKind implementation to support the `last_op_digit` field
 impl ErrorKind for InvalidRadixDigit {
-    fn build_report(
+    fn build_report<'a>(
         &self,
-        src_id: &'static str,
+        src_id: &'a str,
         spans: &[std::ops::Range<usize>],
-    ) -> ariadne::Report<(&'static str, Range<usize>)> {
+    ) -> ariadne::Report<(&'a str, Range<usize>)> {
         let labels = spans
             .iter()
             .cloned()

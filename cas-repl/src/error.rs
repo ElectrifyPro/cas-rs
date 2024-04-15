@@ -20,19 +20,19 @@ impl Error {
     ///
     /// The `ariadne` crate's [`Report`] type actually does not have a `Display` implementation, so
     /// we can only use its `eprint` method to print to stderr.
-    pub fn report_to_stderr(&self, input: &str) {
+    pub fn report_to_stderr(&self, src_id: &str, input: &str) {
         match self {
             Self::ParseError(errs) => errs.iter().for_each(|err| {
-                let report = err.build_report();
-                report.eprint(("input", Source::from(input))).unwrap();
+                let report = err.build_report(src_id);
+                report.eprint((src_id, Source::from(input))).unwrap();
             }),
             Self::CompileError(err) => {
-                let report = err.build_report();
-                report.eprint(("input", Source::from(input))).unwrap();
+                let report = err.build_report(src_id);
+                report.eprint((src_id, Source::from(input))).unwrap();
             },
             Self::EvalError(err) => std::iter::once(err).for_each(|err| {
-                let report = err.build_report();
-                report.eprint(("input", Source::from(input))).unwrap();
+                let report = err.build_report(src_id);
+                report.eprint((src_id, Source::from(input))).unwrap();
             }),
         }
     }

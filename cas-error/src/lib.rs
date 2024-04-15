@@ -10,9 +10,9 @@ pub const EXPR: Color = Color::RGB(52, 235, 152);
 /// Represents any kind of error that can occur during some operation.
 pub trait ErrorKind: Debug + Send {
     /// Builds the report for this error.
-    fn build_report(
+    fn build_report<'a>(
         &self,
-        src_id: &'static str,
+        src_id: &'a str,
         spans: &[Range<usize>],
-    ) -> Report<(&'static str, Range<usize>)>;
+    ) -> Report<(&'a str, Range<usize>)>;
 }

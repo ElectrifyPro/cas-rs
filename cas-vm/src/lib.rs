@@ -512,6 +512,13 @@ f()").unwrap();
     }
 
     #[test]
+    fn example_resolving_calls() {
+        let source = include_str!("../../examples/resolving_calls.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, true.into());
+    }
+
+    #[test]
     fn repl() {
         // ensure REPL state is restored if compilation fails
         let source = [

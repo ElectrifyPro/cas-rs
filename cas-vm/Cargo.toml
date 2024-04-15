@@ -9,4 +9,5 @@ edition = "2021"
 cas-compiler = { path = "../cas-compiler" }
 cas-compute = { path = "../cas-compute" }
 cas-parser = { path = "../cas-parser" }
+replace_with = "0.1.7"
 rug = "1.22.0"

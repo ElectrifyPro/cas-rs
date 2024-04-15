@@ -181,7 +181,7 @@ impl Value {
     }
 
     /// Returns true if this value is a real number, or can be coerced to one.
-    pub fn is_real(&self) -> bool {
+    pub fn is_float(&self) -> bool {
         match self {
             Value::Float(_) => true,
             Value::Integer(_) => true,

@@ -260,26 +260,28 @@ impl Compiler {
         // then check the symbol table (including possibly variables that shadow the constant)
         let mut table = &mut self.symbols;
 
-        // is the symbol in the global scope?
-        if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-            result = Some(symbol.id);
-        }
-
-        // work our way up to the current scope
-        for component in self.state.path.iter() {
-            // is the symbol in this scope?
+        if self.state.path.len() > 0 {
+            // is the symbol in the global scope?
             if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
                 result = Some(symbol.id);
             }
 
-            // let's check the next scope
-            if table.contains_key(component) {
-                let Item::Func(func) = table.get_mut(component).unwrap() else {
+            // work our way up to the current scope
+            for component in self.state.path.iter() {
+                // is the symbol in this scope?
+                if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
+                    result = Some(symbol.id);
+                }
+
+                // let's check the next scope
+                if table.contains_key(component) {
+                    let Item::Func(func) = table.get_mut(component).unwrap() else {
+                        panic!("oops");
+                    };
+                    table = &mut func.symbols;
+                } else {
                     panic!("oops");
-                };
-                table = &mut func.symbols;
-            } else {
-                panic!("oops");
+                }
             }
         }
 
@@ -311,26 +313,28 @@ impl Compiler {
         // then check the symbol table (including possibly variables that shadow the constant)
         let mut table = &self.symbols;
 
-        // is the symbol in the global scope?
-        if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-            result = Some(Symbol::User(symbol.id));
-        }
-
-        // work our way up to the current scope
-        for component in self.state.path.iter() {
-            // is the symbol in this scope?
+        if self.state.path.len() > 0 {
+            // is the symbol in the global scope?
             if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
                 result = Some(Symbol::User(symbol.id));
             }
 
-            // let's check the next scope
-            if table.contains_key(component) {
-                let Item::Func(func) = table.get(component).unwrap() else {
+            // work our way up to the current scope
+            for component in self.state.path.iter() {
+                // is the symbol in this scope?
+                if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
+                    result = Some(Symbol::User(symbol.id));
+                }
+
+                // let's check the next scope
+                if table.contains_key(component) {
+                    let Item::Func(func) = table.get(component).unwrap() else {
+                        panic!("oops");
+                    };
+                    table = &func.symbols;
+                } else {
                     panic!("oops");
-                };
-                table = &func.symbols;
-            } else {
-                panic!("oops");
+                }
             }
         }
 
@@ -361,23 +365,24 @@ impl Compiler {
         // then check the symbol table (including possibly functions that shadow native functions)
         let mut table = &self.symbols;
 
-        // is the function in the global scope?
-        if let Some(Item::Func(func)) = table.get(&call.name.name) {
-            result = Some(Func::User(func.chunk));
-            table = &func.symbols;
-        }
+        if self.state.path.len() > 0 {
+            // is the function in the global scope?
+            if let Some(Item::Func(func)) = table.get(&call.name.name) {
+                result = Some(Func::User(func.chunk));
+            }
 
-        // work our way up to the current scope
-        // if we find items with the same name, replace result
-        for component in self.state.path.iter() {
-            if table.contains_key(component) {
-                let Item::Func(func) = table.get(component).unwrap() else {
-                    panic!("oops");
-                };
-                // result = Some(Func::User(func.chunk)); // TODO what??
-                table = &func.symbols;
-            } else {
-                break;
+            // work our way up to the current scope
+            // if we find items with the same name, replace result
+            for component in self.state.path.iter() {
+                if table.contains_key(component) {
+                    let Item::Func(func) = table.get(component).unwrap() else {
+                        panic!("oops");
+                    };
+                    // result = Some(Func::User(func.chunk)); // TODO what??
+                    table = &func.symbols;
+                } else {
+                    break;
+                }
             }
         }
 

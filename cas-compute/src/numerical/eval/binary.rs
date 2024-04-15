@@ -211,7 +211,7 @@ pub(crate) fn eval_operands(
         return eval_integer_operands(op, implicit, left.coerce_integer(), right.coerce_integer());
     }
 
-    if left.is_real() && right.is_real() {
+    if left.is_float() && right.is_float() {
         return eval_real_operands(op, implicit, left.coerce_float(), right.coerce_float());
     }
 

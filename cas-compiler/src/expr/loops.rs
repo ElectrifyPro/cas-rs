@@ -1,6 +1,6 @@
 use cas_compute::numerical::value::Value;
 use cas_parser::parser::ast::{loop_expr::Loop, while_expr::While};
-use crate::{error::Error, Compile, Compiler, Instruction};
+use crate::{error::Error, Compile, Compiler, InstructionKind};
 
 impl Compile for Loop {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
@@ -17,11 +17,11 @@ impl Compile for Loop {
             state.loop_end = Some(loop_end);
         }, |compiler| {
             self.body.compile(compiler)?;
-            compiler.add_instr(Instruction::Drop);
+            compiler.add_instr(InstructionKind::Drop);
             Ok(())
         })?;
 
-        compiler.add_instr(Instruction::Jump(loop_start));
+        compiler.add_instr(InstructionKind::Jump(loop_start));
         compiler.set_end_label(loop_end);
         Ok(())
     }
@@ -35,13 +35,13 @@ impl Compile for While {
         //
         // the ideal solution would be to not emit this `LoadConst` if the loop body contains a
         // `break` expression
-        compiler.add_instr(Instruction::LoadConst(Value::Unit));
+        compiler.add_instr(InstructionKind::LoadConst(Value::Unit));
 
         let condition_start = compiler.new_end_label();
         self.condition.compile(compiler)?;
 
         let loop_end = compiler.new_unassociated_label();
-        compiler.add_instr(Instruction::JumpIfFalse(loop_end));
+        compiler.add_instr(InstructionKind::JumpIfFalse(loop_end));
         compiler.with_state(|state| {
             // in case `continue` and `break` expressions are inside, we need the loop start and
             // end labels for their jumps
@@ -49,11 +49,11 @@ impl Compile for While {
             state.loop_end = Some(loop_end);
         }, |compiler| {
             self.body.compile(compiler)?;
-            compiler.add_instr(Instruction::Drop);
+            compiler.add_instr(InstructionKind::Drop);
             Ok(())
         })?;
 
-        compiler.add_instr(Instruction::Jump(condition_start));
+        compiler.add_instr(InstructionKind::Jump(condition_start));
         compiler.set_end_label(loop_end);
         Ok(())
     }

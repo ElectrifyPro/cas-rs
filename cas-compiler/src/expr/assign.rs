@@ -8,7 +8,7 @@ use crate::{
     item::Symbol,
     Compile,
     Compiler,
-    Instruction,
+    InstructionKind,
 };
 
 /// Extracts the user symbol ID from a [`Symbol`], returning an error if the symbol is not a
@@ -34,10 +34,10 @@ impl Compile for Assign {
                         })?;
 
                         let symbol_id = compiler.resolve_user_symbol_or_insert(symbol)?;
-                        compiler.add_instr(Instruction::StoreVar(symbol_id));
+                        compiler.add_instr(InstructionKind::StoreVar(symbol_id));
                     },
                     compound => {
-                        compiler.add_instr(Instruction::LoadVar(compiler.resolve_symbol(symbol)?));
+                        compiler.add_instr(InstructionKind::LoadVar(compiler.resolve_symbol(symbol)?));
 
                         compiler.with_state(|state| {
                             state.top_level_assign = false;
@@ -45,9 +45,9 @@ impl Compile for Assign {
                             self.value.compile(compiler)
                         })?;
 
-                        compiler.add_instr(Instruction::Binary(compound.into()));
+                        compiler.add_instr(InstructionKind::Binary(compound.into()));
                         let symbol_id = extract_user_symbol(&symbol, compiler.resolve_symbol(symbol)?)?;
-                        compiler.add_instr(Instruction::StoreVar(symbol_id));
+                        compiler.add_instr(InstructionKind::StoreVar(symbol_id));
                     }
                 }
             },
@@ -60,9 +60,9 @@ impl Compile for Assign {
                     },
                     compound => {
                         // compute the new value to assign
-                        compiler.add_instr(Instruction::LoadIndexed);
+                        compiler.add_instr(InstructionKind::LoadIndexed);
                         self.value.compile(compiler)?;
-                        compiler.add_instr(Instruction::Binary(compound.into()));
+                        compiler.add_instr(InstructionKind::Binary(compound.into()));
                     }
                 }
 
@@ -72,7 +72,7 @@ impl Compile for Assign {
                 // load value to index by
                 index.index.compile(compiler)?;
 
-                compiler.add_instr(Instruction::StoreIndexed);
+                compiler.add_instr(InstructionKind::StoreIndexed);
             },
             AssignTarget::Func(header) => {
                 // for function assignment, create a new chunk for the function body
@@ -81,10 +81,10 @@ impl Compile for Assign {
                     // parameters in reverse order to store them in the correct order
                     for param in header.params.iter().rev() {
                         let symbol_id = compiler.resolve_user_symbol_or_insert(param.symbol())?;
-                        compiler.add_instr(Instruction::AssignVar(symbol_id));
+                        compiler.add_instr(InstructionKind::AssignVar(symbol_id));
                     }
                     self.value.compile(compiler)?;
-                    compiler.add_instr(Instruction::Return);
+                    compiler.add_instr(InstructionKind::Return);
                     Ok(())
                 })?;
 
@@ -92,7 +92,7 @@ impl Compile for Assign {
                 // generated `Drop` instruction drops this value instead of something else
                 // important in the stack
                 // also, in the future, we might want to make functions their own type
-                compiler.add_instr(Instruction::LoadConst(Value::Unit));
+                compiler.add_instr(InstructionKind::LoadConst(Value::Unit));
             },
         };
 

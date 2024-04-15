@@ -1,8 +1,9 @@
 use cas_compute::numerical::value::Value;
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
 use crate::{item::{Func, Symbol}, Label};
+use std::ops::Range;
 
-/// Bytecode instructions emitted by the compiler.
+/// Kinds of bytecode instructions emitted by the compiler.
 ///
 /// Bytecode can be thought of as a significantly high-level assembly language. Each instruction
 /// corresponds to a single operation that can be executed by the virtual machine, which itself can
@@ -12,7 +13,7 @@ use crate::{item::{Func, Symbol}, Label};
 /// it easier to generate and execute. In particular, we aren't as limited by the number of registers
 /// available to us, and we can use a stack-based model for our virtual machine.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Instruction {
+pub enum InstructionKind {
     /// Load a constant value (one known at compile time) onto the stack.
     LoadConst(Value),
 
@@ -85,4 +86,21 @@ pub enum Instruction {
 
     /// Output the top value on the stack.
     Output,
+}
+
+/// Represents a single instruction in the bytecode, along with its associated metadata, such as
+/// source code spans.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Instruction {
+    /// The kind of instruction.
+    pub kind: InstructionKind,
+
+    /// The span(s) of the source code that this instruction originated from.
+    pub spans: Vec<Range<usize>>,
+}
+
+impl From<InstructionKind> for Instruction {
+    fn from(kind: InstructionKind) -> Self {
+        Self { kind, spans: Vec::new() }
+    }
 }

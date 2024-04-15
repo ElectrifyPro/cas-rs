@@ -8,8 +8,9 @@ use cas_parser::parser::ast::{Call, FuncHeader, LitSym, Stmt};
 use error::{kind, Error};
 use std::collections::HashMap;
 use expr::compile_stmts;
-pub use instruction::Instruction;
+pub use instruction::{Instruction, InstructionKind};
 use item::{Func, FuncDecl, Item, Symbol, SymbolDecl};
+use std::ops::Range;
 
 /// A label that can be used to reference a specific instruction in the bytecode.
 ///
@@ -401,8 +402,20 @@ impl Compiler {
         }
     }
 
-    /// Adds an instruction to the current chunk.
-    pub fn add_instr(&mut self, instruction: Instruction) {
+    /// Adds an instruction to the current chunk with no associated source code span.
+    pub fn add_instr(&mut self, instruction: impl Into<Instruction>) {
+        let chunk = self.chunk_mut();
+        chunk.instructions.push(instruction.into());
+    }
+
+    /// Adds an instruction to the current chunk with an associated source code span(s).
+    pub fn add_instr_with_spans(
+        &mut self,
+        instruction: impl Into<Instruction>,
+        spans: Vec<Range<usize>>,
+    ) {
+        let mut instruction = instruction.into();
+        instruction.spans = spans;
         let chunk = self.chunk_mut();
         chunk.instructions.push(instruction);
     }

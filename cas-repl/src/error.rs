@@ -1,7 +1,7 @@
 use ariadne::Source;
 use cas_compiler::error::Error as CompileError;
-use cas_compute::numerical::error::Error as EvalError;
 use cas_parser::parser::error::Error as ParseError;
+use cas_vm::{error::Error as EvalError, ReplVmError};
 
 /// Utility enum to package errors that can occur while parsing / evaluating.
 pub enum Error {
@@ -53,5 +53,14 @@ impl From<CompileError> for Error {
 impl From<EvalError> for Error {
     fn from(err: EvalError) -> Self {
         Self::EvalError(err)
+    }
+}
+
+impl From<ReplVmError> for Error {
+    fn from(err: ReplVmError) -> Self {
+        match err {
+            ReplVmError::Compile(err) => Self::CompileError(err),
+            ReplVmError::Eval(err) => Self::EvalError(err),
+        }
     }
 }

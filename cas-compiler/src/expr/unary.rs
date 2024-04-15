@@ -1,10 +1,13 @@
 use cas_parser::parser::ast::unary::Unary;
-use crate::{error::Error, Compile, Compiler, Instruction};
+use crate::{error::Error, Compile, Compiler, InstructionKind};
 
 impl Compile for Unary {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
         self.operand.compile(compiler)?;
-        compiler.add_instr(Instruction::Unary(self.op.kind));
+        compiler.add_instr_with_spans(
+            InstructionKind::Unary(self.op.kind),
+            vec![self.operand.span(), self.op.span.clone()],
+        );
         Ok(())
     }
 }

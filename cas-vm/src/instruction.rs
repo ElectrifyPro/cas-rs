@@ -1,18 +1,89 @@
 use cas_compute::{
     funcs::miscellaneous::Factorial,
-    numerical::{error::kind::InvalidBinaryOperation, value::Value},
+    numerical::value::Value,
     primitive::{complex, float, int_from_float},
 };
+use cas_error::ErrorKind;
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
+use crate::error::{
+    kind::{BitshiftOverflow, InvalidBinaryOperation, InvalidUnaryOperation},
+    Error,
+};
 use replace_with::replace_with_or_abort;
 use rug::ops::Pow;
+use std::ops::Range;
+
+/// Represents an error that can occur while evaluating a binary or unary expression.
+#[derive(Debug)]
+pub(crate) enum EvalError {
+    /// Attempted to apply a binary operator to incompatible operands.
+    InvalidBinaryOperation(InvalidBinaryOperation),
+
+    /// Attempted to apply a unary operator to an incompatible operand.
+    InvalidUnaryOperation(InvalidUnaryOperation),
+
+    /// Attempted to bitshift by a value that is too large.
+    BitshiftOverflow(BitshiftOverflow),
+}
+
+impl From<InvalidBinaryOperation> for EvalError {
+    fn from(e: InvalidBinaryOperation) -> Self {
+        EvalError::InvalidBinaryOperation(e)
+    }
+}
+
+impl From<InvalidUnaryOperation> for EvalError {
+    fn from(e: InvalidUnaryOperation) -> Self {
+        EvalError::InvalidUnaryOperation(e)
+    }
+}
+
+impl From<BitshiftOverflow> for EvalError {
+    fn from(e: BitshiftOverflow) -> Self {
+        EvalError::BitshiftOverflow(e)
+    }
+}
+
+impl EvalError {
+    /// Convert the [`EvalError`] into the general [`Error`] type, using the given syntax tree to
+    /// provide spans.
+    pub fn into_error(self, spans: Vec<Range<usize>>) -> Error {
+        // match self {
+        //     EvalError::InvalidBinaryOperation(e) => Error {
+        //         spans,
+        //         kind: Box::new(e) as Box<dyn ErrorKind>,
+        //     },
+        //     EvalError::InvalidUnaryOperation(e) => Error {
+        //         spans,
+        //         kind: Box::new(e) as Box<dyn ErrorKind>,
+        //     },
+        //     EvalError::BitshiftOverflow(e) => Error {
+        //         spans,
+        //         kind: Box::new(e) as Box<dyn ErrorKind>,
+        //     },
+        // }
+        macro_rules! error {
+            ($( $kind:ident ),*) => {
+                match self {
+                    $( EvalError::$kind(e) => Error {
+                        spans,
+                        kind: Box::new(e) as Box<dyn ErrorKind>,
+                    }, )*
+                }
+            };
+        }
+
+        error!(InvalidBinaryOperation, InvalidUnaryOperation, BitshiftOverflow)
+    }
+}
 
 /// Evaluates a binary expression with two integer operands.
 fn eval_integer_operands(
     op: BinOpKind,
     left: Value,
     right: Value,
-) -> Result<Value, ()> {
+) -> Result<Value, EvalError> {
+    let typename = left.typename();
     let (Value::Integer(left), Value::Integer(right)) = (left, right) else {
         unreachable!()
     };
@@ -36,8 +107,8 @@ fn eval_integer_operands(
         BinOpKind::Mod => Value::Integer(left % right),
         BinOpKind::Add => Value::Integer(left + right),
         BinOpKind::Sub => Value::Integer(left - right),
-        BinOpKind::BitRight => Value::Integer(left >> right.to_usize().unwrap()),
-        BinOpKind::BitLeft => Value::Integer(left << right.to_usize().unwrap()),
+        BinOpKind::BitRight => Value::Integer(left >> right.to_usize().ok_or(BitshiftOverflow)?),
+        BinOpKind::BitLeft => Value::Integer(left << right.to_usize().ok_or(BitshiftOverflow)?),
         BinOpKind::BitAnd => Value::Integer(left & right),
         BinOpKind::BitOr => Value::Integer(left | right),
         BinOpKind::Greater => Value::Boolean(left > right),
@@ -48,7 +119,12 @@ fn eval_integer_operands(
         BinOpKind::NotEq => Value::Boolean(left != right),
         BinOpKind::ApproxEq => Value::Boolean((left - right).abs() < 1e-6),
         BinOpKind::ApproxNotEq => Value::Boolean((left - right).abs() >= 1e-6),
-        BinOpKind::And | BinOpKind::Or => unreachable!(),
+        BinOpKind::And | BinOpKind::Or => return Err(InvalidBinaryOperation {
+            op,
+            implicit: false,
+            left: typename,
+            right: typename,
+        })?,
     })
 }
 
@@ -57,7 +133,8 @@ fn eval_float_operands(
     op: BinOpKind,
     left: Value,
     right: Value,
-) -> Result<Value, ()> {
+) -> Result<Value, EvalError> {
+    let typename = left.typename();
     let (Value::Float(left), Value::Float(right)) = (left, right) else {
         unreachable!()
     };
@@ -68,8 +145,8 @@ fn eval_float_operands(
         BinOpKind::Mod => Value::Float(left % right),
         BinOpKind::Add => Value::Float(left + right),
         BinOpKind::Sub => Value::Float(left - right),
-        BinOpKind::BitRight => Value::Float(float(int_from_float(left) >> int_from_float(right).to_usize().unwrap())),
-        BinOpKind::BitLeft => Value::Float(float(int_from_float(left) << int_from_float(right).to_usize().unwrap())),
+        BinOpKind::BitRight => Value::Float(float(int_from_float(left) >> int_from_float(right).to_usize().ok_or(BitshiftOverflow)?)),
+        BinOpKind::BitLeft => Value::Float(float(int_from_float(left) << int_from_float(right).to_usize().ok_or(BitshiftOverflow)?)),
         BinOpKind::BitAnd => Value::Float(float(int_from_float(left) & int_from_float(right))),
         BinOpKind::BitOr => Value::Float(float(int_from_float(left) | int_from_float(right))),
         BinOpKind::Greater => Value::Boolean(left > right),
@@ -80,7 +157,12 @@ fn eval_float_operands(
         BinOpKind::NotEq => Value::Boolean(left != right),
         BinOpKind::ApproxEq => Value::Boolean((left - right).abs() < 1e-6),
         BinOpKind::ApproxNotEq => Value::Boolean((left - right).abs() >= 1e-6),
-        BinOpKind::And | BinOpKind::Or => unreachable!(),
+        BinOpKind::And | BinOpKind::Or => return Err(InvalidBinaryOperation {
+            op,
+            implicit: false,
+            left: typename,
+            right: typename,
+        })?,
     })
 }
 
@@ -89,7 +171,8 @@ fn eval_complex_operands(
     op: BinOpKind,
     left: Value,
     right: Value,
-) -> Result<Value, ()> {
+) -> Result<Value, EvalError> {
+    let typename = left.typename();
     let (Value::Complex(left), Value::Complex(right)) = (left, right) else {
         unreachable!()
     };
@@ -117,7 +200,12 @@ fn eval_complex_operands(
         },
         BinOpKind::And | BinOpKind::Or | BinOpKind::Mod
             | BinOpKind::BitRight | BinOpKind::BitLeft | BinOpKind::BitAnd | BinOpKind::BitOr
-            | BinOpKind::Greater | BinOpKind::GreaterEq | BinOpKind::Less | BinOpKind::LessEq => unreachable!(),
+            | BinOpKind::Greater | BinOpKind::GreaterEq | BinOpKind::Less | BinOpKind::LessEq => return Err(InvalidBinaryOperation {
+            op,
+            implicit: false,
+            left: typename,
+            right: typename,
+        })?
     })
 }
 
@@ -126,7 +214,8 @@ fn eval_bool_operands(
     op: BinOpKind,
     left: Value,
     right: Value,
-) -> Result<Value, ()> {
+) -> Result<Value, EvalError> {
+    let typename = left.typename();
     let (Value::Boolean(left), Value::Boolean(right)) = (left, right) else {
         unreachable!()
     };
@@ -144,7 +233,12 @@ fn eval_bool_operands(
         BinOpKind::Less => Value::Boolean(left < right),
         BinOpKind::LessEq => Value::Boolean(left <= right),
         BinOpKind::Exp | BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod | BinOpKind::Add
-            | BinOpKind::Sub | BinOpKind::BitRight | BinOpKind::BitLeft => unreachable!(),
+            | BinOpKind::Sub | BinOpKind::BitRight | BinOpKind::BitLeft => return Err(InvalidBinaryOperation {
+            op,
+            implicit: false,
+            left: typename,
+            right: typename,
+        })?
     })
 }
 
@@ -153,7 +247,8 @@ fn eval_unit_operands(
     op: BinOpKind,
     left: Value,
     right: Value,
-) -> Result<Value, ()> {
+) -> Result<Value, EvalError> {
+    let typename = left.typename();
     let (Value::Unit, Value::Unit) = (left, right) else {
         unreachable!()
     };
@@ -162,7 +257,12 @@ fn eval_unit_operands(
         BinOpKind::NotEq | BinOpKind::ApproxNotEq | BinOpKind::Greater | BinOpKind::Less => Value::Boolean(false),
         BinOpKind::Exp | BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod | BinOpKind::Add
             | BinOpKind::Sub | BinOpKind::BitRight | BinOpKind::BitLeft | BinOpKind::BitAnd
-            | BinOpKind::BitOr | BinOpKind::And | BinOpKind::Or => unreachable!(),
+            | BinOpKind::BitOr | BinOpKind::And | BinOpKind::Or => return Err(InvalidBinaryOperation {
+            op,
+            implicit: false,
+            left: typename,
+            right: typename,
+        })?
     })
 }
 
@@ -171,7 +271,8 @@ fn eval_list_operands(
     op: BinOpKind,
     left: Value,
     right: Value,
-) -> Result<Value, ()> {
+) -> Result<Value, EvalError> {
+    let typename = left.typename();
     let (Value::List(left), Value::List(right)) = (left, right) else {
         unreachable!()
     };
@@ -183,22 +284,38 @@ fn eval_list_operands(
         BinOpKind::Exp | BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod | BinOpKind::Add
             | BinOpKind::Sub | BinOpKind::BitRight | BinOpKind::BitLeft | BinOpKind::BitAnd
             | BinOpKind::BitOr | BinOpKind::And | BinOpKind::Or | BinOpKind::Greater
-            | BinOpKind::GreaterEq | BinOpKind::Less | BinOpKind::LessEq => unreachable!(),
+            | BinOpKind::GreaterEq | BinOpKind::Less | BinOpKind::LessEq => return Err(InvalidBinaryOperation {
+            op,
+            implicit: false,
+            left: typename,
+            right: typename,
+        })?
     })
 }
 
 /// Evaluates a binary expression with exactly one list operand, and any other type.
 ///
 /// This works by applying the operation element-wise to the list.
-fn eval_list_operand(op: BinOpKind, left: Value, right: Value) -> Result<Value, ()> {
+fn eval_list_operand(op: BinOpKind, left: Value, right: Value) -> Result<Value, EvalError> {
     match (left, right) {
         (Value::List(list), right) => {
             {
                 let mut list = list.borrow_mut();
                 for value in list.iter_mut() {
-                    replace_with_or_abort(value, |value| {
-                        eval_binary(op, value, right.clone()).unwrap()
-                    });
+                    // replace_with_or_abort(value, |value| {
+                    //     eval_binary(op, value, right.clone()).unwrap()
+                    // });
+                    unsafe {
+                        let copy = std::ptr::read(value);
+                        match eval_binary(op, copy, right.clone()) {
+                            Ok(result) => {
+                                std::ptr::write(value, result);
+                            }
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
+                    }
                 }
             }
             Ok(Value::List(list))
@@ -207,9 +324,20 @@ fn eval_list_operand(op: BinOpKind, left: Value, right: Value) -> Result<Value, 
             {
                 let mut list = list.borrow_mut();
                 for value in list.iter_mut() {
-                    replace_with_or_abort(value, |value| {
-                        eval_binary(op, left.clone(), value).unwrap()
-                    });
+                    // replace_with_or_abort(value, |value| {
+                    //     eval_binary(op, left.clone(), value).unwrap()
+                    // });
+                    unsafe {
+                        let copy = std::ptr::read(value);
+                        match eval_binary(op, left.clone(), copy) {
+                            Ok(result) => {
+                                std::ptr::write(value, result);
+                            }
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
+                    }
                 }
             }
             Ok(Value::List(list))
@@ -223,31 +351,31 @@ fn eval_binary(
     op: BinOpKind,
     left: Value,
     right: Value,
-) -> Result<Value, InvalidBinaryOperation> {
+) -> Result<Value, EvalError> {
     if left.is_integer() && right.is_integer() {
-        return Ok(eval_integer_operands(op, left.coerce_integer(), right.coerce_integer()).unwrap());
+        return Ok(eval_integer_operands(op, left.coerce_integer(), right.coerce_integer())?);
     }
 
     if left.is_float() && right.is_float() {
-        return Ok(eval_float_operands(op, left.coerce_float(), right.coerce_float()).unwrap());
+        return Ok(eval_float_operands(op, left.coerce_float(), right.coerce_float())?);
     }
 
     if left.is_complex() && right.is_complex() {
-        return Ok(eval_complex_operands(op, left.coerce_complex(), right.coerce_complex()).unwrap());
+        return Ok(eval_complex_operands(op, left.coerce_complex(), right.coerce_complex())?);
     }
 
     if left.is_boolean() && right.is_boolean() {
-        return Ok(eval_bool_operands(op, left, right).unwrap());
+        return Ok(eval_bool_operands(op, left, right)?);
     }
 
     if left.is_unit() && right.is_unit() {
-        return Ok(eval_unit_operands(op, left, right).unwrap());
+        return Ok(eval_unit_operands(op, left, right)?);
     }
 
     if left.is_list() && right.is_list() {
-        return Ok(eval_list_operands(op, left, right).unwrap());
+        return Ok(eval_list_operands(op, left, right)?);
     } else if left.is_list() || right.is_list() {
-        return Ok(eval_list_operand(op, left, right).unwrap());
+        return Ok(eval_list_operand(op, left, right)?);
     }
 
     Err(InvalidBinaryOperation {
@@ -255,11 +383,14 @@ fn eval_binary(
         implicit: false, // TODO
         left: left.typename(),
         right: right.typename(),
-    })
+    })?
 }
 
 /// Helper to execute binary evaluation instructions. The result is pushed onto the value stack.
-pub fn exec_binary_instruction(op: BinOpKind, value_stack: &mut Vec<Value>) -> Result<(), InvalidBinaryOperation> {
+pub fn exec_binary_instruction(
+    op: BinOpKind,
+    value_stack: &mut Vec<Value>,
+) -> Result<(), EvalError> {
     let right = value_stack.pop().unwrap();
     let left = value_stack.pop().unwrap();
     value_stack.push(eval_binary(op, left, right)?);
@@ -267,9 +398,10 @@ pub fn exec_binary_instruction(op: BinOpKind, value_stack: &mut Vec<Value>) -> R
 }
 
 /// Helper to execute unary evaluation instructions.
-pub fn exec_unary_instruction(op: UnaryOpKind, value_stack: &mut Vec<Value>) {
-    fn eval(op: UnaryOpKind, value: Value) -> Value {
-        match value {
+pub fn exec_unary_instruction(op: UnaryOpKind, value_stack: &mut Vec<Value>) -> Result<(), EvalError> {
+    fn eval(op: UnaryOpKind, value: Value) -> Result<Value, EvalError> {
+        let typename = value.typename();
+        Ok(match value {
             Value::Float(num) => match op {
                 UnaryOpKind::Not => Value::Boolean(num.is_zero()),
                 UnaryOpKind::BitNot => Value::Float(float(!int_from_float(num))),
@@ -285,30 +417,51 @@ pub fn exec_unary_instruction(op: UnaryOpKind, value_stack: &mut Vec<Value>) {
             Value::Complex(ref comp) => match op {
                 UnaryOpKind::Not => Value::Boolean(comp.is_zero()),
                 UnaryOpKind::Neg => Value::Complex(complex(&*comp.as_neg())),
-                _ => unreachable!(),
+                op => return Err(InvalidUnaryOperation {
+                    op,
+                    expr_type: typename,
+                })?,
             },
             Value::Boolean(b) => {
                 if op == UnaryOpKind::Not {
                     Value::Boolean(!b)
                 } else {
-                    unreachable!()
+                    return Err(InvalidUnaryOperation {
+                        op,
+                        expr_type: typename,
+                    })?;
                 }
             },
-            Value::Unit => unreachable!(),
+            Value::Unit => return Err(InvalidUnaryOperation {
+                op,
+                expr_type: typename,
+            })?,
             Value::List(list) => {
                 // apply unary operation element-wise
                 {
                     let mut list = list.borrow_mut();
                     for value in list.iter_mut() {
                         // TODO: aborts if the operation is invalid
-                        replace_with_or_abort(value, |value| eval(op, value));
+                        // replace_with_or_abort(value, |value| eval(op, value));
+                        unsafe {
+                            let copy = std::ptr::read(value);
+                            match eval(op, copy) {
+                                Ok(result) => {
+                                    std::ptr::write(value, result);
+                                }
+                                Err(e) => {
+                                    return Err(e);
+                                }
+                            }
+                        }
                     }
                 }
                 Value::List(list)
-            },
-        }
+            }
+        })
     }
 
     let operand = value_stack.pop().unwrap().coerce_number();
-    value_stack.push(eval(op, operand));
+    value_stack.push(eval(op, operand)?);
+    Ok(())
 }

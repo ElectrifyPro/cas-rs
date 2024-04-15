@@ -1,3 +1,4 @@
+pub mod error;
 mod frame;
 mod instruction;
 
@@ -6,7 +7,6 @@ use cas_compute::{
     funcs::all,
     numerical::{
         ctxt::TrigMode,
-        error::Error as EvalError,
         value::Value,
     },
     primitive::{complex, float},
@@ -15,13 +15,14 @@ use cas_parser::parser::ast::Stmt;
 use cas_compiler::{
     error::Error as CompileError,
     expr::compile_stmts,
-    instruction::Instruction,
+    instruction::InstructionKind,
     item::{Func, Item, Symbol},
     Chunk,
     Compile,
     Compiler,
     Label,
 };
+use error::Error as EvalError;
 use frame::Frame;
 use instruction::{exec_binary_instruction, exec_unary_instruction};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -117,19 +118,19 @@ impl Vm {
             // println!("value stack: {:?}", value_stack.iter().map(|v: &Value| v.to_string()).collect::<Vec<_>>());
             // println!("call stack: {:?}", call_stack);
             // println!("instruction to execute: {:?} (chunk/inst: {}/{})", instruction, instruction_pointer.0, instruction_pointer.1);
-            match instruction {
-                Instruction::LoadConst(value) => value_stack.push(value.clone()),
-                Instruction::CreateList(len) => {
+            match &instruction.kind {
+                InstructionKind::LoadConst(value) => value_stack.push(value.clone()),
+                InstructionKind::CreateList(len) => {
                     let elements = value_stack.split_off(value_stack.len() - *len);
                     value_stack.push(Value::List(Rc::new(RefCell::new(elements))));
                 },
-                Instruction::CreateListRepeat => {
+                InstructionKind::CreateListRepeat => {
                     let count = value_stack.pop().unwrap();
                     let value = value_stack.pop().unwrap();
                     let list = vec![value; count.into_usize().unwrap()];
                     value_stack.push(Value::List(Rc::new(RefCell::new(list))));
                 },
-                Instruction::LoadVar(id) => {
+                InstructionKind::LoadVar(id) => {
                     match id {
                         Symbol::User(id) => {
                             let value = call_stack.iter()
@@ -151,16 +152,16 @@ impl Vm {
                         },
                     }
                 },
-                Instruction::StoreVar(id) => {
+                InstructionKind::StoreVar(id) => {
                     let last_frame = call_stack.last_mut().unwrap();
                     let value = value_stack.last().cloned().unwrap();
                     last_frame.add_variable(id.to_owned(), value);
                 },
-                Instruction::AssignVar(id) => {
+                InstructionKind::AssignVar(id) => {
                     let last_frame = call_stack.last_mut().unwrap();
                     last_frame.add_variable(id.to_owned(), value_stack.pop().unwrap());
                 },
-                Instruction::StoreIndexed => {
+                InstructionKind::StoreIndexed => {
                     let index = value_stack.pop().unwrap();
                     let list = value_stack.pop().unwrap();
                     let value = value_stack.last().cloned().unwrap();
@@ -170,7 +171,7 @@ impl Vm {
                         todo!()
                     }
                 },
-                Instruction::LoadIndexed => {
+                InstructionKind::LoadIndexed => {
                     let index = value_stack.pop().unwrap();
                     let list = value_stack.pop().unwrap();
                     if let Value::List(list) = list {
@@ -182,12 +183,20 @@ impl Vm {
                 },
                 // .unwrap() helps us verify that exactly the right number of values are produced
                 // and popped through the program
-                Instruction::Drop => {
+                InstructionKind::Drop => {
                     value_stack.pop().unwrap();
                 },
-                Instruction::Binary(op) => exec_binary_instruction(*op, &mut value_stack).unwrap(),
-                Instruction::Unary(op) => exec_unary_instruction(*op, &mut value_stack),
-                Instruction::Call(chunk) => {
+                InstructionKind::Binary(op) => {
+                    if let Err(err) = exec_binary_instruction(*op, &mut value_stack) {
+                        return Err(err.into_error(instruction.spans.clone()));
+                    }
+                },
+                InstructionKind::Unary(op) => {
+                    if let Err(err) = exec_unary_instruction(*op, &mut value_stack) {
+                        return Err(err.into_error(instruction.spans.clone()));
+                    }
+                },
+                InstructionKind::Call(chunk) => {
                     match chunk {
                         Func::User(chunk) => {
                             call_stack.push(Frame::new((instruction_pointer.0, instruction_pointer.1 + 1)));
@@ -202,7 +211,7 @@ impl Vm {
                         },
                     }
                 },
-                Instruction::Return => {
+                InstructionKind::Return => {
                     let frame = call_stack.pop().unwrap();
                     instruction_pointer = frame.return_instruction;
                     if call_stack.is_empty() {
@@ -211,11 +220,11 @@ impl Vm {
                         continue;
                     }
                 },
-                Instruction::Jump(label) => {
+                InstructionKind::Jump(label) => {
                     instruction_pointer = self.labels[label];
                     continue;
                 },
-                Instruction::JumpIfFalse(label) => {
+                InstructionKind::JumpIfFalse(label) => {
                     let value = value_stack.pop().unwrap();
                     if let Value::Boolean(b) = value {
                         if !b {
@@ -226,7 +235,7 @@ impl Vm {
                         todo!()
                     }
                 },
-                Instruction::Output => todo!(),
+                InstructionKind::Output => todo!(),
             }
 
             instruction_pointer.1 += 1;
@@ -254,6 +263,25 @@ pub struct ReplVm {
     vm: Vm,
 }
 
+/// A compilation error or an execution error.
+#[derive(Debug)]
+pub enum ReplVmError {
+    Compile(CompileError),
+    Eval(EvalError),
+}
+
+impl From<CompileError> for ReplVmError {
+    fn from(err: CompileError) -> Self {
+        Self::Compile(err)
+    }
+}
+
+impl From<EvalError> for ReplVmError {
+    fn from(err: EvalError) -> Self {
+        Self::Eval(err)
+    }
+}
+
 impl ReplVm {
     /// Creates a new [`ReplVm`] with the default context.
     pub fn new() -> Self {
@@ -261,7 +289,7 @@ impl ReplVm {
     }
 
     /// Compiles the given source code and executes it, updating the VM state.
-    pub fn execute(&mut self, stmts: Vec<Stmt>) -> Result<Value, CompileError> {
+    pub fn execute(&mut self, stmts: Vec<Stmt>) -> Result<Value, ReplVmError> {
         // TODO: this feels kinda hacky
         let compiler_clone = self.compiler.clone();
         let vm_clone = self.vm.clone();
@@ -285,8 +313,7 @@ impl ReplVm {
             .map(|(label, location)| (label, location.unwrap()))
             .collect();
 
-        let value = self.vm.run().unwrap();
-        Ok(value)
+        self.vm.run().map_err(ReplVmError::from)
     }
 }
 

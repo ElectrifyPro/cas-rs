@@ -1,5 +1,5 @@
 use cas_parser::parser::ast::index::Index;
-use crate::{error::Error, Compile, Compiler, Instruction};
+use crate::{error::Error, Compile, Compiler, InstructionKind};
 
 impl Compile for Index {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
@@ -10,7 +10,7 @@ impl Compile for Index {
         self.index.compile(compiler)?;
 
         // load the value at the index onto the stack
-        compiler.add_instr(Instruction::LoadIndexed);
+        compiler.add_instr(InstructionKind::LoadIndexed);
         Ok(())
     }
 }

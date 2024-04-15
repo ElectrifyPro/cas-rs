@@ -232,8 +232,8 @@ impl Vm {
             instruction_pointer.1 += 1;
         }
 
-        assert!(value_stack.len() <= 1);
-        assert!(call_stack.len() == 1);
+        assert_eq!(value_stack.len(), 1);
+        assert_eq!(call_stack.len(), 1);
 
         self.variables = call_stack.pop().unwrap().variables;
         Ok(value_stack.pop().unwrap())
@@ -446,6 +446,13 @@ g(2, 3)").unwrap() {
 }
 f(-5)").unwrap();
         assert_eq!(result, Value::Integer(int(5)));
+    }
+
+    #[test]
+    fn exec_unit_mess() {
+        let result = run_program("f() = {}
+f()").unwrap();
+        assert_eq!(result, Value::Unit);
     }
 
     #[test]

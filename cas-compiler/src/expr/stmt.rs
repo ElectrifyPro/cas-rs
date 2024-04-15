@@ -1,3 +1,4 @@
+use cas_compute::numerical::value::Value;
 use cas_parser::parser::ast::stmt::Stmt;
 use crate::{error::Error, Compile, Compiler, Instruction};
 
@@ -5,6 +6,7 @@ use crate::{error::Error, Compile, Compiler, Instruction};
 pub fn compile_stmts(stmts: &[Stmt], compiler: &mut Compiler) -> Result<(), Error> {
     let Some((last, stmts)) = stmts.split_last() else {
         // nothing to compile
+        compiler.add_instr(Instruction::LoadConst(Value::Unit));
         return Ok(());
     };
 

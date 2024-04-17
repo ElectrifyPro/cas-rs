@@ -44,17 +44,6 @@ pub enum Value {
     List(Rc<RefCell<Vec<Value>>>),
 }
 
-#[cfg(test)]
-impl Value {
-    /// Returns true if two values are numbers, and they are approximately equal.
-    pub fn approx_eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Value::Float(a), Value::Float(b)) => float(a - b) / float(a) < float(1e-3),
-            _ => false,
-        }
-    }
-}
-
 impl Value {
     /// Returns the typename of this value.
     pub fn typename(&self) -> &'static str {

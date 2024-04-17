@@ -262,20 +262,14 @@ impl Display for ValueFormatter<'_> {
 
 #[cfg(test)]
 mod tests {
-    use cas_parser::parser::{ast::Expr, Parser};
-    use crate::numerical::eval::Eval;
+    use crate::primitive::{complex, float_from_str, int};
+    use rug::{ops::Pow, Integer};
 
     use super::*;
 
-    /// Evaluate the given expression and return the result.
-    fn eval(expr: &str) -> Value {
-        let expr = Parser::new(expr).try_parse_full::<Expr>().unwrap();
-        expr.eval(&mut Default::default()).unwrap()
-    }
-
     #[test]
     fn highly_precise_decimal() {
-        let float = eval("2.1 ^ 100");
+        let float = Value::Float(float_from_str("2.1").pow(100u16));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
             .precision(Some(150))
@@ -291,7 +285,7 @@ mod tests {
 
     #[test]
     fn highly_precise_decimal_2() {
-        let float = eval("2^457 / 10^50");
+        let float = Value::Float(float(2).pow(457u16) / float(10).pow(50u16));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
             .precision(Some(150))
@@ -307,7 +301,7 @@ mod tests {
 
     #[test]
     fn highly_precise_decimal_3() {
-        let float = eval("1/sqrt(2)");
+        let float = Value::Float(float(2).sqrt().recip());
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
             .build();
@@ -321,7 +315,7 @@ mod tests {
 
     #[test]
     fn scientific_e() {
-        let float = eval("1/256!");
+        let float = Value::Float(float(int(Integer::factorial(256))).recip());
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Scientific)
             .scientific(Scientific::E)
@@ -336,11 +330,11 @@ mod tests {
 
     #[test]
     fn highly_precise_scientific() {
-        let float = eval("124!");
+        let int = Value::Integer(int(Integer::factorial(124)));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Scientific)
             .build();
-        let formatted = format!("{}", float.fmt(opts));
+        let formatted = format!("{}", int.fmt(opts));
 
         assert_eq!(
             formatted,
@@ -350,7 +344,7 @@ mod tests {
 
     #[test]
     fn highly_precise_scientific_2() {
-        let float = eval("3^1100 / 12^740");
+        let float = Value::Float(float(3).pow(1100u16) / float(12).pow(740u16));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Scientific)
             .build();
@@ -364,7 +358,10 @@ mod tests {
 
     #[test]
     fn highly_precise_complex() {
-        let complex = eval("1/128! - 1/256! * i");
+        let complex = Value::Complex(complex((
+            float(int(Integer::factorial(128))).recip(),
+            -float(int(Integer::factorial(256))).recip(),
+        )));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Scientific)
             .build();
@@ -378,7 +375,7 @@ mod tests {
 
     #[test]
     fn complex_imaginary_part() {
-        let complex = eval("sqrt(-4)");
+        let complex = Value::Complex(complex(-4).sqrt());
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
             .build();
@@ -390,12 +387,12 @@ mod tests {
     #[test]
     fn complex_imaginary_edge() {
         let complexes = [
-            eval("1 + 0i"),
-            eval("3 - i"),
-            eval("1 - 2i"),
-            eval("i + i - i + 6"),
-            eval("i"),
-            eval("-i"),
+            Value::Complex(complex((1, 0))),
+            Value::Complex(complex((3, -1))),
+            Value::Complex(complex((1, -2))),
+            Value::Complex(complex((6, 1))),
+            Value::Complex(complex((0, 1))),
+            Value::Complex(complex((0, -1))),
         ];
         let outputs = [
             "1",
@@ -418,7 +415,7 @@ mod tests {
 
     #[test]
     fn trailing_zeroes() {
-        let float = eval("37000000.");
+        let float = Value::Float(float(37000000.));
         let opts = FormatOptionsBuilder::new()
             .separators(Separator::Always)
             .build();
@@ -429,7 +426,7 @@ mod tests {
 
     #[test]
     fn trailing_zeroes_2() {
-        let float = eval("1400.0010");
+        let float = Value::Float(float_from_str("1400.0010"));
         let opts = FormatOptionsBuilder::new()
             .precision(Some(10))
             .separators(Separator::Always)

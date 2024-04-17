@@ -346,7 +346,7 @@ impl Builtin {
                 let trig_convert_expr = if radian == Radian::Input {
                     Some(quote! {
                         .map(|arg| {
-                            if trig_mode == crate::numerical::ctxt::TrigMode::Degrees {
+                            if trig_mode == crate::numerical::trig_mode::TrigMode::Degrees {
                                 arg.into_radians()
                             } else {
                                 arg
@@ -426,7 +426,7 @@ impl Builtin {
 
         if radian == Radian::Output {
             quote! {
-                if trig_mode == crate::numerical::ctxt::TrigMode::Degrees {
+                if trig_mode == crate::numerical::trig_mode::TrigMode::Degrees {
                     Ok(#make_value.into_degrees())
                 } else {
                     Ok(#make_value)
@@ -457,7 +457,7 @@ impl Builtin {
 
                 fn eval(
                     &self,
-                    trig_mode: crate::numerical::ctxt::TrigMode,
+                    trig_mode: crate::numerical::trig_mode::TrigMode,
                     args: &mut dyn Iterator<Item = crate::numerical::value::Value>,
                 ) -> Result<crate::numerical::value::Value, crate::numerical::builtin::error::BuiltinError> {
                     let mut arg_count = 0;

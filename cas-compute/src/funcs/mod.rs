@@ -6,7 +6,8 @@
 //!
 //! If the `numerical` feature is enabled, the [`Builtin`] trait (provided by the feature) is also
 //! implemented for each function, enabling the function to be evaluated with arbitrary arguments
-//! at runtime after type checking.
+//! at runtime after type checking. See the `cas-vm` crate for more information on runtime
+//! evaluation.
 //!
 //! # Example
 //!
@@ -19,18 +20,7 @@
 //! let result = Sin::eval_static(complex(&*PI) / 2.0);
 //! println!("sin(pi / 2) = {}", result);
 //!
-//! // evaluate sin(pi / 2) using `Builtin` trait
-//! #[cfg(feature = "numerical")]
-//! {
-//!     // `Eval` trait is required, provided by `numerical` feature
-//!     use cas_compute::numerical::eval::Eval;
-//!     use cas_parser::parser::ast::Expr;
-//!     use cas_parser::parser::Parser;
-//!
-//!     let expr = Parser::new("sin(pi / 2)").try_parse_full::<Expr>().unwrap();
-//!     let result = expr.eval(&mut Default::default()).unwrap();
-//!     println!("sin(pi / 2) = {}", result);
-//! }
+//! // see `cas-vm` for runtime evaluation of this example
 //! ```
 
 pub mod angle;

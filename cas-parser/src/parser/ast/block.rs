@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 /// A blocked expression. A [`Block`] can contain multiple expressions in the form of statements.
 /// The last statement in the block is the return value of the block.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Block {
     /// The inner statements.

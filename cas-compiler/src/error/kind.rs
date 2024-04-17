@@ -10,6 +10,7 @@ use cas_error::EXPR;
     help = "choose a different name for this variable",
     // TODO: add this note when merging with `dev`
     // note = "builtin constants include: `i`, `e`, `phi`, `pi`, or `tau`",
+    // note = "consider using `let` to shadow the constant",
 )]
 pub struct OverrideBuiltinConstant {
     /// The name of the variable that was attempted to be overridden.
@@ -84,4 +85,64 @@ pub struct InvalidDifferentiation {
 
     /// The number of arguments the function actually takes.
     pub actual: usize,
+}
+
+/// Too many arguments were given to a function call.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!("too many arguments given to the `{}` function", self.name),
+    labels = ["this function call", "", "these argument(s) are extraneous"],
+    help = format!(
+        "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
+        (&self.name).fg(EXPR),
+        self.expected,
+        self.given
+    )
+)]
+pub struct TooManyArguments {
+    /// The name of the function that was called.
+    pub name: String,
+
+    /// The number of arguments that were expected.
+    pub expected: usize,
+
+    /// The number of arguments that were given.
+    pub given: usize,
+}
+
+/// An argument to a function call is missing.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = match &*self.indices {
+        &[index] => format!("missing required argument #{} for the `{}` function", index + 1, self.name),
+        _ => format!(
+            "missing required arguments {} for the `{}` function",
+            self.indices
+                .iter()
+                .map(|i| format!("#{}", i + 1))
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.name
+        ),
+    },
+    labels = ["this function call", ""],
+    help = format!(
+        "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
+        (&self.name).fg(EXPR),
+        self.expected,
+        self.given
+    )
+)]
+pub struct MissingArgument {
+    /// The name of the function that was called.
+    pub name: String,
+
+    /// The indices of the missing arguments.
+    pub indices: Vec<usize>,
+
+    /// The number of arguments that were expected.
+    pub expected: usize,
+
+    /// The number of arguments that were given.
+    pub given: usize,
 }

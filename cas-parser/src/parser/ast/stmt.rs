@@ -12,7 +12,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// Represents a statement in CalcScript.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Stmt {
     /// The expression of a statement.

@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 /// can be used as the right-hand side of an assignment, or as the argument to a function call.
 ///
 /// In CalcBot, the `c-calculate` command accepts an expression as its argument.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Expr {
     /// A literal value.
@@ -196,7 +196,7 @@ impl Latex for Expr {
 /// expressions. Primary expressions are also self-contained. This means that primary expressions
 /// within a larger expression can be replaced with equivalent, but different kinds of primary
 /// expressions, and the larger expression will still be valid.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Primary {
     /// A literal value.
     Literal(Literal),

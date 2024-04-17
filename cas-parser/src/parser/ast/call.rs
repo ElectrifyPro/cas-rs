@@ -12,7 +12,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// A function call, such as `func(x, -40)`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Call {
     /// The name of the function to call.
@@ -35,6 +35,13 @@ impl Call {
     /// Returns the span of the function call.
     pub fn span(&self) -> Range<usize> {
         self.span.clone()
+    }
+
+    /// Returns a span that spans the selected arguments, given by index.
+    pub fn arg_span(&self, args: Range<usize>) -> Range<usize> {
+        let first = self.args[args.start].span().start;
+        let last = self.args[args.end].span().end;
+        first..last
     }
 
     /// Returns a set of two spans, where the first is the span of the function name (with the

@@ -10,7 +10,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// The associativity of a binary or unary operation.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Associativity {
     /// The binary / unary operation is left-associative.
     ///
@@ -94,7 +94,7 @@ impl Ord for Precedence {
 }
 
 /// The unary operation that is being performed.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum UnaryOpKind {
     Not,
@@ -124,7 +124,7 @@ impl UnaryOpKind {
 }
 
 /// A unary operator that takes one operand.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct UnaryOp {
     /// The kind of unary operator.
@@ -201,7 +201,7 @@ impl Latex for UnaryOp {
 }
 
 /// The binary operation that is being performed.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum BinOpKind {
     Exp,
@@ -259,7 +259,7 @@ impl BinOpKind {
 }
 
 /// A binary operator that takes two operands.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BinOp {
     /// The kind of binary operator.
@@ -397,7 +397,7 @@ impl Latex for BinOp {
 }
 
 /// The kind of assignment operator.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum AssignOpKind {
     Assign,
@@ -437,7 +437,7 @@ impl From<AssignOpKind> for BinOpKind {
 
 /// An assignment operator that takes two operands, assigning the value of the right operand to the
 /// left operand, possibly with an intermediate operation.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AssignOp {
     /// The kind of assignment operator.

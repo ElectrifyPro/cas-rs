@@ -12,7 +12,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// A `return` expression, used to return a value from a function.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Return {
     /// The value to return from the function.

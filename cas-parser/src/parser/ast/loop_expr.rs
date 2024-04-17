@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 /// A `loop` expression, as in `loop { ... }`. The code inside the braces is
 /// evaluated repeatedly until a `break` expression is encountered.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Loop {
     /// The body of the loop.
@@ -68,7 +68,7 @@ impl Latex for Loop {
 }
 
 /// A `break` expression, used to exit a loop, optionally with a value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Break {
     /// The value to return from the loop.
@@ -142,7 +142,7 @@ impl Latex for Break {
 }
 
 /// A `continue` expression, used to skip the rest of a loop iteration.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Continue {
     /// The region of the source code that this expression was parsed from.

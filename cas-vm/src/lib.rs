@@ -579,6 +579,24 @@ mod tests {
     }
 
     #[test]
+    fn complicated_func_call() {
+        let source = [
+            ("f(n = 3, k = 6) = n * k", Value::Unit),
+            ("f()", 18.into()),
+            ("f(9)", 54.into()),
+            ("f(8, 14)", 112.into()),
+        ];
+
+        let mut vm = ReplVm::new();
+        for (stmt, expected) in source {
+            println!("executing: {}", stmt);
+            let mut parser = Parser::new(stmt);
+            let stmt = parser.try_parse_full::<Stmt>().unwrap();
+            assert_eq!(vm.execute(vec![stmt]).unwrap(), expected);
+        }
+    }
+
+    #[test]
     fn builtin_func_arg_check() {
         assert_eq!(Abs.eval(Default::default(), &mut [Value::from(4.0)].into_iter()).unwrap().coerce_float(), 4.0.into());
         assert!(Abs.eval(Default::default(), &mut [Value::Unit].into_iter()).is_err());

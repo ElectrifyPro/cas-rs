@@ -27,7 +27,7 @@ use std::{collections::HashSet, fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// An integer literal, representing as a [`String`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitInt {
     /// The value of the integer literal as a string.
@@ -65,7 +65,7 @@ impl Latex for LitInt {
 }
 
 /// A floating-point literal, represented as a [`String`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitFloat {
     /// The value of the floating-point literal as a string.
@@ -111,7 +111,7 @@ pub const DIGITS: [char; 64] = [
 ];
 
 /// Helper struct to parse the digits used in various bases.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct RadixWord {
     /// The parsed digits.
     pub value: String,
@@ -166,7 +166,7 @@ fn validate_radix_base(num: &Int) -> ParseResult<u8> {
 
 /// A number written in radix notation. Radix notation allows users to express integers in a base
 /// other than base 10.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitRadix {
     /// The radix of the literal. This value must be between 2 and 64, inclusive.
@@ -259,7 +259,7 @@ impl Latex for LitRadix {
 }
 
 /// A boolean literal, either `true` or `false`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitBool {
     /// The value of the boolean literal.
@@ -300,7 +300,7 @@ impl Latex for LitBool {
 }
 
 /// A symbol / identifier literal. Symbols are used to represent variables and functions.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitSym {
     /// The name of the symbol.
@@ -350,7 +350,7 @@ impl Latex for LitSym {
 
 /// The unit type, written as `()`. The unit type is by-default returned by functions that do not
 /// return a value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitUnit {
     /// The region of the source code that this literal was parsed from.
@@ -384,7 +384,7 @@ impl Latex for LitUnit {
 
 /// The list type, consisting of a list of expressions surrounded by square brackets and delimited by
 /// commas: `[expr1, expr2, ...]`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitList {
     /// The list of expressions.
@@ -435,7 +435,7 @@ impl Latex for LitList {
 }
 
 /// The list type, formed by repeating the given expression `n` times: `[expr; n]`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitListRepeat {
     /// The expression to repeat.
@@ -502,7 +502,7 @@ impl Latex for LitListRepeat {
 ///
 /// A literal is any value that can is written directly into the source code. For example, the
 /// number `1` is a literal (it is currently the only literal type supported by CalcScript).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Literal {
     /// An integer literal.

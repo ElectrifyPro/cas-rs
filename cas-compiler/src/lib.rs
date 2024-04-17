@@ -234,7 +234,7 @@ impl Compiler {
 
         self.add_item(&header.name, Item::Func(FuncDecl {
             chunk: new_chunk_idx,
-            arity: header.params.len(),
+            signature: header.params.clone(),
             symbols: HashMap::new(),
         }))?;
 
@@ -367,8 +367,10 @@ impl Compiler {
         }
     }
 
-    /// Resolves a path to a function, given its name and the number of args we want to call it
-    /// with.
+    /// Resolves a path to a function.
+    ///
+    /// The function call must match the function's signature. An error is returned if this is not
+    /// the case, or if the function does not exist.
     ///
     /// Returns the index of the chunk containing the function.
     pub fn resolve_function(&self, call: &Call) -> Result<Func, Error> {
@@ -377,6 +379,7 @@ impl Compiler {
             .get(&*call.name.name)
             .map(|func| Func::Builtin(BuiltinCall {
                 builtin: func.as_ref(),
+                signature: func.sig().to_vec(),
                 num_given: call.args.len(),
             }));
 
@@ -388,7 +391,7 @@ impl Compiler {
             if let Some(Item::Func(func)) = table.get(&call.name.name) {
                 result = Some(Func::User(UserCall {
                     chunk: func.chunk,
-                    arity: func.arity,
+                    signature: func.signature.clone(),
                     num_given: call.args.len(),
                 }));
             }
@@ -408,15 +411,18 @@ impl Compiler {
             }
         }
 
+        // found matching function; now verify arg count (types are checked at runtime)
         if let Some(Item::Func(func)) = table.get(&call.name.name) {
             // is the function in the current scope?
+            func.check_call(call)?;
             Ok(Func::User(UserCall {
                 chunk: func.chunk,
-                arity: func.arity,
+                signature: func.signature.clone(),
                 num_given: call.args.len(),
             }))
         } else if let Some(func) = result {
             // use the last one we found
+            func.check_call(call)?;
             Ok(func)
         } else {
             // not found

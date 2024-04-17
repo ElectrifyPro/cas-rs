@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 /// expression is found.
 ///
 /// [`Parse`]: crate::parser::Parse
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Index {
     /// The expression being indexed.

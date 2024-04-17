@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 /// A `while` loop expression, such as `while x < 10 then x += 1`. The loop body is executed
 /// repeatedly as long as the outer condition is true.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct While {
     /// The condition that must be true for the loop body to be executed.

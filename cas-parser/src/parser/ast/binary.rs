@@ -17,7 +17,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// A binary operator, including assignment.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum BinOpExt {
     /// A binary operator, such as `+` or `*`.
     Op(BinOp),
@@ -55,7 +55,7 @@ impl From<AssignOp> for BinOpExt {
 }
 
 /// A binary expression, such as `1 + 2`. Binary expressions can include nested expressions.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Binary {
     /// The left-hand side of the binary expression.

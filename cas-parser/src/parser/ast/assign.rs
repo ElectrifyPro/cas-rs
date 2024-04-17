@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 /// A parameter of a function declaration, such as `x` or `y = 1` in the declaration `f(x, y = 1) =
 /// x^y`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Param {
     /// A parameter with no default value, such as `x` in `f(x) = x^2`.
@@ -82,7 +82,7 @@ impl Latex for Param {
 /// optional default values, like in `f(x, y = 1)`. When a function with this header is called, the
 /// default values are used (i.e. `y = 1`), unless the caller provides their own values (`f(2,
 /// 3)`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FuncHeader {
     /// The name of the function.
@@ -143,7 +143,7 @@ impl Latex for FuncHeader {
 }
 
 /// An assignment target, such as `x`, `list[0]`, or `f(x)`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum AssignTarget {
     /// A symbol, such as `x`.
@@ -236,7 +236,7 @@ impl Latex for AssignTarget {
 }
 
 /// An assignment of a variable or function, such as `x = 1` or `f(x) = x^2`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Assign {
     /// The target to assign to.

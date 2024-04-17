@@ -398,7 +398,12 @@ impl Vm {
                 &mut call_stack,
                 &mut derivative_stack,
                 &mut instruction_pointer,
-            )? {
+            ).inspect_err(|_| {
+                // get the variables from the global stack frame, regardless of whether it changed
+                // since we started running the program
+                // this behavior is consistent with other VMs
+                self.variables = std::mem::take(&mut call_stack[0].variables);
+            })? {
                 ControlFlow::Continue => instruction_pointer.1 += 1,
                 ControlFlow::Jump => (),
             }
@@ -462,7 +467,8 @@ impl ReplVm {
             .collect();
 
         compile_stmts(&stmts, &mut self.compiler).inspect_err(|_| {
-            // restore the previous state of the VM
+            // restore the previous state of the VM to ensure compilation errors don't affect the
+            // current state
             self.compiler = compiler_clone;
             self.vm = vm_clone;
         })?;

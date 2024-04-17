@@ -9,7 +9,7 @@ use error::{kind, Error};
 use std::collections::HashMap;
 use expr::compile_stmts;
 pub use instruction::{Instruction, InstructionKind};
-use item::{Func, FuncDecl, Item, Symbol, SymbolDecl};
+use item::{BuiltinCall, Func, FuncDecl, Item, Symbol, SymbolDecl, UserCall};
 use std::ops::Range;
 
 /// A label that can be used to reference a specific instruction in the bytecode.
@@ -63,6 +63,19 @@ pub struct CompilerState {
 pub struct Chunk {
     /// The instructions in this chunk.
     pub instructions: Vec<Instruction>,
+
+    /// The number of arguments the function takes.
+    pub arity: usize,
+}
+
+impl Chunk {
+    /// Creates a new chunk with the given arity.
+    pub fn new(arity: usize) -> Self {
+        Self {
+            instructions: Vec::new(),
+            arity,
+        }
+    }
 }
 
 /// A compiler that provides tools to generate bytecode instructions for a virtual machine (see
@@ -216,11 +229,12 @@ impl Compiler {
         where F: FnOnce(&mut Compiler) -> Result<(), Error>
     {
         let old_chunk_idx = self.chunk;
-        self.chunks.push(Chunk::default());
+        self.chunks.push(Chunk::new(header.params.len()));
         let new_chunk_idx = self.chunks.len() - 1;
 
         self.add_item(&header.name, Item::Func(FuncDecl {
             chunk: new_chunk_idx,
+            arity: header.params.len(),
             symbols: HashMap::new(),
         }))?;
 
@@ -361,7 +375,10 @@ impl Compiler {
         // check for native functions
         let mut result = all_funcs()
             .get(&*call.name.name)
-            .map(|func| Func::Builtin(func.name(), call.args.len()));
+            .map(|func| Func::Builtin(BuiltinCall {
+                builtin: func.as_ref(),
+                num_given: call.args.len(),
+            }));
 
         // then check the symbol table (including possibly functions that shadow native functions)
         let mut table = &self.symbols;
@@ -369,7 +386,11 @@ impl Compiler {
         if self.state.path.len() > 0 {
             // is the function in the global scope?
             if let Some(Item::Func(func)) = table.get(&call.name.name) {
-                result = Some(Func::User(func.chunk));
+                result = Some(Func::User(UserCall {
+                    chunk: func.chunk,
+                    arity: func.arity,
+                    num_given: call.args.len(),
+                }));
             }
 
             // work our way up to the current scope
@@ -389,7 +410,11 @@ impl Compiler {
 
         if let Some(Item::Func(func)) = table.get(&call.name.name) {
             // is the function in the current scope?
-            Ok(Func::User(func.chunk))
+            Ok(Func::User(UserCall {
+                chunk: func.chunk,
+                arity: func.arity,
+                num_given: call.args.len(),
+            }))
         } else if let Some(func) = result {
             // use the last one we found
             Ok(func)
@@ -527,6 +552,12 @@ g()").unwrap_err();
         compile("f(x) = return x + 1/sqrt(x)
 g(x, y) = f(x) + f(y)
 g(2, 3)").unwrap();
+    }
+
+    #[test]
+    fn derivative() {
+        compile("f(x) = x^2; f'(2)").unwrap();
+        compile("ncr''(5, 3)").unwrap_err();
     }
 
     #[test]

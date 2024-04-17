@@ -10,6 +10,9 @@ pub struct Frame {
 
     /// The variables stored in this frame.
     pub variables: HashMap<usize, Value>,
+
+    /// Whether this frame is being used to evaluate the derivative of a function.
+    pub derivative: bool,
 }
 
 impl Frame {
@@ -18,18 +21,20 @@ impl Frame {
         Self {
             return_instruction,
             variables: HashMap::new(),
+            derivative: false,
         }
     }
 
-    /// Creates a new [`Frame`] with the given return instruction and variables.
-    pub fn with_variables(
-        return_instruction: (usize, usize),
-        variables: HashMap<usize, Value>,
-    ) -> Self {
-        Self {
-            return_instruction,
-            variables,
-        }
+    /// Sets the variables stored in the frame.
+    pub fn with_variables(mut self, variables: HashMap<usize, Value>) -> Self {
+        self.variables = variables;
+        self
+    }
+
+    /// Sets the derivative flag on the frame.
+    pub fn with_derivative(mut self) -> Self {
+        self.derivative = true;
+        self
     }
 
     /// Adds a variable to the frame.

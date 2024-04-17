@@ -1,3 +1,4 @@
+use cas_compute::numerical::builtin::Builtin;
 use std::collections::HashMap;
 
 /// An item declaration in the program.
@@ -13,17 +14,20 @@ pub enum Item {
 /// A symbol declaration.
 #[derive(Clone, Debug)]
 pub struct SymbolDecl {
-    /// A unique identifier for the symbol.
+    /// The unique identifier for the symbol.
     pub id: usize,
 }
 
 /// A function declaration.
 #[derive(Clone, Debug)]
 pub struct FuncDecl {
-    /// The chunk containing the function body.
+    /// The index of the chunk containing the function body.
     pub chunk: usize,
 
-    /// Symbol table for symbols declared inside this function.
+    /// The arity of the function.
+    pub arity: usize,
+
+    /// Symbol table for items declared inside this function.
     pub symbols: HashMap<String, Item>,
 }
 
@@ -49,14 +53,55 @@ impl Symbol {
     }
 }
 
-/// An identifier for a function, user-defined or builtin.
+/// An identifier for a function call to a user-defined or builtin function.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Func {
-    /// A user-defined function. The inner value represents the index of the chunk containing the
-    /// function body.
-    User(usize),
+    /// A call to a user-defined function.
+    User(UserCall),
 
-    /// A builtin function. The inner value is a tuple containing the name of the function and the
-    /// number of arguments it takes.
-    Builtin(&'static str, usize),
+    /// A call to a builtin function.
+    Builtin(BuiltinCall),
 }
+
+impl Func {
+    /// Returns the arity / number of parameters of the function, including optional arguments.
+    pub fn arity(&self) -> usize {
+        match self {
+            Self::User(call) => call.arity,
+            Self::Builtin(call) => call.builtin.num_args(),
+        }
+    }
+}
+
+/// An identifier to a call to a user-defined function.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UserCall {
+    /// The index of the chunk containing the function body.
+    pub chunk: usize,
+
+    /// The arity of the function.
+    pub arity: usize,
+
+    /// The number of arguments passed to the function in the call.
+    pub num_given: usize,
+}
+
+/// An identifier to a call to a builtin function.
+#[derive(Clone, Debug)]
+pub struct BuiltinCall {
+    /// The builtin function.
+    pub builtin: &'static dyn Builtin,
+
+    /// The number of arguments passed to the function in the call.
+    pub num_given: usize,
+}
+
+/// Manual implementation of [`PartialEq`] to support `dyn Builtin` by comparing pointers.
+impl PartialEq for BuiltinCall {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.builtin, other.builtin) && self.num_given == other.num_given
+    }
+}
+
+/// Manual implementation of [`Eq`] to support `dyn Builtin` by comparing pointers.
+impl Eq for BuiltinCall {}

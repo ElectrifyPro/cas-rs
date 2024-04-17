@@ -1,0 +1,52 @@
+// This program demonstrates prime notation: a useful way to quickly approximate the derivative of a one-parameter function.
+
+f(x) = x^2 + 5x + 6
+g(x) = 2x + 5 // derivative of f(x)
+
+tests = [
+    2,   // f'(2) = 9
+    4,   // f'(4) = 13
+    7,   // f'(7) = 19
+    15,  // f'(15) = 35
+    28,  // f'(28) = 61
+    59,  // f'(59) = 123
+    100, // f'(100) = 205
+]
+
+result = [false; 15]
+
+t = 0
+while t < 7 then {
+    result[t] = g(tests[t]) ~== f'(tests[t]) // use ~== since prime notation is an approximation
+    t += 1
+}
+
+// This also works for higher order derivatives and builtin functions. Here are
+// some lighter examples (all should output true):
+// NOTE: Oscillating functions, like `sin` and `cos`, will have more
+// significant error as you compute higher derivatives. The most accurate
+// approximation is the first derivative.
+
+result[7] = sin'(2) ~== cos(2)
+result[8] = cos'(2) ~== -sin(2)
+result[9] = exp'(2) ~== exp(2)
+result[10] = ln'(2) ~== 1/2
+result[11] = sqrt'(2) ~== 1/(2 * sqrt(2))
+result[12] = cbrt'(2) ~== 1/(3 * cbrt(4))
+result[13] = sin''''(2) ~== sin(2)
+
+// You might want to use a function that takes more than one parameter. For
+// example, the `log`arithm function accepts two parameters, the argument and
+// the base, in order to be as general as possible. However, because of this,
+// it cannot directly be used with prime notation.
+
+// A simple workaround is to partially apply the function, fixing the base to
+// a constant value:
+
+f(n) = log(n, 2) // log base 2
+
+// Which can then be used with prime notation:
+
+result[14] = f'(2) ~== 1/(2 * ln(2)) // log'(2, 2) = 1/(2 * ln(2))
+
+result

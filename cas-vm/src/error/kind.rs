@@ -189,21 +189,22 @@ pub struct StackOverflow;
     ),
     labels = ["this function call", ""],
     help = "only functions with a single parameter can be differentiated using prime notation"
+    // note = "consider partially applying the function (i.e. `f(x) = log(x, 2)`) to make it differentiable"
 )]
 pub struct InvalidDerivativeArguments {
     /// The name of the function that was called.
     pub name: String,
 }
 
-/// Encountered a non-numeric type while using prime notation to derivate a function call
+/// Encountered a non-numeric type while using prime notation to derivate a function call.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "encountered a non-numeric type while differentiating this function",
     labels = [
-        format!("this function call evaluated to `{}`", self.expr_type),
+        format!("during evaluation, this call evaluated to a `{}`", self.expr_type),
         "".to_string(),
     ],
-    help = "CalcBot evaluates derivatives numerically using the limit definition of a derivative"
+    help = "CalcBot evaluates derivatives numerically using the limit definition of a derivative; this can error when evaluating near undefined points of the function"
 )]
 pub struct NonNumericDerivative {
     /// The type of the expression that was differentiated.

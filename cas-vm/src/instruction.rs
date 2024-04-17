@@ -1,16 +1,21 @@
 use cas_compute::{
-    funcs::miscellaneous::Factorial,
-    numerical::value::Value,
+    funcs::{combinatoric::Ncr, miscellaneous::Factorial},
+    numerical::{builtin::Builtin, value::Value},
     primitive::{complex, float, int_from_float},
 };
 use cas_error::ErrorKind;
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
 use crate::error::{
-    kind::{BitshiftOverflow, InvalidBinaryOperation, InvalidUnaryOperation},
+    kind::{
+        BitshiftOverflow,
+        InvalidBinaryOperation,
+        InvalidUnaryOperation,
+        NonNumericDerivative,
+    },
     Error,
 };
 use replace_with::replace_with_or_abort;
-use rug::ops::Pow;
+use rug::{ops::Pow, Float};
 use std::ops::Range;
 
 /// Represents an error that can occur while evaluating a binary or unary expression.
@@ -24,6 +29,9 @@ pub(crate) enum EvalError {
 
     /// Attempted to bitshift by a value that is too large.
     BitshiftOverflow(BitshiftOverflow),
+
+    /// Encountered a non-numeric type while using prime notation to derivate a function call.
+    NonNumericDerivative(NonNumericDerivative),
 }
 
 impl From<InvalidBinaryOperation> for EvalError {
@@ -44,26 +52,18 @@ impl From<BitshiftOverflow> for EvalError {
     }
 }
 
+impl From<NonNumericDerivative> for EvalError {
+    fn from(e: NonNumericDerivative) -> Self {
+        EvalError::NonNumericDerivative(e)
+    }
+}
+
 impl EvalError {
     /// Convert the [`EvalError`] into the general [`Error`] type, using the given syntax tree to
     /// provide spans.
     pub fn into_error(self, spans: Vec<Range<usize>>) -> Error {
-        // match self {
-        //     EvalError::InvalidBinaryOperation(e) => Error {
-        //         spans,
-        //         kind: Box::new(e) as Box<dyn ErrorKind>,
-        //     },
-        //     EvalError::InvalidUnaryOperation(e) => Error {
-        //         spans,
-        //         kind: Box::new(e) as Box<dyn ErrorKind>,
-        //     },
-        //     EvalError::BitshiftOverflow(e) => Error {
-        //         spans,
-        //         kind: Box::new(e) as Box<dyn ErrorKind>,
-        //     },
-        // }
         macro_rules! error {
-            ($( $kind:ident ),*) => {
+            ($( $kind:ident ),* $(,)?) => {
                 match self {
                     $( EvalError::$kind(e) => Error {
                         spans,
@@ -73,7 +73,12 @@ impl EvalError {
             };
         }
 
-        error!(InvalidBinaryOperation, InvalidUnaryOperation, BitshiftOverflow)
+        error!(
+            InvalidBinaryOperation,
+            InvalidUnaryOperation,
+            BitshiftOverflow,
+            NonNumericDerivative,
+        )
     }
 }
 
@@ -464,4 +469,122 @@ pub fn exec_unary_instruction(op: UnaryOpKind, value_stack: &mut Vec<Value>) -> 
     let operand = value_stack.pop().unwrap().coerce_number();
     value_stack.push(eval(op, operand)?);
     Ok(())
+}
+
+/// Extracts the real number from a value, or returns an error if the value is not a real number.
+fn get_real(value: Value) -> Result<Float, EvalError> {
+    match value.coerce_float() {
+        Value::Float(n) => Ok(n),
+        value => Err(NonNumericDerivative {
+            expr_type: value.typename(),
+        })?,
+    }
+}
+
+/// Stateful struct that progressively evaluates the numerical derviative of a function.
+///
+/// This is useful for evaluating user-defined functions, where evaluation typically requires
+/// executing multiple instructions many times.
+///
+/// To compute a derivative, call [`Derivative::next_eval`], which provides the next value to
+/// evaluate the function with. Use this value to evaluate the function
+pub struct Derivative {
+    /// The current order of the derivative.
+    current_order: u8,
+
+    /// The total number of derivatives to compute.
+    total_order: u8,
+
+    /// The initial value of the function.
+    initial: Float,
+
+    eval: (Option<Float>, Option<Float>),
+
+    /// The sums used to compute the derivative.
+    sum: (Float, Float),
+
+    /// The step size used.
+    step: Float,
+}
+
+impl Derivative {
+    /// Create a new derivative evaluator at the given initial value and step size.
+    pub fn new(order: u8, initial: Value) -> Result<Self, EvalError> {
+        Ok(Self {
+            current_order: 0,
+            total_order: order,
+            initial: get_real(initial)?,
+            eval: (None, None),
+            sum: (float(0), float(0)),
+            step: float(1e-32),
+        })
+    }
+
+    /// Get the next value to evaluate the function with. After evaluating the function, submit the
+    /// value by calling [`Derivative::advance`] with it.
+    pub fn next_eval(&self) -> Option<Value> {
+        match self.eval {
+            (None, _) => {
+                Some(Value::Float(&self.initial + float(self.current_order * &self.step)))
+            },
+            (Some(_), None) => {
+                Some(Value::Float(&self.initial - float(self.current_order * &self.step)))
+            },
+            _ => None, // state will be reset by `advance`
+        }
+    }
+
+    /// Advance the evaluation of the derivative, using the higher-order differentiation method
+    /// found [here](https://en.wikipedia.org/wiki/Numerical_differentiation#Higher_derivatives).
+    ///
+    /// If the derivative has not yet finished computing, the function will return [`None`].
+    /// Continue calling the function until it returns [`Some`].
+    pub fn advance(&mut self, value: Value) -> Result<Option<Value>, EvalError> {
+        let (c, d) = match std::mem::take(&mut self.eval) {
+            (None, _) => {
+                self.eval = (Some(get_real(value)?), None);
+                return Ok(None);
+            },
+            (Some(left), None) => {
+                (left, get_real(value)?)
+            },
+            _ => unreachable!(),
+        };
+
+        // synonym for a = (-1)^(k + derivatives) to avoid overflow errors
+        let a = if self.current_order % 2 == self.total_order % 2 {
+            1
+        } else {
+            -1
+        };
+        let b = Ncr::eval_static(self.total_order.into(), self.current_order.into());
+
+        self.sum.0 += c * &b * a;
+        self.sum.1 += d * &b * a;
+
+        if self.current_order == self.total_order {
+            let result_left = &self.sum.0 / float(&self.step).pow(self.total_order);
+            let result_right = &self.sum.1 / float(-&self.step).pow(self.total_order);
+            let result = (result_left + result_right) / 2;
+            Ok(Some(Value::Float(result)))
+        } else {
+            self.current_order += 1;
+            Ok(None)
+        }
+    }
+
+    /// Helper to completely evaluate the derivative for builtin functions.
+    pub fn eval_builtin(&mut self, builtin: &dyn Builtin) -> Result<Value, EvalError> {
+        loop {
+            let eval = self.next_eval().unwrap();
+
+            // TODO remove unwrap
+            let value = builtin.eval(Default::default(), &mut Some(eval).into_iter()).unwrap();
+            match self.advance(value) {
+                Ok(Some(result)) => break Ok(result),
+                Ok(None) => (),
+                Err(e) => break Err(e),
+            }
+        }
+    }
 }

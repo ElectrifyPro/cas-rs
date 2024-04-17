@@ -73,6 +73,9 @@ pub enum InstructionKind {
     /// Arguments are passed to the function via the value stack.
     Call(Func),
 
+    /// Computes the `n`th numerical derivative of the function at the top of the stack.
+    CallDerivative(Func, u8),
+
     /// Returns from the current function.
     Return,
 
@@ -83,9 +86,6 @@ pub enum InstructionKind {
     ///
     /// This will result in an error if the top value is not a boolean.
     JumpIfFalse(Label),
-
-    /// Output the top value on the stack.
-    Output,
 }
 
 /// Represents a single instruction in the bytecode, along with its associated metadata, such as

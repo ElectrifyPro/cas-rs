@@ -54,6 +54,9 @@ enum ControlFlow {
 /// [`Compile`]).
 #[derive(Clone, Debug)]
 pub struct Vm {
+    /// The trigonometric mode used when calling native functions.
+    trig_mode: TrigMode,
+
     /// The bytecode chunks to execute.
     pub chunks: Vec<Chunk>,
 
@@ -73,6 +76,7 @@ pub struct Vm {
 impl Default for Vm {
     fn default() -> Self {
         Self {
+            trig_mode: TrigMode::default(),
             chunks: vec![Chunk::default()], // add main chunk
             labels: HashMap::new(),
             symbols: HashMap::new(),
@@ -84,6 +88,7 @@ impl Default for Vm {
 impl From<Compiler> for Vm {
     fn from(compiler: Compiler) -> Self {
         Self {
+            trig_mode: TrigMode::default(),
             chunks: compiler.chunks,
             labels: compiler.labels
                 .into_iter()
@@ -106,6 +111,7 @@ impl Vm {
     pub fn compile<T: Compile>(expr: T) -> Result<Self, CompileError> {
         let compiler = Compiler::compile(expr)?;
         Ok(Self {
+            trig_mode: TrigMode::default(),
             chunks: compiler.chunks,
             labels: compiler.labels
                 .into_iter()
@@ -120,6 +126,7 @@ impl Vm {
     pub fn compile_program(stmts: Vec<Stmt>) -> Result<Self, CompileError> {
         let compiler = Compiler::compile_program(stmts)?;
         Ok(Self {
+            trig_mode: TrigMode::default(),
             chunks: compiler.chunks,
             labels: compiler.labels
                 .into_iter()
@@ -128,6 +135,12 @@ impl Vm {
             symbols: compiler.symbols,
             variables: HashMap::new(),
         })
+    }
+
+    /// Sets the trigonometric mode used when calling native functions.
+    pub fn with_trig_mode(mut self, mode: TrigMode) -> Self {
+        self.trig_mode = mode;
+        self
     }
 
     /// Executes one instruction, updating the given state.
@@ -285,7 +298,7 @@ impl Vm {
                     let args = value_stack.split_off(value_stack.len() - call.num_given);
                     let value = call
                         .builtin
-                        .eval(TrigMode::Radians, &mut args.into_iter())
+                        .eval(self.trig_mode, &mut args.into_iter())
                         .unwrap();
                     value_stack.push(value);
                 },
@@ -388,9 +401,6 @@ impl Vm {
 /// by maintaining state.
 #[derive(Debug, Default)]
 pub struct ReplVm {
-    /// The current context of the VM.
-    trig_mode: TrigMode,
-
     /// Compiler used to hold the current state of the VM.
     compiler: Compiler,
 
@@ -467,6 +477,17 @@ mod tests {
         Ok(vm.run().unwrap())
     }
 
+    /// Compile the given source code and execute the resulting bytecode, using degrees as the
+    /// trigonometric mode.
+    fn run_program_degrees(source: &str) -> Result<Value, CompileError> {
+        let mut parser = Parser::new(source);
+        let stmts = parser.try_parse_full_many::<Stmt>().unwrap();
+
+        let mut vm = Vm::compile_program(stmts)?
+            .with_trig_mode(TrigMode::Degrees);
+        Ok(vm.run().unwrap())
+    }
+
     #[test]
     fn exec_literal_number() {
         let result = run_program("42").unwrap();
@@ -508,6 +529,14 @@ while a < 10 && j < 15 then {
         let result = run_program("x = 4.5
 3x + 45 (x + 2) (1 + 3)").unwrap();
         assert_eq!(result, Value::Float(float(1183.5)));
+    }
+
+    #[test]
+    fn exec_trig_mode() {
+        let result_1 = run_program("sin(pi/2)").unwrap();
+        let result_2 = run_program_degrees("sin(90)").unwrap();
+        assert_eq!(result_1.coerce_float(), Value::Float(float(1)));
+        assert_eq!(result_2.coerce_float(), Value::Float(float(1)));
     }
 
     #[test]

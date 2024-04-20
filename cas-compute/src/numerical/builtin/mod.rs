@@ -1,10 +1,7 @@
 pub mod error;
-pub mod func_specific;
 
 use error::BuiltinError;
 use super::{trig_mode::TrigMode, value::Value};
-
-type Result = std::result::Result<Value, BuiltinError>;
 
 /// Whether a function parameter in a function signature is marked required or optional.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,5 +20,9 @@ pub trait Builtin: std::fmt::Debug + Send + Sync {
     fn sig(&self) -> &'static [Param];
 
     /// Evaluates the function.
-    fn eval(&self, trig_mode: TrigMode, args: &mut dyn Iterator<Item = Value>) -> Result;
+    fn eval(
+        &self,
+        trig_mode: TrigMode,
+        args: &mut dyn Iterator<Item = Value>,
+    ) -> Result<Value, BuiltinError>;
 }

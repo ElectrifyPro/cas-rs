@@ -20,9 +20,10 @@
 pub mod error;
 mod frame;
 mod instruction;
+
 use cas_compute::{
     consts::{E, I, PHI, PI, TAU},
-    numerical::{trig_mode::TrigMode, value::Value},
+    numerical::{builtin::error::BuiltinError, trig_mode::TrigMode, value::Value},
     primitive::{complex, float},
 };
 use cas_parser::parser::ast::Stmt;
@@ -43,6 +44,7 @@ use error::{
         InvalidIndexType,
         InvalidLengthType,
         LengthOutOfRange,
+        TypeMismatch,
     },
     Error as EvalError,
 };
@@ -206,6 +208,21 @@ impl Vm {
             ))
         }
 
+        /// Convert a [`BuiltinError`] to an [`EvalError`].
+        fn from_builtin_error(err: BuiltinError, spans: Vec<Range<usize>>) -> EvalError {
+            match err {
+                BuiltinError::TypeMismatch(err) => {
+                    // remove spans of all arguments but the mentioned one
+                    let spans = vec![
+                        spans[0].start..spans[1].end,
+                        spans[2 + err.index].clone(),
+                    ];
+                    EvalError::new(spans, TypeMismatch::from(err))
+                },
+                _ => todo!(),
+            }
+        }
+
         let instruction = &self.chunks[instruction_pointer.0].instructions[instruction_pointer.1];
         // println!("value stack: {:?}", value_stack.iter().map(|v: &Value| v.to_string()).collect::<Vec<_>>());
         // println!("call stack: {:?}", call_stack);
@@ -314,7 +331,7 @@ impl Vm {
                     let value = call
                         .builtin
                         .eval(self.trig_mode, &mut args.into_iter())
-                        .unwrap();
+                        .map_err(|err| from_builtin_error(err, instruction.spans.clone()))?;
                     value_stack.push(value);
                 },
             },

@@ -48,7 +48,14 @@ impl Compile for Call {
                 ));
             }
         } else {
-            compiler.add_instr(InstructionKind::Call(func));
+            let mut spans = self.outer_span().to_vec();
+            for arg in &self.args {
+                spans.push(arg.span());
+            }
+            compiler.add_instr_with_spans(
+                InstructionKind::Call(func),
+                spans,
+            );
         }
 
         Ok(())

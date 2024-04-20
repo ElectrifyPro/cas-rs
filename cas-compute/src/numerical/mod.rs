@@ -5,7 +5,6 @@
 #![cfg(feature = "numerical")]
 
 pub mod builtin;
-pub mod error;
 pub mod fmt;
 pub mod trig_mode;
 pub mod value;

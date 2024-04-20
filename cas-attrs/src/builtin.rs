@@ -390,7 +390,7 @@ impl Builtin {
                     let #ident = match #full_getter {
                         Some(#ty(#ident)) => #received_type,
                         Some(bad_value) => {
-                            return Err(crate::numerical::builtin::error::BuiltinError::TypeMismatch(crate::numerical::error::kind::TypeMismatch {
+                            return Err(crate::numerical::builtin::error::BuiltinError::TypeMismatch(crate::numerical::builtin::error::check::TypeMismatch {
                                 name: stringify!(#name).to_owned(),
                                 index: #i,
                                 expected: #user_ty,

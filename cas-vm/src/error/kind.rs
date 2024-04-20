@@ -152,10 +152,9 @@ pub struct MissingArgument {
     ),
     labels = [
         "this function call".to_string(),
-        "".to_string(),
         format!("this argument has type `{}`", self.given),
     ],
-    help = format!("should be of type `{}`", self.expected),
+    help = format!("must be of type `{}`", self.expected),
 )]
 pub struct TypeMismatch {
     /// The name of the function that was called.
@@ -169,6 +168,17 @@ pub struct TypeMismatch {
 
     /// The type of the argument that was given.
     pub given: &'static str,
+}
+
+impl From<cas_compute::numerical::builtin::error::TypeMismatch> for TypeMismatch {
+    fn from(err: cas_compute::numerical::builtin::error::TypeMismatch) -> Self {
+        Self {
+            name: err.name,
+            index: err.index,
+            expected: err.expected,
+            given: err.given,
+        }
+    }
 }
 
 /// The stack overflowed while evaluating a function call.

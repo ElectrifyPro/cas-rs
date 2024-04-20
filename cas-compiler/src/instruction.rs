@@ -9,9 +9,12 @@ use std::ops::Range;
 /// corresponds to a single operation that can be executed by the virtual machine, which itself can
 /// be thought of as a simple CPU.
 ///
-/// Our bytecode contains more high-level instructions than a typical assembly language, which makes
-/// it easier to generate and execute. In particular, we aren't as limited by the number of registers
-/// available to us, and we can use a stack-based model for our virtual machine.
+/// During compilation, the compiler will associate most instructions with spans of the source code
+/// that they originated from. This is meant for debugging and to report high quality error
+/// messages for the user during runtime. The `spans` field of the [`Instruction`] struct contains
+/// this information.
+///
+/// See the `Span information` section of each variant for how to interpret the spans.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InstructionKind {
     /// Load a constant value (one known at compile time) onto the stack.
@@ -71,6 +74,18 @@ pub enum InstructionKind {
     /// Calls the function at the given chunk.
     ///
     /// Arguments are passed to the function via the value stack.
+    ///
+    /// # Span information
+    ///
+    /// ```rust,ignore
+    /// [
+    ///     0: outer_span[0], // span including the function name to the opening parenthesis
+    ///     1: outer_span[1], // closing parenthesis
+    ///     2: arg1,
+    ///     3: args2,
+    ///     ...
+    /// ]
+    /// ```
     Call(Func),
 
     /// Computes the `n`th numerical derivative of the function at the top of the stack.

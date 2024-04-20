@@ -1,14 +1,64 @@
-use cas_compute::numerical::builtin::{Builtin, Param as SimpleParam};
+use cas_compute::numerical::builtin::{Builtin, ParamKind};
 use cas_parser::parser::ast::{Call, Param as ParserParam};
+use crate::error::{kind, Error};
 use std::{cmp::Ordering, collections::HashMap};
 
-use crate::error::{kind, Error};
+enum Signature<'a> {
+    Builtin(&'static dyn Builtin),
+    Parser(&'a [ParserParam]),
+}
+
+impl Signature<'_> {
+    /// Returns the indices of the required parameters that were not provided by the user in the
+    /// call.
+    ///
+    /// This indicates an error in the user's code.
+    pub fn missing_args(&self, num_given: usize) -> Vec<usize> {
+        // NOTE: we will later enforce default arguments to be at the end of the signature
+        // so we can safely assume that all required arguments are at the beginning
+        match self {
+            Self::Builtin(builtin) => {
+                let idx_of_first_default = builtin.sig()
+                    .iter()
+                    .position(|param| param.kind == ParamKind::Optional);
+                // the missing arguments are the required arguments before the first default
+                // argument, and after the number of arguments given
+                (0..idx_of_first_default.unwrap_or(builtin.sig().len()))
+                    .filter(|&i| i >= num_given)
+                    .collect()
+            },
+            Self::Parser(params) => {
+                let idx_of_first_default = params.iter()
+                    .position(|param| match param {
+                        ParserParam::Symbol(_) => false,
+                        ParserParam::Default(..) => true,
+                    });
+                (0..idx_of_first_default.unwrap_or(params.len()))
+                    .filter(|&i| i >= num_given)
+                    .collect()
+            },
+        }
+    }
+
+    fn signature(&self) -> String {
+        match self {
+            Self::Builtin(builtin) => builtin.sig_str().to_owned(),
+            Self::Parser(params) => params.iter()
+                .map(|param| match param {
+                    ParserParam::Symbol(name) => format!("{}", name),
+                    ParserParam::Default(name, value) => format!("{} = {}", name, value),
+                })
+                .collect::<Vec<_>>()
+                .join(", "),
+        }
+    }
+}
 
 /// Given a function call to a function with the given signature, checks if the call matches the
 /// signature in argument count.
 ///
 /// Returns [`Ok`] if the call matches the signature, or [`Err`] otherwise.
-pub fn check_call(sig: impl Iterator<Item = SimpleParam>, sig_len: usize, call: &Call) -> Result<(), Error> {
+fn check_call(sig: Signature<'_>, sig_len: usize, call: &Call) -> Result<(), Error> {
     match call.args.len().cmp(&sig_len) {
         Ordering::Greater => {
             // add span of extraneous arguments
@@ -20,20 +70,13 @@ pub fn check_call(sig: impl Iterator<Item = SimpleParam>, sig_len: usize, call: 
                     name: call.name.name.to_string(),
                     expected: sig_len,
                     given: call.args.len(),
+                    signature: sig.signature(),
                 },
             ))
         },
         Ordering::Equal => Ok(()),
         Ordering::Less => {
-            // ensure the user has provided all required arguments
-            let mut indices = vec![];
-            for (i, param) in sig.enumerate() {
-                // no argument provided for required parameter
-                if matches!(param, SimpleParam::Required) && i >= call.args.len() {
-                    indices.push(i);
-                }
-            }
-
+            let indices = sig.missing_args(call.args.len());
             if indices.is_empty() {
                 Ok(())
             } else {
@@ -44,6 +87,7 @@ pub fn check_call(sig: impl Iterator<Item = SimpleParam>, sig_len: usize, call: 
                         indices,
                         expected: sig_len,
                         given: call.args.len(),
+                        signature: sig.signature(),
                     },
                 ))
             }
@@ -88,11 +132,7 @@ impl FuncDecl {
     /// Returns [`Ok`] if the call matches the signature, or [`Err`] otherwise.
     pub fn check_call(&self, call: &Call) -> Result<(), Error> {
         check_call(
-            self.signature.iter()
-                .map(|p_param| match p_param {
-                    ParserParam::Symbol(_) => SimpleParam::Required,
-                    ParserParam::Default(..) => SimpleParam::Optional,
-                }),
+            Signature::Parser(&*self.signature),
             self.signature.len(),
             call
         )
@@ -136,7 +176,7 @@ impl Func {
     pub fn arity(&self) -> usize {
         match self {
             Self::User(user) => user.signature.len(),
-            Self::Builtin(builtin) => builtin.signature.len(),
+            Self::Builtin(builtin) => builtin.builtin.sig().len(),
         }
     }
 
@@ -147,16 +187,13 @@ impl Func {
     pub fn check_call(&self, call: &Call) -> Result<(), Error> {
         match self {
             Self::User(user) => check_call(
-                user.signature.iter().map(|p_param| match p_param {
-                    ParserParam::Symbol(_) => SimpleParam::Required,
-                    ParserParam::Default(..) => SimpleParam::Optional,
-                }),
+                Signature::Parser(&*user.signature),
                 user.signature.len(),
                 call,
             ),
             Self::Builtin(builtin) => check_call(
-                builtin.signature.iter().copied(),
-                builtin.signature.len(),
+                Signature::Builtin(builtin.builtin),
+                builtin.builtin.sig().len(),
                 call,
             ),
         }
@@ -169,7 +206,7 @@ impl Func {
     pub fn num_defaults_used(&self) -> Option<usize> {
         match self {
             Self::User(call) => call.signature.len().checked_sub(call.num_given),
-            Self::Builtin(call) => call.signature.len().checked_sub(call.num_given),
+            Self::Builtin(call) => call.builtin.sig().len().checked_sub(call.num_given),
         }
     }
 }
@@ -192,10 +229,6 @@ pub struct UserCall {
 pub struct BuiltinCall {
     /// The builtin function.
     pub builtin: &'static dyn Builtin,
-
-    /// A simplified form of the function signature, containing only whether each parameter is
-    /// required or optional.
-    pub signature: Vec<SimpleParam>,
 
     /// The number of arguments passed to the function in the call.
     pub num_given: usize,

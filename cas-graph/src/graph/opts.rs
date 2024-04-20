@@ -13,6 +13,9 @@ pub struct GraphOptions {
     /// For example, to place the origin at the center of the output image, set this to `(0.0,
     /// 0.0)`.
     ///
+    /// This field will automatically be computed when calling
+    /// [`Graph::center_on_points`](super::Graph::center_on_points).
+    ///
     /// The default value is `(0.0, 0.0)`.
     pub center: GraphPoint<f64>,
 
@@ -23,6 +26,9 @@ pub struct GraphOptions {
     /// `(10.0, 10.0)`, the visible graph will be from `(x, y): (-10.0, -10.0)` to `(x, y): (10.0,
     /// 10.0)`.
     ///
+    /// This field will automatically be computed when calling
+    /// [`Graph::center_on_points`](super::Graph::center_on_points).
+    ///
     /// The default value is `(10.0, 10.0)`.
     pub scale: GraphPoint<f64>,
 
@@ -32,22 +38,34 @@ pub struct GraphOptions {
     /// The default value is `false`.
     pub square_scale: bool,
 
-    /// The number of graph units between each minor grid line, given as a pair of `(x, y)` units.
+    /// Whether to label the canvas boundaries with their corresponding graph values.
     ///
-    /// For example, to have a minor grid line every `3.0` units on the x-axis and every `2.0` units
-    /// on the y-axis, set this to `(3.0, 2.0)`.
+    /// The default value is `false`.
+    pub label_canvas_boundaries: bool,
+
+    /// The number of graph units between each major grid line, given as a pair of `(x, y)` units.
+    ///
+    /// For example, to have a major grid line every `3.0` units on the x-axis and every `2.0`
+    /// units on the y-axis, set this to `(3.0, 2.0)`.
+    ///
+    /// This field will automatically be computed when calling
+    /// [`Graph::center_on_points`](super::Graph::center_on_points).
     ///
     /// The default value is `(2.0, 2.0)`.
-    pub minor_grid_spacing: GraphPoint<f64>,
+    pub major_grid_spacing: GraphPoint<f64>,
 
-    /// The number of spaces to divide each minor grid line into, given as a pair of `(x, y)`
-    /// units.
+    /// The number of spaces to divide each major grid line into, given as a pair of `(x, y)`
+    /// units. The number of minor grid lines between each major grid line will then be `x - 1` on
+    /// the x-axis, and `y - 1` on the y-axis.
     ///
-    /// For example, to divide each minor grid line into `5` spaces on the x-axis and `4` spaces on
-    /// the y-axis, set this to `(5, 4)`.
+    /// For example, to divide each major grid line into `5` spaces on the x-axis (4 minor grid
+    /// lines) and `4` spaces on the y-axis (3 minor grid lines), set this to `(5, 4)`.
+    ///
+    /// This field will automatically be computed when calling
+    /// [`Graph::center_on_points`](super::Graph::center_on_points).
     ///
     /// The default value is `(4, 4)`.
-    pub minor_grid_divisions: (u8, u8),
+    pub major_grid_divisions: (u8, u8),
 }
 
 /// The default options for a graph. Returns a [`GraphOptions`] with the following values:
@@ -55,7 +73,10 @@ pub struct GraphOptions {
 /// - [`canvas_size`](GraphOptions::canvas_size): `(1000, 1000)`
 /// - [`center`](GraphOptions::center): `(0.0, 0.0)`
 /// - [`scale`](GraphOptions::scale): `(10.0, 10.0)`
-/// - [`minor_grid_spacing`](GraphOptions::minor_grid_spacing): `(2.0, 2.0)`
+/// - [`square_scale`](GraphOptions::square_scale): `false`
+/// - [`label_canvas_boundaries`](GraphOptions::label_canvas_boundaries): `false`
+/// - [`major_grid_spacing`](GraphOptions::major_grid_spacing): `(2.0, 2.0)`
+/// - [`major_grid_divisions`](GraphOptions::major_grid_divisions): `(4, 4)`
 impl Default for GraphOptions {
     fn default() -> GraphOptions {
         GraphOptions {
@@ -63,8 +84,9 @@ impl Default for GraphOptions {
             center: GraphPoint(0.0, 0.0),
             scale: GraphPoint(10.0, 10.0),
             square_scale: false,
-            minor_grid_spacing: GraphPoint(2.0, 2.0),
-            minor_grid_divisions: (4, 4),
+            label_canvas_boundaries: false,
+            major_grid_spacing: GraphPoint(2.0, 2.0),
+            major_grid_divisions: (4, 4),
         }
     }
 }

@@ -93,55 +93,6 @@ pub struct UndefinedFunction {
     pub suggestions: Vec<String>,
 }
 
-/// Too many arguments were given to a function call.
-#[derive(Debug, Clone, ErrorKind, PartialEq)]
-#[error(
-    message = format!("too many arguments were given to the `{}` function", self.name),
-    labels = ["this function call", ""],
-    help = format!(
-        "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
-        (&self.name).fg(EXPR),
-        self.expected,
-        self.given
-    )
-)]
-pub struct TooManyArguments {
-    /// The name of the function that was called.
-    pub name: String,
-
-    /// The number of arguments that were expected.
-    pub expected: usize,
-
-    /// The number of arguments that were given.
-    pub given: usize,
-}
-
-/// An argument to a function call is missing.
-#[derive(Debug, Clone, ErrorKind, PartialEq)]
-#[error(
-    message = format!("missing argument #{} for the `{}` function", self.index + 1, self.name),
-    labels = ["this function call", ""],
-    help = format!(
-        "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
-        (&self.name).fg(EXPR),
-        self.expected,
-        self.given
-    )
-)]
-pub struct MissingArgument {
-    /// The name of the function that was called.
-    pub name: String,
-
-    /// The index of the missing argument.
-    pub index: usize,
-
-    /// The number of arguments that were expected.
-    pub expected: usize,
-
-    /// The number of arguments that were given.
-    pub given: usize,
-}
-
 /// An argument to a function call has the wrong type.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
@@ -155,10 +106,11 @@ pub struct MissingArgument {
         format!("this argument has type `{}`", self.given),
     ],
     help = format!("must be of type `{}`", self.expected),
+    note = format!("function signature: `{}({})`", self.name, self.signature),
 )]
 pub struct TypeMismatch {
     /// The name of the function that was called.
-    pub name: String,
+    pub name: &'static str,
 
     /// The index of the argument that was mismatched.
     pub index: usize,
@@ -168,6 +120,9 @@ pub struct TypeMismatch {
 
     /// The type of the argument that was given.
     pub given: &'static str,
+
+    /// The signature of the function, not including the function name.
+    pub signature: &'static str,
 }
 
 impl From<cas_compute::numerical::builtin::error::TypeMismatch> for TypeMismatch {
@@ -177,6 +132,7 @@ impl From<cas_compute::numerical::builtin::error::TypeMismatch> for TypeMismatch
             index: err.index,
             expected: err.expected,
             given: err.given,
+            signature: err.signature,
         }
     }
 }

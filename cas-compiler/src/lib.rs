@@ -379,7 +379,6 @@ impl Compiler {
             .get(&*call.name.name)
             .map(|func| Func::Builtin(BuiltinCall {
                 builtin: func.as_ref(),
-                signature: func.sig().to_vec(),
                 num_given: call.args.len(),
             }));
 

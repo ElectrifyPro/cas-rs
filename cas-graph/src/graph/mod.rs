@@ -76,6 +76,7 @@ pub use opts::GraphOptions;
 
 /// The extents of the edge labels. The corresponding field of each label can be `None` if the
 /// label if it is not visible / drawn.
+#[derive(Clone, Debug, Default)]
 struct EdgeExtents {
     /// The extents of the top edge label.
     pub top: Option<TextExtents>,
@@ -95,11 +96,11 @@ fn round_to(n: f64, k: f64) -> f64 {
     (n / k).round() * k
 }
 
-/// Choose a minor grid spacing for the given scale of an axis.
+/// Choose a major grid spacing for the given scale of an axis.
 ///
-/// Returns a 2-tuple where the first element is the minor grid spacing for the axis, and the
-/// second is the minor grid divisions for the axis.
-fn choose_minor_grid_spacing(mut scale: f64) -> (f64, u8) {
+/// Returns a 2-tuple where the first element is the major grid spacing for the axis, and the
+/// second is the major grid divisions for the axis.
+fn choose_major_grid_spacing(mut scale: f64) -> (f64, u8) {
     scale = scale / 4.0;
 
     // to make the grid lines look nice and easier to read,
@@ -197,7 +198,6 @@ impl Graph {
         if self.points.is_empty() {
             return self;
         } else if self.points.len() == 1 {
-            self.options.center = self.points[0].coordinates;
             self.options = GraphOptions {
                 canvas_size: self.options.canvas_size,
                 center: self.points[0].coordinates,
@@ -254,15 +254,15 @@ impl Graph {
             );
         }
 
-        let (minor_grid_spacing_x, minor_grid_divisions_x) = choose_minor_grid_spacing(self.options.scale.0);
-        let (minor_grid_spacing_y, minor_grid_divisions_y) = choose_minor_grid_spacing(self.options.scale.1);
-        self.options.minor_grid_spacing = GraphPoint(
-            minor_grid_spacing_x,
-            minor_grid_spacing_y,
+        let (major_grid_spacing_x, major_grid_divisions_x) = choose_major_grid_spacing(self.options.scale.0);
+        let (major_grid_spacing_y, major_grid_divisions_y) = choose_major_grid_spacing(self.options.scale.1);
+        self.options.major_grid_spacing = GraphPoint(
+            major_grid_spacing_x,
+            major_grid_spacing_y,
         );
-        self.options.minor_grid_divisions = (
-            minor_grid_divisions_x,
-            minor_grid_divisions_y,
+        self.options.major_grid_divisions = (
+            major_grid_divisions_x,
+            major_grid_divisions_y,
         );
 
         self
@@ -288,7 +288,11 @@ impl Graph {
         self.draw_grid_lines(&context)?;
         self.draw_origin_axes(&context, origin_canvas)?;
 
-        let edges = self.draw_edge_labels(&context, origin_canvas)?;
+        let edges = if self.options.label_canvas_boundaries {
+            self.draw_boundary_labels(&context, origin_canvas)?
+        } else {
+            EdgeExtents::default()
+        };
         self.draw_grid_line_numbers(&context, origin_canvas, edges)?;
 
         self.draw_expressions(&context)?;
@@ -297,7 +301,7 @@ impl Graph {
         Ok(surface)
     }
 
-    /// Draw minor grid lines.
+    /// Draw major and minor grid lines.
     fn draw_grid_lines(
         &self,
         context: &Context,
@@ -307,25 +311,25 @@ impl Graph {
         // vertical grid lines (x = ...)
         let mut count = 0;
         let vert_bounds = (
-            round_to(self.options.center.0 - self.options.scale.0, self.options.minor_grid_spacing.0) - self.options.minor_grid_spacing.0,
-            round_to(self.options.center.0 + self.options.scale.0, self.options.minor_grid_spacing.0) + self.options.minor_grid_spacing.0,
+            round_to(self.options.center.0 - self.options.scale.0, self.options.major_grid_spacing.0) - self.options.major_grid_spacing.0,
+            round_to(self.options.center.0 + self.options.scale.0, self.options.major_grid_spacing.0) + self.options.major_grid_spacing.0,
         );
         let mut x = vert_bounds.0;
         while x <= vert_bounds.1 {
             if count == 0 {
-                // minor line
+                // major line
                 context.set_line_width(2.0);
             } else {
-                // even more minor line
+                // minor line
                 context.set_line_width(1.0);
             }
 
-            count = (count + 1) % self.options.minor_grid_divisions.0;
+            count = (count + 1) % self.options.major_grid_divisions.0;
 
             // is this grid line within the canvas bounds?
             let x_canvas = self.options.x_to_canvas(x);
             if x_canvas < 0.0 || x_canvas > self.options.canvas_size.0 as f64 {
-                x += self.options.minor_grid_spacing.0 / self.options.minor_grid_divisions.0 as f64;
+                x += self.options.major_grid_spacing.0 / self.options.major_grid_divisions.0 as f64;
                 continue;
             }
 
@@ -333,14 +337,14 @@ impl Graph {
             context.line_to(x_canvas, self.options.canvas_size.1 as f64);
             context.stroke()?;
 
-            x += self.options.minor_grid_spacing.0 / self.options.minor_grid_divisions.0 as f64;
+            x += self.options.major_grid_spacing.0 / self.options.major_grid_divisions.0 as f64;
         }
 
         // horizontal grid lines (y = ...)
         let mut count = 0;
         let hor_bounds = (
-            round_to(self.options.center.1 - self.options.scale.1, self.options.minor_grid_spacing.1) - self.options.minor_grid_spacing.1,
-            round_to(self.options.center.1 + self.options.scale.1, self.options.minor_grid_spacing.1) + self.options.minor_grid_spacing.1,
+            round_to(self.options.center.1 - self.options.scale.1, self.options.major_grid_spacing.1) - self.options.major_grid_spacing.1,
+            round_to(self.options.center.1 + self.options.scale.1, self.options.major_grid_spacing.1) + self.options.major_grid_spacing.1,
         );
         let mut y = hor_bounds.0;
         while y <= hor_bounds.1 {
@@ -350,11 +354,11 @@ impl Graph {
                 context.set_line_width(1.0);
             }
 
-            count = (count + 1) % self.options.minor_grid_divisions.1;
+            count = (count + 1) % self.options.major_grid_divisions.1;
 
             let y_canvas = self.options.y_to_canvas(y);
             if y_canvas < 0.0 || y_canvas > self.options.canvas_size.1 as f64 {
-                y += self.options.minor_grid_spacing.1 / self.options.minor_grid_divisions.1 as f64;
+                y += self.options.major_grid_spacing.1 / self.options.major_grid_divisions.1 as f64;
                 continue;
             }
 
@@ -362,13 +366,13 @@ impl Graph {
             context.line_to(self.options.canvas_size.0 as f64, y_canvas);
             context.stroke()?;
 
-            y += self.options.minor_grid_spacing.1 / self.options.minor_grid_divisions.1 as f64;
+            y += self.options.major_grid_spacing.1 / self.options.major_grid_divisions.1 as f64;
         }
 
         Ok(())
     }
 
-    /// Draw minor grid line numbers.
+    /// Draw major grid line numbers.
     fn draw_grid_line_numbers(
         &self,
         context: &Context,
@@ -387,22 +391,22 @@ impl Graph {
 
         // vertical grid line numbers
         let vert_bounds = (
-            round_to(self.options.center.0 - self.options.scale.0, self.options.minor_grid_spacing.0),
-            round_to(self.options.center.0 + self.options.scale.0, self.options.minor_grid_spacing.0),
+            round_to(self.options.center.0 - self.options.scale.0, self.options.major_grid_spacing.0),
+            round_to(self.options.center.0 + self.options.scale.0, self.options.major_grid_spacing.0),
         );
         let mut x = vert_bounds.0;
         while x <= vert_bounds.1 {
             // skip 0.0, as the origin axes will be drawn later
             // this can be missed if floating point
             if x == 0.0 {
-                x += self.options.minor_grid_spacing.0;
+                x += self.options.major_grid_spacing.0;
                 continue;
             }
 
             // is this grid line number within the canvas bounds?
             let x_canvas = self.options.x_to_canvas(x);
             if x_canvas < 0.0 || x_canvas > self.options.canvas_size.0 as f64 {
-                x += self.options.minor_grid_spacing.0;
+                x += self.options.major_grid_spacing.0;
                 continue;
             }
 
@@ -411,7 +415,7 @@ impl Graph {
 
             // last check for 0.0
             if x_value_str_trimmed == "0" || x_value_str_trimmed == "-0" {
-                x += self.options.minor_grid_spacing.0;
+                x += self.options.major_grid_spacing.0;
                 continue;
             }
 
@@ -421,7 +425,7 @@ impl Graph {
             if let Some(left) = edges.left {
                 let text_left_bound = x_canvas - x_value_extents.width() / 2.0;
                 if text_left_bound < left.width() + padding {
-                    x += self.options.minor_grid_spacing.0;
+                    x += self.options.major_grid_spacing.0;
                     continue;
                 }
             }
@@ -429,7 +433,7 @@ impl Graph {
             if let Some(right) = edges.right {
                 let text_right_bound = x_canvas + x_value_extents.width() / 2.0;
                 if text_right_bound > self.options.canvas_size.0 as f64 - right.width() - padding {
-                    x += self.options.minor_grid_spacing.0;
+                    x += self.options.major_grid_spacing.0;
                     continue;
                 }
             }
@@ -448,25 +452,25 @@ impl Graph {
                 &x_value_extents,
             )?;
 
-            x += self.options.minor_grid_spacing.0;
+            x += self.options.major_grid_spacing.0;
         }
 
         // horizontal grid line numbers
         let hor_bounds = (
-            round_to(self.options.center.1 - self.options.scale.1, self.options.minor_grid_spacing.1),
-            round_to(self.options.center.1 + self.options.scale.1, self.options.minor_grid_spacing.1),
+            round_to(self.options.center.1 - self.options.scale.1, self.options.major_grid_spacing.1),
+            round_to(self.options.center.1 + self.options.scale.1, self.options.major_grid_spacing.1),
         );
         let mut y = hor_bounds.0;
         while y <= hor_bounds.1 {
             // same as above, but for the y-axis
             if y == 0.0 {
-                y += self.options.minor_grid_spacing.1;
+                y += self.options.major_grid_spacing.1;
                 continue;
             }
 
             let y_canvas = self.options.y_to_canvas(y);
             if y_canvas < 0.0 || y_canvas > self.options.canvas_size.1 as f64 {
-                y += self.options.minor_grid_spacing.1;
+                y += self.options.major_grid_spacing.1;
                 continue;
             }
 
@@ -474,7 +478,7 @@ impl Graph {
             let y_value_str = y_value_str_raw.trim_end_matches('0').trim_end_matches('.');
 
             if y_value_str == "0" || y_value_str == "-0" {
-                y += self.options.minor_grid_spacing.0;
+                y += self.options.major_grid_spacing.0;
                 continue;
             }
 
@@ -483,7 +487,7 @@ impl Graph {
             if let Some(top) = edges.top {
                 let text_top_bound = y_canvas - y_value_extents.height() / 2.0;
                 if text_top_bound < top.height() + padding {
-                    y += self.options.minor_grid_spacing.1;
+                    y += self.options.major_grid_spacing.1;
                     continue;
                 }
             }
@@ -491,7 +495,7 @@ impl Graph {
             if let Some(bottom) = edges.bottom {
                 let text_bottom_bound = y_canvas + y_value_extents.height() / 2.0;
                 if text_bottom_bound > self.options.canvas_size.1 as f64 - bottom.height() - padding {
-                    y += self.options.minor_grid_spacing.1;
+                    y += self.options.major_grid_spacing.1;
                     continue;
                 }
             }
@@ -509,7 +513,7 @@ impl Graph {
                 &y_value_extents,
             )?;
 
-            y += self.options.minor_grid_spacing.1;
+            y += self.options.major_grid_spacing.1;
         }
 
         Ok(())
@@ -541,10 +545,10 @@ impl Graph {
         Ok(())
     }
 
-    /// Draw the edge labels (the values at the edge of the canvas).
+    /// Draw the canvas boundary labels (the values at the edge of the canvas).
     ///
-    /// Returns the extents of each edge label, which is used to mask minor grid line numbers.
-    fn draw_edge_labels(
+    /// Returns the extents of each edge label, which is used to mask major grid line numbers.
+    fn draw_boundary_labels(
         &self,
         context: &Context,
         origin_canvas: CanvasPoint<f64>,

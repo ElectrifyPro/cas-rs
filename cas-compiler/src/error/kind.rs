@@ -97,7 +97,8 @@ pub struct InvalidDifferentiation {
         (&self.name).fg(EXPR),
         self.expected,
         self.given
-    )
+    ),
+    note = format!("function signature: `{}({})`", self.name, self.signature),
 )]
 pub struct TooManyArguments {
     /// The name of the function that was called.
@@ -108,6 +109,9 @@ pub struct TooManyArguments {
 
     /// The number of arguments that were given.
     pub given: usize,
+
+    /// The signature of the function, not including the function name.
+    pub signature: String,
 }
 
 /// An argument to a function call is missing.
@@ -131,7 +135,8 @@ pub struct TooManyArguments {
         (&self.name).fg(EXPR),
         self.expected,
         self.given
-    )
+    ),
+    note = format!("function signature: `{}({})`", self.name, self.signature),
 )]
 pub struct MissingArgument {
     /// The name of the function that was called.
@@ -145,4 +150,7 @@ pub struct MissingArgument {
 
     /// The number of arguments that were given.
     pub given: usize,
+
+    /// The signature of the function, not including the function name.
+    pub signature: String,
 }

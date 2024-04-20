@@ -3,9 +3,22 @@ pub mod error;
 use error::BuiltinError;
 use super::{trig_mode::TrigMode, value::Value};
 
-/// Whether a function parameter in a function signature is marked required or optional.
+/// A function parameter to a builtin function.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Param {
+pub struct BuiltinParam {
+    /// The name of the parameter.
+    pub name: &'static str,
+
+    /// Whether the parameter is required or optional.
+    pub kind: ParamKind,
+
+    /// The typename of the parameter.
+    pub typename: Option<&'static str>,
+}
+
+/// The kind of the function parameter; either required or optional.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParamKind {
     Required,
     Optional,
 }
@@ -16,8 +29,12 @@ pub trait Builtin: std::fmt::Debug + Send + Sync {
     // NOTE: this is a `&self` method and not an associated constant to make the trait object-safe
     fn name(&self) -> &'static str;
 
-    /// Simplified function signature, indicating which arguments are required or optional.
-    fn sig(&self) -> &'static [Param];
+    /// The function's signature, indicating all parameters, whether they are required or optional,
+    /// and the expected typenames.
+    fn sig(&self) -> &'static [BuiltinParam];
+
+    /// The function's signature as a string, used for error messages.
+    fn sig_str(&self) -> &'static str;
 
     /// Evaluates the function.
     fn eval(

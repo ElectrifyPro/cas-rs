@@ -289,6 +289,21 @@ pub struct Builtin {
 }
 
 impl Builtin {
+    /// Returns a string representation of the function's signature, not including the function
+    /// name.
+    pub fn signature(&self) -> String {
+        self.params.iter().map(|param| {
+            let ty = param.ty.typename();
+            if param.ty.optional {
+                format!("{}: {} (optional)", param.ident, ty)
+            } else {
+                format!("{}: {}", param.ident, ty)
+            }
+        })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
     /// Generates the statements that typecheck the arguments.
     pub fn generate_check_stmts(&self, radian: Radian) -> TokenStream2 {
         let Self { name, .. } = self;
@@ -330,6 +345,7 @@ impl Builtin {
                             //     index: #i,
                             //     expected: #num_params,
                             //     given: crate::funcs::helper::count_all_args(args, &mut arg_count),
+                            //     signature: #signature.to_owned(),
                             // }))?;
                     };
                 }
@@ -379,6 +395,7 @@ impl Builtin {
                             //     index: #i,
                             //     expected: #num_params,
                             //     given: crate::funcs::helper::count_all_args(args, &mut arg_count),
+                            //     signature: #signature.to_owned(),
                             // }));
                         },
                     )
@@ -391,10 +408,11 @@ impl Builtin {
                         Some(#ty(#ident)) => #received_type,
                         Some(bad_value) => {
                             return Err(crate::numerical::builtin::error::BuiltinError::TypeMismatch(crate::numerical::builtin::error::check::TypeMismatch {
-                                name: stringify!(#name).to_owned(),
+                                name: stringify!(#name),
                                 index: #i,
                                 expected: #user_ty,
                                 given: bad_value.typename(),
+                                signature: self.sig_str(),
                             }));
                         },
                         None => { #none_branch },
@@ -411,6 +429,7 @@ impl Builtin {
             //         name: stringify!(#name).to_owned(),
             //         expected: #num_params,
             //         given: crate::funcs::helper::count_all_args(args, &mut arg_count),
+            //         signature: #signature.to_owned(),
             //     }));
             // }
         }
@@ -454,18 +473,32 @@ impl Builtin {
         let Self { name, pascal_name, params, .. } = self;
         let type_checkers = self.generate_check_stmts(radian);
         let sig = params.iter()
-            .map(|param| match param.ty.optional {
-                true => quote! { crate::numerical::builtin::Param::Optional },
-                false => quote! { crate::numerical::builtin::Param::Required },
+            .map(|param| {
+                let name = &param.ident;
+                let kind = match param.ty.optional {
+                    true => quote! { crate::numerical::builtin::ParamKind::Optional },
+                    false => quote! { crate::numerical::builtin::ParamKind::Required },
+                };
+                let typename = param.ty.typename();
+                quote! {
+                    crate::numerical::builtin::BuiltinParam {
+                        name: stringify!(#name),
+                        kind: #kind,
+                        typename: Some(#typename),
+                    }
+                }
             })
             .collect::<Vec<_>>();
+        let sig_str = self.signature();
         let call = self.generate_call(radian);
 
         quote! {
             impl crate::numerical::builtin::Builtin for #pascal_name {
                 fn name(&self) -> &'static str { stringify!(#name) }
 
-                fn sig(&self) -> &'static [crate::numerical::builtin::Param] { &[#( #sig ),*] }
+                fn sig(&self) -> &'static [crate::numerical::builtin::BuiltinParam] { &[#( #sig ),*] }
+
+                fn sig_str(&self) -> &'static str { #sig_str }
 
                 fn eval(
                     &self,

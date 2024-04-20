@@ -8,8 +8,8 @@ use cas_error::EXPR;
     message = format!("cannot override builtin constant: `{}`", self.name),
     labels = ["this variable"],
     help = "choose a different name for this variable",
-    // TODO: add this note when merging with `dev`
-    // note = "builtin constants include: `i`, `e`, `phi`, `pi`, or `tau`",
+    note = "builtin constants include: `i`, `e`, `phi`, `pi`, or `tau`",
+    // TODO: ariadne does not allow multiple notes
     // note = "consider using `let` to shadow the constant",
 )]
 pub struct OverrideBuiltinConstant {
@@ -78,6 +78,7 @@ pub struct UnknownFunction {
     ),
     labels = ["this function"],
     help = format!("only functions with a *single parameter* can be differentiated using prime notation; the `{}` function has {} parameter(s)", (&self.name).fg(EXPR), self.actual),
+    note = "consider partially applying the function (i.e. `f(x) = log(x, 2)`) to make it differentiable",
 )]
 pub struct InvalidDifferentiation {
     /// The name of the function that was called.

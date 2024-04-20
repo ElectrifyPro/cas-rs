@@ -2013,6 +2013,14 @@ mod tests {
     }
 
     #[test]
+    fn bad_assign_to_function() {
+        let mut parser = Parser::new("g(x) += 2");
+        let expr = parser.try_parse_full::<Expr>();
+
+        assert!(expr.is_err());
+    }
+
+    #[test]
     fn assign_to_complicated_function() {
         let mut parser = Parser::new("discrim(a = 1, b = 5, c) = return b^2 - 4a * c");
         let expr = parser.try_parse_full::<Expr>().unwrap();

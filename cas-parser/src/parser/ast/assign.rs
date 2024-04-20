@@ -290,7 +290,7 @@ impl<'source> Parse<'source> for Assign {
                 // f(x) += 5
                 //      ^^
                 recoverable_errors.push(Error::new(
-                    vec![op.span.clone()],
+                    vec![target.span(), op.span.clone()],
                     InvalidCompoundAssignmentLhs,
                 ));
             }

@@ -1,10 +1,23 @@
 use crate::{
     parser::{
-        ast::{expr::Expr, helper::ParenDelimited, index::Index, literal::{Literal, LitSym}},
-        error::{kind::{CompoundAssignmentInHeader, InvalidAssignmentLhs, InvalidCompoundAssignmentLhs}, Error},
+        ast::{
+            expr::Expr,
+            helper::Surrounded,
+            index::Index,
+            literal::{Literal, LitSym},
+        },
+        error::{
+            kind::{
+                CompoundAssignmentInHeader,
+                DefaultArgumentNotLast,
+                InvalidAssignmentLhs,
+                InvalidCompoundAssignmentLhs,
+            },
+            Error,
+        },
         fmt::Latex,
         garbage::Garbage,
-        token::op::AssignOp,
+        token::{op::AssignOp, Comma, OpenParen},
         Parse,
         Parser,
         ParseResult,
@@ -29,6 +42,14 @@ pub enum Param {
 }
 
 impl Param {
+    /// Returns the span of the parameter.
+    pub fn span(&self) -> Range<usize> {
+        match self {
+            Param::Symbol(symbol) => symbol.span.clone(),
+            Param::Default(symbol, default) => symbol.span.start..default.span().end,
+        }
+    }
+
     /// Returns the symbol of the parameter.
     pub fn symbol(&self) -> &LitSym {
         match self {
@@ -108,7 +129,59 @@ impl<'source> Parse<'source> for FuncHeader {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let name = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
-        let surrounded = input.try_parse::<ParenDelimited<_>>().forward_errors(recoverable_errors)?;
+
+        /// Helper duplicate of the `Delimited` helper struct with additional state to ensure
+        /// default parameters in the correct position.
+        struct FuncHeaderInner {
+            values: Vec<Param>,
+        }
+
+        impl<'source> Parse<'source> for FuncHeaderInner {
+            fn std_parse(
+                input: &mut Parser<'source>,
+                recoverable_errors: &mut Vec<Error>
+            ) -> Result<Self, Vec<Error>> {
+                let mut bad_default_position = false;
+                let mut default_params = Vec::new();
+                let mut values = Vec::new();
+
+                loop {
+                    let Ok(value) = input.try_parse().forward_errors(recoverable_errors) else {
+                        break;
+                    };
+
+                    // default parameters must be at the end of the list, i.e., no required
+                    // parameters should come after
+                    if !default_params.is_empty() && !bad_default_position {
+                        if let Param::Symbol(_) = value {
+                            bad_default_position = true;
+                        }
+                    }
+
+                    if let Param::Default(_, _) = value {
+                        default_params.push(value.span());
+                    }
+
+                    values.push(value);
+
+                    if input.try_parse::<Comma>().forward_errors(recoverable_errors).is_err() {
+                        break;
+                    }
+                }
+
+                if bad_default_position {
+                    recoverable_errors.push(Error::new(
+                        default_params,
+                        DefaultArgumentNotLast,
+                    ));
+                }
+
+                Ok(Self { values })
+            }
+        }
+
+        let surrounded = input.try_parse::<Surrounded<OpenParen, FuncHeaderInner>>()
+            .forward_errors(recoverable_errors)?;
 
         let span = name.span.start..surrounded.close.span.end;
         Ok(Self { name, params: surrounded.value.values, span })

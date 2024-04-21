@@ -14,10 +14,10 @@ impl Signature<'_> {
     ///
     /// This indicates an error in the user's code.
     pub fn missing_args(&self, num_given: usize) -> Vec<usize> {
-        // NOTE: we will later enforce default arguments to be at the end of the signature
-        // so we can safely assume that all required arguments are at the beginning
         match self {
             Self::Builtin(builtin) => {
+                // NOTE: we will later enforce default arguments to be at the end of the signature
+                // so we can safely assume that all required arguments are at the beginning
                 let idx_of_first_default = builtin.sig()
                     .iter()
                     .position(|param| param.kind == ParamKind::Optional);

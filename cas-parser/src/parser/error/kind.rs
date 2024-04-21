@@ -204,6 +204,17 @@ pub struct InvalidAssignmentLhs {
     pub is_call: bool,
 }
 
+/// Default arguments must be placed at the end of the argument list.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "default arguments must be placed at the end of the function argument list",
+    labels = spans.iter()
+        .enumerate()
+        .map(|(i, _)| format!("default argument #{}", i + 1)),
+    help = "move the default argument(s) to the end",
+)]
+pub struct DefaultArgumentNotLast;
+
 /// The left-hand-side of a compound assignment operator cannot be a function header.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

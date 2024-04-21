@@ -2014,15 +2014,23 @@ mod tests {
 
     #[test]
     fn bad_assign_to_function() {
+        // cannot compound assign to function
         let mut parser = Parser::new("g(x) += 2");
         let expr = parser.try_parse_full::<Expr>();
+        assert!(expr.is_err());
+    }
 
+    #[test]
+    fn bad_assign_to_function_default_params() {
+        // default parameters must be at the end
+        let mut parser = Parser::new("g(x = 1, y) += 2");
+        let expr = parser.try_parse_full::<Expr>();
         assert!(expr.is_err());
     }
 
     #[test]
     fn assign_to_complicated_function() {
-        let mut parser = Parser::new("discrim(a = 1, b = 5, c) = return b^2 - 4a * c");
+        let mut parser = Parser::new("discrim(a = 1, b = 5, c = 6) = return b^2 - 4a * c");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Assign(Assign {
@@ -2052,76 +2060,80 @@ mod tests {
                             span: 19..20,
                         })),
                     ),
-                    Param::Symbol(
+                    Param::Default(
                         LitSym {
                             name: "c".to_string(),
                             span: 22..23,
                         },
+                        Expr::Literal(Literal::Integer(LitInt {
+                            value: "6".to_string(),
+                            span: 26..27,
+                        })),
                     ),
                 ],
-                span: 0..24,
+                span: 0..28,
             }),
             op: AssignOp {
                 kind: AssignOpKind::Assign,
-                span: 25..26,
+                span: 29..30,
             },
             value: Box::new(Expr::Return(Return {
                 value: Some(Box::new(Expr::Binary(Binary {
                     lhs: Box::new(Expr::Binary(Binary {
                         lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                             name: "b".to_string(),
-                            span: 34..35,
+                            span: 38..39,
                         }))),
                         op: BinOp {
                             kind: BinOpKind::Exp,
                             implicit: false,
-                            span: 35..36,
+                            span: 39..40,
                         },
                         rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                             value: "2".to_string(),
-                            span: 36..37,
+                            span: 40..41,
                         }))),
-                        span: 34..37,
+                        span: 38..41,
                     })),
                     op: BinOp {
                         kind: BinOpKind::Sub,
                         implicit: false,
-                        span: 38..39,
+                        span: 42..43,
                     },
                     rhs: Box::new(Expr::Binary(Binary {
                         lhs: Box::new(Expr::Binary(Binary {
                             lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
                                 value: "4".to_string(),
-                                span: 40..41,
+                                span: 44..45,
                             }))),
                             op: BinOp {
                                 kind: BinOpKind::Mul,
                                 implicit: true,
-                                span: 41..41,
+                                span: 45..45,
                             },
                             rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                                 name: "a".to_string(),
-                                span: 41..42,
+                                span: 45..46,
                             }))),
-                            span: 40..42,
+                            span: 44..46,
                         })),
                         op: BinOp {
                             kind: BinOpKind::Mul,
                             implicit: false,
-                            span: 43..44,
+                            span: 47..48,
                         },
                         rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                             name: "c".to_string(),
-                            span: 45..46,
+                            span: 49..50,
                         }))),
-                        span: 40..46,
+                        span: 44..50,
                     })),
-                    span: 34..46,
+                    span: 38..50,
                 }))),
-                span: 27..46,
-                return_span: 27..33,
+                span: 31..50,
+                return_span: 31..37,
             })),
-            span: 0..46,
+            span: 0..50,
         }));
     }
 

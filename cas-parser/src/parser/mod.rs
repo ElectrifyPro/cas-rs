@@ -2214,7 +2214,9 @@ mod tests {
     #[test]
     fn catastrophic_backtracking() {
         // parsing nested function calls like this used to take exponential time! :sweat:
-        let mut parser = Parser::new("a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a()");
+        // a(a(a(a(a(a(...)
+        let source = format!("{})", "a(".repeat(6000));
+        let mut parser = Parser::new(&source);
         assert!(parser.try_parse_full::<Expr>().is_err());
     }
 

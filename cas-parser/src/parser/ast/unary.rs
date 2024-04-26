@@ -28,11 +28,6 @@ fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Resul
 
 /// A unary expression, such as `2!`. Unary expressions can include nested expressions.
 ///
-/// Unary expressions do not directly implement [`Parse`] due to performance implications involving
-/// parsing left-associative unary expressions (see [`Unary::parse_left_or_operand`]). Instead, the
-/// a combination of [`Unary::parse_right`] and [`Unary::parse_left_or_operand`] can be used to
-/// parse unary expressions.
-///
 /// [`Parse`]: crate::parser::Parse
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

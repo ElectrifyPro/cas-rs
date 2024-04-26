@@ -1,11 +1,8 @@
-use crate::{
-    parser::{
-        ast::{expr::{Expr, Primary}, helper::Square},
-        error::Error,
-        fmt::Latex,
-        Parser,
-    },
-    return_if_ok,
+use crate::parser::{
+    ast::{expr::{Expr, Primary}, helper::Square},
+    error::Error,
+    fmt::Latex,
+    Parser,
 };
 use std::{fmt, ops::Range};
 
@@ -13,11 +10,6 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// List indexing, such as `list[0]`.
-///
-/// Indexing expressions do not directly implement [`Parse`] due to performance impliciations
-/// involving parsing left-recursive expressions. Instead, the [`Index::parse_or_lower`] method can
-/// be used to parse indexing expressions, falling back to other primary expressions if no index
-/// expression is found.
 ///
 /// [`Parse`]: crate::parser::Parse
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,51 +43,24 @@ impl Index {
         ]
     }
 
-    /// [`Primary::std_parse`] without [`Index`].
-    pub fn parse_primary(input: &mut Parser, recoverable_errors: &mut Vec<Error>) -> Result<Primary, Vec<Error>> {
-        let _ = return_if_ok!(input.try_parse().map(Primary::If).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Primary::Loop).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Primary::While).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Primary::Break).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Primary::Continue).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Primary::Return).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Primary::Call).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Primary::Literal).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Primary::Paren).forward_errors(recoverable_errors));
-        input.try_parse().map(Primary::Block).forward_errors(recoverable_errors)
-    }
-
-    /// Parses an [`Index`], or any other primary expression.
+    /// Attempts to parse an [`Index`], where the initial target has already been parsed.
     pub fn parse_or_lower(
         input: &mut Parser,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Primary, Vec<Error>> {
-        let target = Index::parse_primary(input, recoverable_errors)?;
-        let surrounded = match input.try_parse::<Square<_>>().forward_errors(recoverable_errors) {
-            Ok(surrounded) => surrounded,
-            Err(_) => return Ok(target),
-        };
-
-        let span = target.span().start..surrounded.close.span.end;
-        let mut result = Self {
-            target: Box::new(target.into()),
-            index: Box::new(surrounded.value),
-            span,
-            bracket_span: surrounded.open.span.start..surrounded.close.span.end,
-        };
-
+        recoverable_errors: &mut Vec<Error>,
+        mut target: Primary,
+    ) -> Primary {
         // iteratively search for nested index expressions
         while let Ok(surrounded) = input.try_parse::<Square<_>>().forward_errors(recoverable_errors) {
-            let span = result.span.start..surrounded.close.span.end;
-            result = Self {
-                target: Box::new(Expr::Index(result)),
+            let span = target.span().start..surrounded.close.span.end;
+            target = Primary::Index(Self {
+                target: Box::new(target.into()),
                 index: Box::new(surrounded.value),
                 span,
                 bracket_span: surrounded.open.span.start..surrounded.close.span.end,
-            };
+            });
         }
 
-        Ok(Primary::Index(result))
+        target
     }
 }
 

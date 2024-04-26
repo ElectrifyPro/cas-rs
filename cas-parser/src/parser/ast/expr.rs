@@ -21,6 +21,7 @@ use crate::{
         Parse,
         Parser,
     },
+    tokenizer::TokenKind,
     return_if_ok,
 };
 use std::{fmt, ops::Range};
@@ -28,7 +29,7 @@ use std::{fmt, ops::Range};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Represents a general expression in CalcScript.
+/// Represents any kind of expression in CalcScript.
 ///
 /// An expression is any valid piece of code that can be evaluated to produce a value. Expressions
 /// can be used as the right-hand side of an assignment, or as the argument to a function call.
@@ -148,6 +149,34 @@ impl<'source> Parse<'source> for Expr {
     }
 }
 
+/// Implements [`Parse`] for an [`Expr`] variant by parsing an [`Expr`] and then converting it to the
+/// variant.
+///
+/// This is done for completeness.
+macro_rules! impl_by_parsing_expr {
+    ($( $variant:ident ),* $(,)?) => {
+        $(
+            impl<'source> Parse<'source> for $variant {
+                fn std_parse(
+                    input: &mut Parser<'source>,
+                    recoverable_errors: &mut Vec<Error>
+                ) -> Result<Self, Vec<Error>> {
+                    match input.try_parse::<Expr>().forward_errors(recoverable_errors) {
+                        Ok(Expr::$variant(expr)) => Ok(expr),
+                        _ => Err(todo!()),
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_by_parsing_expr!(
+    Call,
+    Index,
+    Unary,
+);
+
 impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -192,10 +221,14 @@ impl Latex for Expr {
 
 /// Represents a primary expression in CalcScript.
 ///
-/// Primary expressions are the simplest expressions, and are the building blocks of more complex
-/// expressions. Primary expressions are also self-contained. This means that primary expressions
-/// within a larger expression can be replaced with equivalent, but different kinds of primary
-/// expressions, and the larger expression will still be valid.
+/// Primary expressions extend the concept of [`Atom`] by allowing for more complex and ambiguous
+/// expressions that are still self-contained. These extensions include function calls and list
+/// indexing expressions, which can be ambiguous when encountered in isolation.
+///
+/// For example, when trying to parse a [`Primary`], a literal value like `abc` cannot
+/// automatically be declared a [`Primary::Literal`]. Instead, we must parse forward a little more
+/// to see if this is actually calling a function named `abc`, or indexing into a list named `abc`,
+/// or neither.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Primary {
     /// A literal value.
@@ -256,19 +289,26 @@ impl<'source> Parse<'source> for Primary {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let _ = return_if_ok!(input.try_parse().map(Self::If).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Loop).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::While).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Break).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Continue).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Return).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(Index::parse_or_lower(input, recoverable_errors));
-        // function calls can overlap with literals, so we need to try parsing a function call
-        // first
-        let _ = return_if_ok!(input.try_parse().map(Self::Call).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Literal).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Paren).forward_errors(recoverable_errors));
-        input.try_parse().map(Self::Block).forward_errors(recoverable_errors)
+        let atom = input.try_parse::<Atom>().forward_errors(recoverable_errors)?;
+        let mut primary = Primary::from(atom);
+
+        loop {
+            let mut fork = input.clone();
+            match fork.next_token() {
+                Ok(next) if next.kind == TokenKind::OpenParen || next.kind == TokenKind::Quote => {
+                    let input_start = input.cursor;
+                    primary = Call::parse_or_lower(input, recoverable_errors, primary)?;
+                    if input.cursor == input_start {
+                        // call was not parsed; is this implicit multiplication?
+                        break Ok(primary);
+                    }
+                },
+                Ok(next) if next.kind == TokenKind::OpenSquare => {
+                    primary = Index::parse_or_lower(input, recoverable_errors, primary);
+                },
+                _ => break Ok(primary),
+            }
+        }
     }
 }
 
@@ -286,6 +326,100 @@ impl From<Primary> for Expr {
             Primary::Return(return_expr) => Self::Return(return_expr),
             Primary::Call(call) => Self::Call(call),
             Primary::Index(index) => Self::Index(index),
+        }
+    }
+}
+
+/// Represents an atom expression in CalcScript.
+///
+/// Atom expressions are the simplest kind of expression, and are entirely unambiguous to parse,
+/// meaning that they can be parsed without needing any context.
+///
+/// For example, a literal value like `1` or `true` has no ambiguity; when we encounter a numeric
+/// or boolean token, we know that it must be a literal value.
+///
+/// Some expressions, like `if` expressions or `loop` expressions, are also atom expressions,
+/// because they have a unique keyword that identifies them; when we encounter the `if` keyword, we
+/// automatically know there is only one correct way to parse the expression.
+///
+/// In addition, all atom expressions are self-contained. This means that atom expressions within a
+/// larger [`Expr`] can be replaced with semantically equivalent, but different variants of atom
+/// expressions, and the larger expression will still be valid.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Atom {
+    /// A literal value.
+    Literal(Literal),
+
+    /// A parenthesized expression, such as `(1 + 2)`.
+    Paren(Paren),
+
+    /// A blocked expression, such as `{1 + 2}`.
+    Block(Block),
+
+    /// An if expression, such as `if x > 0 then x else -x`.
+    If(If),
+
+    /// A loop expression, as in `loop { ... }`.
+    Loop(Loop),
+
+    /// A while loop expression, as in `while x > 0 then { ... }`.
+    While(While),
+
+    /// A break expression, used to exit a loop, optionally with a value.
+    Break(Break),
+
+    /// A continue expression, used to skip the rest of a loop iteration.
+    Continue(Continue),
+
+    /// A return expression, as in `return x`, used to return a value from a function.
+    Return(Return),
+}
+
+impl<'source> Parse<'source> for Atom {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        let _ = return_if_ok!(input.try_parse().map(Self::Literal).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Paren).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Block).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::If).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Loop).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::While).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Break).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Continue).forward_errors(recoverable_errors));
+        input.try_parse().map(Self::Return).forward_errors(recoverable_errors)
+    }
+}
+
+impl From<Atom> for Primary {
+    fn from(atom: Atom) -> Self {
+        match atom {
+            Atom::Literal(literal) => Self::Literal(literal),
+            Atom::Paren(paren) => Self::Paren(paren),
+            Atom::Block(block) => Self::Block(block),
+            Atom::If(if_expr) => Self::If(if_expr),
+            Atom::Loop(loop_expr) => Self::Loop(loop_expr),
+            Atom::While(while_expr) => Self::While(while_expr),
+            Atom::Break(break_expr) => Self::Break(break_expr),
+            Atom::Continue(continue_expr) => Self::Continue(continue_expr),
+            Atom::Return(return_expr) => Self::Return(return_expr),
+        }
+    }
+}
+
+impl From<Atom> for Expr {
+    fn from(atom: Atom) -> Self {
+        match atom {
+            Atom::Literal(literal) => Self::Literal(literal),
+            Atom::Paren(paren) => Self::Paren(paren),
+            Atom::Block(block) => Self::Block(block),
+            Atom::If(if_expr) => Self::If(if_expr),
+            Atom::Loop(loop_expr) => Self::Loop(loop_expr),
+            Atom::While(while_expr) => Self::While(while_expr),
+            Atom::Break(break_expr) => Self::Break(break_expr),
+            Atom::Continue(continue_expr) => Self::Continue(continue_expr),
+            Atom::Return(return_expr) => Self::Return(return_expr),
         }
     }
 }

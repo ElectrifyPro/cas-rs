@@ -1,9 +1,8 @@
 use crate::parser::{
-    ast::{expr::Expr, helper::ParenDelimited, literal::LitSym},
+    ast::{expr::{Expr, Primary}, helper::ParenDelimited, literal::{Literal, LitSym}},
     error::{kind::TooManyDerivatives, Error},
     fmt::{Latex, fmt_pow},
     token::Quote,
-    Parse,
     Parser,
 };
 use std::{fmt, ops::Range};
@@ -52,14 +51,18 @@ impl Call {
             self.paren_span.end - 1..self.paren_span.end,
         ]
     }
-}
 
-impl<'source> Parse<'source> for Call {
-    fn std_parse(
-        input: &mut Parser<'source>,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
-        let name = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
+    /// Attempts to parse a [`Call`], where the initial target has already been parsed.
+    pub fn parse_or_lower(
+        input: &mut Parser,
+        recoverable_errors: &mut Vec<Error>,
+        target: Primary,
+    ) -> Result<Primary, Vec<Error>> {
+        let name = match target {
+            Primary::Literal(Literal::Symbol(name)) => name,
+            target => return Ok(Primary::from(target)),
+        };
+
         let mut derivatives = 0usize;
         let mut quote_span: Option<Range<_>> = None;
         let mut too_many_derivatives = false;
@@ -86,13 +89,13 @@ impl<'source> Parse<'source> for Call {
 
         // use `name` here before it is moved into the struct
         let span = name.span.start..surrounded.close.span.end;
-        Ok(Self {
+        Ok(Primary::Call(Self {
             name,
             derivatives: derivatives as u8,
             args: surrounded.value.values,
             span,
             paren_span: surrounded.open.span.start..surrounded.close.span.end,
-        })
+        }))
     }
 }
 

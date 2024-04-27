@@ -11,6 +11,7 @@ use crate::{
             index::Index,
             literal::Literal,
             loop_expr::{Break, Continue, Loop},
+            member::Member,
             paren::Paren,
             return_expr::Return,
             unary::Unary,
@@ -71,8 +72,11 @@ pub enum Expr {
     /// A return expression, as in `return x`, used to return a value from a function.
     Return(Return),
 
-    /// A function call, such as `abs(-1)`.
+    /// A function call, such as `abs(-1)`, or a method call, such as `list.len()`.
     Call(Call),
+
+    /// Accessing a member of a structure, such as the `list.len` in `list.len()`, or `a.b.c`.
+    Member(Member),
 
     /// List indexing, such as `list[0]`.
     Index(Index),
@@ -102,6 +106,7 @@ impl Expr {
             Expr::Continue(continue_expr) => continue_expr.span(),
             Expr::Return(return_expr) => return_expr.span(),
             Expr::Call(call) => call.span(),
+            Expr::Member(member) => member.span(),
             Expr::Index(index) => index.span(),
             Expr::Unary(unary) => unary.span(),
             Expr::Binary(binary) => binary.span(),
@@ -197,6 +202,7 @@ impl std::fmt::Display for Expr {
             Expr::Continue(continue_expr) => continue_expr.fmt(f),
             Expr::Return(return_expr) => return_expr.fmt(f),
             Expr::Call(call) => call.fmt(f),
+            Expr::Member(member) => member.fmt(f),
             Expr::Index(index) => index.fmt(f),
             Expr::Unary(unary) => unary.fmt(f),
             Expr::Binary(binary) => binary.fmt(f),
@@ -219,6 +225,7 @@ impl Latex for Expr {
             Expr::Continue(continue_expr) => continue_expr.fmt_latex(f),
             Expr::Return(return_expr) => return_expr.fmt_latex(f),
             Expr::Call(call) => call.fmt_latex(f),
+            Expr::Member(member) => member.fmt_latex(f),
             Expr::Index(index) => index.fmt_latex(f),
             Expr::Unary(unary) => unary.fmt_latex(f),
             Expr::Binary(binary) => binary.fmt_latex(f),
@@ -269,8 +276,11 @@ pub enum Primary {
     /// A return expression, as in `return x`, used to return a value from a function.
     Return(Return),
 
-    /// A function call, such as `abs(-1)`.
+    /// A function call, such as `abs(-1)`, or a method call, such as `list.len()`.
     Call(Call),
+
+    /// Accessing a member of a structure, such as the `list.len` in `list.len()`, or `a.b.c`.
+    Member(Member),
 
     /// List indexing, such as `list[0]`.
     Index(Index),
@@ -291,6 +301,7 @@ impl Primary {
             Primary::Continue(continue_expr) => continue_expr.span(),
             Primary::Return(return_expr) => return_expr.span(),
             Primary::Call(call) => call.span(),
+            Primary::Member(member) => member.span(),
             Primary::Index(index) => index.span(),
         }
     }
@@ -318,6 +329,9 @@ impl<'source> Parse<'source> for Primary {
                 Ok(next) if next.kind == TokenKind::OpenSquare => {
                     primary = Index::parse_or_lower(input, recoverable_errors, primary);
                 },
+                Ok(next) if next.kind == TokenKind::Dot => {
+                    primary = Member::parse_or_lower(input, recoverable_errors, primary);
+                },
                 _ => break Ok(primary),
             }
         }
@@ -338,6 +352,7 @@ impl From<Primary> for Expr {
             Primary::Continue(continue_expr) => Self::Continue(continue_expr),
             Primary::Return(return_expr) => Self::Return(return_expr),
             Primary::Call(call) => Self::Call(call),
+            Primary::Member(member) => Self::Member(member),
             Primary::Index(index) => Self::Index(index),
         }
     }
@@ -389,6 +404,24 @@ pub enum Atom {
 
     /// A return expression, as in `return x`, used to return a value from a function.
     Return(Return),
+}
+
+impl Atom {
+    /// Returns the span of the atom expression.
+    pub fn span(&self) -> Range<usize> {
+        match self {
+            Atom::Literal(literal) => literal.span(),
+            Atom::Paren(paren) => paren.span(),
+            Atom::Block(block) => block.span(),
+            Atom::If(if_expr) => if_expr.span(),
+            Atom::Loop(loop_expr) => loop_expr.span(),
+            Atom::While(while_expr) => while_expr.span(),
+            Atom::Break(break_expr) => break_expr.span(),
+            Atom::Then(then) => then.span(),
+            Atom::Continue(continue_expr) => continue_expr.span(),
+            Atom::Return(return_expr) => return_expr.span(),
+        }
+    }
 }
 
 impl<'source> Parse<'source> for Atom {

@@ -104,6 +104,14 @@ impl<'a> Iterator for ExprIter<'a> {
                         self.stack.push(arg);
                     }
                 },
+                Expr::Member(member) => {
+                    if self.is_last_visited(member.target.last().unwrap()) {
+                        return self.visit();
+                    }
+                    for target in member.target.iter().rev() {
+                        self.stack.push(target);
+                    }
+                },
                 Expr::Index(index) => {
                     if self.is_last_visited(&index.index) {
                         return self.visit();

@@ -155,3 +155,21 @@ pub struct MissingArgument {
     /// The signature of the function, not including the function name.
     pub signature: String,
 }
+
+/// Target of a function call must be given as a symbol.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "target of function call must be a symbol",
+    labels = ["this function call"],
+    help = "function calls must be made on symbols, not expressions",
+)]
+pub struct InvalidFunctionTarget;
+
+/// Member access is currently unsupported.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "member access is currently unsupported",
+    labels = ["this expression"],
+    help = "member access is not yet implemented",
+)]
+pub struct MemberAccessUnsupported;

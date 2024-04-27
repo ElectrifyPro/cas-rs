@@ -333,10 +333,12 @@ impl Assign {
     pub fn is_recursive(&self) -> bool {
         if let AssignTarget::Func(header) = &self.target {
             let is_correct_call = |expr: &Expr| {
-                match expr {
-                    Expr::Call(call) => call.name.name == header.name.name,
-                    _ => false,
-                }
+                let Expr::Call(call) = expr else {
+                    return false;
+                };
+
+                call.as_global_call()
+                    .map_or(false, |symbol| symbol.name == header.name.name)
             };
 
             self.value.post_order_iter().any(is_correct_call)

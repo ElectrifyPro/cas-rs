@@ -1,7 +1,7 @@
 use cas_compute::numerical::builtin::{Builtin, ParamKind};
 use cas_error::Error;
 use cas_parser::parser::ast::{Call, Param as ParserParam};
-use crate::error::{MissingArgument, TooManyArguments};
+use crate::error::{InvalidFunctionTarget, MissingArgument, TooManyArguments};
 use std::{cmp::Ordering, collections::HashMap};
 
 enum Signature<'a> {
@@ -68,7 +68,12 @@ fn check_call(sig: Signature<'_>, sig_len: usize, call: &Call) -> Result<(), Err
             Err(Error::new(
                 spans,
                 TooManyArguments {
-                    name: call.name.name.to_string(),
+                    name: call.as_global_call()
+                        .map(|symbol| symbol.name.to_string())
+                        .ok_or_else(|| Error::new(
+                            vec![call.span()],
+                            InvalidFunctionTarget,
+                        ))?,
                     expected: sig_len,
                     given: call.args.len(),
                     signature: sig.signature(),
@@ -84,7 +89,12 @@ fn check_call(sig: Signature<'_>, sig_len: usize, call: &Call) -> Result<(), Err
                 Err(Error::new(
                     call.outer_span().to_vec(),
                     MissingArgument {
-                        name: call.name.name.to_string(),
+                        name: call.as_global_call()
+                            .map(|symbol| symbol.name.to_string())
+                            .ok_or_else(|| Error::new(
+                                vec![call.span()],
+                                InvalidFunctionTarget,
+                            ))?,
                         indices,
                         expected: sig_len,
                         given: call.args.len(),

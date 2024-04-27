@@ -49,7 +49,7 @@ impl Index {
         recoverable_errors: &mut Vec<Error>,
         mut target: Primary,
     ) -> Primary {
-        // iteratively search for nested index expressions
+        // iteratively search for adjacent index expressions
         while let Ok(surrounded) = input.try_parse::<Square<_>>().forward_errors(recoverable_errors) {
             let span = target.span().start..surrounded.close.span.end;
             target = Primary::Index(Self {

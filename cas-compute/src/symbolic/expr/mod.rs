@@ -459,9 +459,11 @@ impl From<AstExpr> for Expr {
             AstExpr::Continue(_) => todo!(),
             AstExpr::Return(_) => todo!(),
             AstExpr::Call(call) => {
+                let name = call.as_global_call().unwrap().to_string();
                 let args = call.args.into_iter().map(Self::from).collect();
-                Self::Primary(Primary::Call(call.name.name, args))
+                Self::Primary(Primary::Call(name, args))
             },
+            AstExpr::Member(_) => todo!(),
             AstExpr::Index(_) => todo!(),
             AstExpr::Unary(unary) => {
                 match unary.op.kind {
@@ -589,7 +591,7 @@ impl From<Expr> for AstExpr {
                     span: 0..0,
                 })),
                 Primary::Call(name, args) => AstExpr::Call(Call {
-                    name: LitSym { name, span: 0..0 },
+                    target: Box::new(AstExpr::Literal(Literal::Symbol(LitSym { name, span: 0..0 }))),
                     derivatives: 0,
                     args: args.into_iter().map(Self::from).collect(),
                     span: 0..0,

@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Call {
-    /// The name of the function to call.
-    pub name: LitSym,
+    /// The receiver of the call.
+    pub target: Box<Expr>,
 
     /// The number of derivatives to take before calling the function.
     pub derivatives: u8,
@@ -48,9 +48,18 @@ impl Call {
     /// opening parenthesis) and the second is the span of the closing parenthesis.
     pub fn outer_span(&self) -> [Range<usize>; 2] {
         [
-            self.name.span.start..self.paren_span.start + 1,
+            self.target.span().start..self.paren_span.start + 1,
             self.paren_span.end - 1..self.paren_span.end,
         ]
+    }
+
+    /// If this is a call to a global function (not a method call / the reciever is a symbol),
+    /// returns the symbol.
+    pub fn as_global_call(&self) -> Option<&LitSym> {
+        match self.target.as_ref() {
+            Expr::Literal(Literal::Symbol(sym)) => Some(sym),
+            _ => None,
+        }
     }
 
     /// Attempts to parse a [`Call`], where the initial target has already been parsed.
@@ -59,11 +68,6 @@ impl Call {
         recoverable_errors: &mut Vec<Error>,
         target: Primary,
     ) -> Result<Primary, Vec<Error>> {
-        let name = match target {
-            Primary::Literal(Literal::Symbol(name)) => name,
-            target => return Ok(Primary::from(target)),
-        };
-
         let mut derivatives = 0usize;
         let mut quote_span: Option<Range<_>> = None;
         let mut too_many_derivatives = false;
@@ -89,9 +93,9 @@ impl Call {
         let surrounded = input.try_parse::<ParenDelimited<_>>().forward_errors(recoverable_errors)?;
 
         // use `name` here before it is moved into the struct
-        let span = name.span.start..surrounded.close.span.end;
+        let span = target.span().start..surrounded.close.span.end;
         Ok(Primary::Call(Self {
-            name,
+            target: Box::new(target.into()),
             derivatives: derivatives as u8,
             args: surrounded.value.values,
             span,
@@ -102,7 +106,7 @@ impl Call {
 
 impl std::fmt::Display for Call {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.name.fmt(f)?;
+        self.target.fmt(f)?;
         for _ in 0..self.derivatives {
             write!(f, "'")?;
         }
@@ -138,7 +142,7 @@ impl Latex for Call {
                     Self::Cbrt => write!(f, "\\sqrt[3]"),
                     Self::Sqrt => write!(f, "\\sqrt"),
                     Self::Abs => Ok(()),
-                    Self::Other => write!(f, "\\mathrm{{ {} }}", call.name.as_display()),
+                    Self::Other => write!(f, "\\mathrm{{ {} }}", call.target.as_display()),
                 }
             }
 
@@ -195,12 +199,15 @@ impl Latex for Call {
             }
         }
 
-        let func = match self.name.name.as_str() {
-            "pow" => SpecialFunc::Pow,
-            "root" => SpecialFunc::Root,
-            "cbrt" => SpecialFunc::Cbrt,
-            "sqrt" => SpecialFunc::Sqrt,
-            "abs" => SpecialFunc::Abs,
+        let func = match &*self.target {
+            Expr::Literal(Literal::Symbol(LitSym { name, .. })) => match name.as_str() {
+                "pow" => SpecialFunc::Pow,
+                "root" => SpecialFunc::Root,
+                "cbrt" => SpecialFunc::Cbrt,
+                "sqrt" => SpecialFunc::Sqrt,
+                "abs" => SpecialFunc::Abs,
+                _ => SpecialFunc::Other,
+            },
             _ => SpecialFunc::Other,
         };
 

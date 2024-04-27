@@ -43,7 +43,9 @@ pub fn fmt_pow(f: &mut Formatter, left: Option<&Expr>, right: Option<&Expr>) -> 
             // but is just here for completeness
             Expr::Binary(binary)
                 if binary.op.precedence() <= BinOpKind::Exp.precedence() => insert_with_paren(),
-            Expr::Call(call) if call.name.name == "pow" => insert_with_paren(),
+            Expr::Call(call)
+                if call.as_global_call()
+                    .map_or(false, |symbol| symbol.name == "pow") => insert_with_paren(),
             _ => left.fmt_latex(f),
         }?
     }

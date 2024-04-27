@@ -7,6 +7,7 @@ use cas_compute::{consts::all as all_consts, funcs::all as all_funcs};
 use cas_error::Error;
 use cas_parser::parser::ast::{Call, FuncHeader, LitSym, Stmt};
 use error::{
+    InvalidFunctionTarget,
     OverrideBuiltinConstant,
     OverrideBuiltinFunction,
     UnknownFunction,
@@ -380,9 +381,12 @@ impl Compiler {
     ///
     /// Returns the index of the chunk containing the function.
     pub fn resolve_function(&self, call: &Call) -> Result<Func, Error> {
+        let symbol = call.as_global_call()
+            .ok_or_else(|| Error::new(vec![call.span()], InvalidFunctionTarget))?;
+
         // check for native functions
         let mut result = all_funcs()
-            .get(&*call.name.name)
+            .get(&*symbol.name)
             .map(|func| Func::Builtin(BuiltinCall {
                 builtin: func.as_ref(),
                 num_given: call.args.len(),
@@ -393,7 +397,7 @@ impl Compiler {
 
         if self.state.path.len() > 0 {
             // is the function in the global scope?
-            if let Some(Item::Func(func)) = table.get(&call.name.name) {
+            if let Some(Item::Func(func)) = table.get(&symbol.name) {
                 result = Some(Func::User(UserCall {
                     chunk: func.chunk,
                     signature: func.signature.clone(),
@@ -417,7 +421,7 @@ impl Compiler {
         }
 
         // found matching function; now verify arg count (types are checked at runtime)
-        if let Some(Item::Func(func)) = table.get(&call.name.name) {
+        if let Some(Item::Func(func)) = table.get(&symbol.name) {
             // is the function in the current scope?
             func.check_call(call)?;
             Ok(Func::User(UserCall {
@@ -431,8 +435,8 @@ impl Compiler {
             Ok(func)
         } else {
             // not found
-            Err(Error::new(vec![call.name.span.clone()], UnknownFunction {
-                name: call.name.name.to_string(),
+            Err(Error::new(vec![symbol.span.clone()], UnknownFunction {
+                name: symbol.name.to_string(),
                 suggestions: Vec::new(), // TODO
             }))
         }

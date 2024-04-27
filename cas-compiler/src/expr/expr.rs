@@ -1,6 +1,6 @@
 use cas_error::Error;
 use cas_parser::parser::ast::expr::Expr;
-use crate::{Compile, Compiler};
+use crate::{error::MemberAccessUnsupported, Compile, Compiler};
 use super::stmt::compile_stmts;
 
 impl Compile for Expr {
@@ -17,6 +17,10 @@ impl Compile for Expr {
             Expr::Continue(continue_expr) => continue_expr.compile(compiler),
             Expr::Return(return_expr) => return_expr.compile(compiler),
             Expr::Call(call) => call.compile(compiler),
+            Expr::Member(member) => Err(Error::new(
+                vec![member.span()],
+                MemberAccessUnsupported,
+            )),
             Expr::Index(index) => index.compile(compiler),
             Expr::Unary(unary) => unary.compile(compiler),
             Expr::Binary(binary) => binary.compile(compiler),

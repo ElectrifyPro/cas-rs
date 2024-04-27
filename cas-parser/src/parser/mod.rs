@@ -1328,10 +1328,10 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Call(Call {
-            name: LitSym {
+            target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                 name: "im".to_string(),
                 span: 0..2,
-            },
+            }))),
             derivatives: 0,
             args: vec![Expr::Binary(Binary {
                 lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
@@ -1344,10 +1344,10 @@ mod tests {
                     span: 4..4,
                 },
                 rhs: Box::new(Expr::Call(Call {
-                    name: LitSym {
+                    target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                         name: "sqrt".to_string(),
                         span: 4..8,
-                    },
+                    }))),
                     derivatives: 0,
                     args: vec![Expr::Unary(Unary {
                         operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
@@ -1860,10 +1860,10 @@ mod tests {
                 stmts: vec![
                     Stmt {
                         expr: Expr::Call(Call {
-                            name: LitSym {
+                            target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                                 name: "abs".to_string(),
                                 span: 7..10,
-                            },
+                            }))),
                             derivatives: 2,
                             args: vec![
                                 Expr::Literal(Literal::Symbol(LitSym {
@@ -2150,10 +2150,10 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Call(Call {
-            name: LitSym {
+            target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                 name: "f".to_string(),
                 span: 0..1,
-            },
+            }))),
             derivatives: 0,
             args: vec![
                 Expr::Literal(Literal::Symbol(LitSym {
@@ -2172,10 +2172,10 @@ mod tests {
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Call(Call {
-            name: LitSym {
+            target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                 name: "ncr".to_string(),
                 span: 0..3,
-            },
+            }))),
             derivatives: 6,
             args: vec![
                 Expr::Literal(Literal::Integer(LitInt {
@@ -2280,10 +2280,10 @@ mod tests {
 
         assert_eq!(expr, Expr::Index(Index {
             target: Box::new(Expr::Call(Call {
-                name: LitSym {
+                target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
                     name: "abs".to_string(),
                     span: 0..3,
-                },
+                }))),
                 derivatives: 0,
                 args: vec![],
                 span: 0..5,
@@ -2296,6 +2296,87 @@ mod tests {
             span: 0..8,
             bracket_span: 5..8,
         }));
+    }
+
+    #[test]
+    fn complicated_method_access() {
+        let mut parser = Parser::new("a.b().c.d().e.f[3].g()");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Call(Call {
+            target: Box::new(Expr::Member(Member {
+                target: vec![
+                    Expr::Index(Index {
+                        target: Box::new(Expr::Member(Member {
+                            target: vec![
+                                Expr::Call(Call {
+                                    target: Box::new(Expr::Member(Member {
+                                        target: vec![
+                                            Expr::Call(Call {
+                                                target: Box::new(Expr::Member(Member {
+                                                    target: vec![
+                                                        Expr::Literal(Literal::Symbol(LitSym {
+                                                            name: "a".to_string(),
+                                                            span: 0..1,
+                                                        })),
+                                                        Expr::Literal(Literal::Symbol(LitSym {
+                                                            name: "b".to_string(),
+                                                            span: 2..3,
+                                                        })),
+                                                    ],
+                                                    span: 0..3,
+                                                })),
+                                                derivatives: 0,
+                                                args: vec![],
+                                                span: 0..5,
+                                                paren_span: 3..5,
+                                            }),
+                                            Expr::Literal(Literal::Symbol(LitSym {
+                                                name: "c".to_string(),
+                                                span: 6..7,
+                                            })),
+                                            Expr::Literal(Literal::Symbol(LitSym {
+                                                name: "d".to_string(),
+                                                span: 8..9,
+                                            })),
+                                        ],
+                                        span: 0..9,
+                                    })),
+                                    derivatives: 0,
+                                    args: vec![],
+                                    span: 0..11,
+                                    paren_span: 9..11,
+                                }),
+                                Expr::Literal(Literal::Symbol(LitSym {
+                                    name: "e".to_string(),
+                                    span: 12..13,
+                                })),
+                                Expr::Literal(Literal::Symbol(LitSym {
+                                    name: "f".to_string(),
+                                    span: 14..15,
+                                })),
+                            ],
+                            span: 0..15,
+                        })),
+                        index: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                            value: "3".to_string(),
+                            span: 16..17,
+                        }))),
+                        span: 0..18,
+                        bracket_span: 15..18,
+                    }),
+                    Expr::Literal(Literal::Symbol(LitSym {
+                        name: "g".to_string(),
+                        span: 19..20,
+                    })),
+                ],
+                span: 0..20,
+            })),
+            derivatives: 0,
+            args: vec![],
+            span: 0..22,
+            paren_span: 20..22,
+        }))
     }
 
     #[test]

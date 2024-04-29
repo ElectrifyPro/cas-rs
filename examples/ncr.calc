@@ -1,27 +1,27 @@
 my_ncr(n, k) = {
-	partial_factorial(n, k) = {
-		result = 1
-		while n > k then {
-			result *= n
-			n -= 1
-		}
-		result
-	}
+    partial_factorial(n, k) = {
+        result = 1
+        while n > k {
+            result *= n
+            n -= 1
+        }
+        result
+    }
 
-	// NOTE: `return` expression must be clearly terminated
-	// or surrounded by {}, (), or []; otherwise, the
-	// assignment expression will be considered as the
-	// return value.
-	if k > n then { return }
+    // NOTE: `return` expression must be clearly terminated
+    // or surrounded by {}, (), or []; otherwise, the
+    // assignment expression will be considered as the
+    // return value.
+    if k > n { return }
 
-	sub = n - k
+    sub = n - k
 
-	// ncr(n, k) = n! / (k! * (n - k)!)
-	if k > sub then {
-		partial_factorial(n, k) / partial_factorial(sub, 1)
-	} else {
-		partial_factorial(n, sub) / partial_factorial(k, 1)
-	}
+    // ncr(n, k) = n! / (k! * (n - k)!)
+    if k > sub {
+        partial_factorial(n, k) / partial_factorial(sub, 1)
+    } else {
+        partial_factorial(n, sub) / partial_factorial(k, 1)
+    }
 }
 
 // partial_factorial() is only available in my_ncr()

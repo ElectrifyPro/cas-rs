@@ -1,8 +1,8 @@
 x = 5
 iseven(n) = n % 2 == 0
-if iseven(x) then {
+if iseven(x) {
     x^2 + 5x + 6
-} else if bool(x) && false then {
+} else if bool(x) && false {
     exp(x)
 } else {
     log(x, 2)

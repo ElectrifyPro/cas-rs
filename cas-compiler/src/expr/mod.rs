@@ -1,5 +1,6 @@
 mod assign;
 mod binary;
+mod branch;
 mod break_expr;
 mod call;
 mod continue_expr;

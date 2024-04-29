@@ -11,6 +11,7 @@ impl Compile for Expr {
             Expr::If(if_expr) => if_expr.compile(compiler),
             Expr::Loop(loop_expr) => loop_expr.compile(compiler),
             Expr::While(while_expr) => while_expr.compile(compiler),
+            Expr::Then(then_expr) => then_expr.compile(compiler),
             Expr::Break(break_expr) => break_expr.compile(compiler),
             Expr::Continue(continue_expr) => continue_expr.compile(compiler),
             Expr::Return(return_expr) => return_expr.compile(compiler),

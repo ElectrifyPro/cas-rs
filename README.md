@@ -266,7 +266,7 @@ Today, this code can be written as expected:
 
 fact(n) = {
     out = n
-    while n > 1 then {
+    while n > 1 {
         n -= 1
         out *= n
     }
@@ -304,7 +304,7 @@ In the case of `if` / `else` statements, you often will not need to enclose cond
 my_abs(x) = if x < 0 then -x else x
 quadratic_formula(a, b, c, plus = true) = {
     discriminant = b^2 - 4 a c
-    if discriminant >= 0 then {
+    if discriminant >= 0 {
         left = -b / (2a)
         right = sqrt(discriminant) / (2a)
         if plus then left + right else left - right
@@ -318,7 +318,7 @@ quadratic_formula(a, b, c, plus = true) = {
 my_factorial(n) = {
     i = 1
     result = 1
-    while i < n then {
+    while i < n {
         i += 1
         result *= i
     }
@@ -333,9 +333,33 @@ lcm(a, b) = {
     i = 0
     loop {
         i += 1
-        if i % a == 0 && i % b == 0 then {
+        if i % a == 0 && i % b == 0 {
             break i
         }
+    }
+}
+```
+
+### `then` keyword
+
+The `then` keyword is used within the context of `if` / `else` statements to separate the condition from the code to execute if the condition is true, and within `while` loops to separate the condition from the loop body. It is typically used when the `if` or loop body is "short enough", and can be omitted if the body is "clearly" the next expression, which is true for block, return, break, and continue expressions.
+
+```
+my_abs(x) = if x < 0 then -x else x
+my_abs(x) = if x < 0 {
+    -x
+} else {
+    x
+}
+
+wait(n) = {
+    i = 0
+    while i < n then i += 1
+}
+wait(n) = {
+    i = 0
+    while i < n {
+        i += 1
     }
 }
 ```
@@ -351,14 +375,14 @@ Using most operators with `()` will result in an evaluation error, with the exce
 ```
 quadratic_formula(a, b, c, plus = true) = {
     discriminant = b^2 - 4 a c
-    if discriminant >= 0 then {
+    if discriminant >= 0 {
         left = -b / (2a)
         right = sqrt(discriminant) / (2a)
         if plus then left + right else left - right
     }
 }
 
-if quadratic_formula(1, 2, 3) == () then {
+if quadratic_formula(1, 2, 3) == () {
     // has no real roots
 } else {
     // has real roots

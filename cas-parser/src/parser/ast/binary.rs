@@ -278,11 +278,19 @@ impl Binary {
 
                 // if there is no expression, there is no implicit multiplication and all our
                 // attempts to parse a binary expression fail
-                let Ok(rhs) = Unary::parse_or_lower(input, recoverable_errors) else {
+                let mut inner_recoverable_errors = Vec::new();
+                let Ok(rhs) = Unary::parse_or_lower(&mut input_ahead, &mut inner_recoverable_errors) else {
                     break;
                 };
 
                 if rhs.is_implicit_mul_target() {
+                    // TODO: this can be refactored with input.try_parse_with_fn once Try trait is
+                    // stabilized, which would make ParseResult so much nicer to work with
+
+                    // add the recoverable errors from the inner parser to the outer parser, since
+                    // we know now implicit multiplication is the correct branch to take
+                    recoverable_errors.extend(inner_recoverable_errors);
+                    input.set_cursor(&input_ahead);
                     lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::ImplicitMultiplication, rhs.into())?;
                 } else {
                     break;

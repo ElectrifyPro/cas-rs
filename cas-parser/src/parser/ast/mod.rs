@@ -1,6 +1,7 @@
 pub mod assign;
 pub mod binary;
 pub mod block;
+pub mod branch;
 pub mod call;
 pub mod expr;
 pub mod helper;
@@ -17,6 +18,7 @@ pub mod while_expr;
 pub use assign::{Assign, AssignTarget, FuncHeader, Param};
 pub use binary::Binary;
 pub use block::Block;
+pub use branch::Then;
 pub use call::Call;
 pub use expr::{Expr, Primary};
 pub use if_expr::If;

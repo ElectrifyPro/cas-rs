@@ -276,6 +276,15 @@ pub struct MissingIfBranch {
     pub keyword: &'static str,
 }
 
+/// Cannot use `then` keyword outside of an `if` or `while` expression.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "cannot use `then` keyword here",
+    labels = [""],
+    help = "`then` can only be used directly after the condition in an `if` or `while` expression",
+)]
+pub struct ThenOutsideIfWhile;
+
 /// Cannot use `break` outside of a loop.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

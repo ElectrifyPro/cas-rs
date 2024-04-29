@@ -4,6 +4,7 @@ use crate::{
             assign::Assign,
             binary::Binary,
             block::Block,
+            branch::Then,
             call::Call,
             if_expr::If,
             index::Index,
@@ -19,6 +20,7 @@ use crate::{
         iter::ExprIter,
         token::{op::Precedence, CloseParen},
         Parse,
+        ParseResult,
         Parser,
     },
     tokenizer::TokenKind,
@@ -56,6 +58,9 @@ pub enum Expr {
     /// A while loop expression, as in `while x > 0 then { ... }`.
     While(While),
 
+    /// A then expression, as in `then x += 1`.
+    Then(Then),
+
     /// A break expression, used to exit a loop, optionally with a value.
     Break(Break),
 
@@ -91,6 +96,7 @@ impl Expr {
             Expr::If(if_expr) => if_expr.span(),
             Expr::Loop(loop_expr) => loop_expr.span(),
             Expr::While(while_expr) => while_expr.span(),
+            Expr::Then(then) => then.span(),
             Expr::Break(break_expr) => break_expr.span(),
             Expr::Continue(continue_expr) => continue_expr.span(),
             Expr::Return(return_expr) => return_expr.span(),
@@ -126,7 +132,6 @@ impl Expr {
                 | Expr::Literal(Literal::Float(_))
                 | Expr::Literal(Literal::Radix(_))
                 | Expr::Literal(Literal::Symbol(_))
-                | Expr::Literal(Literal::Unit(_))
                 | Expr::Paren(_)
                 | Expr::Call(_)
                 | Expr::Unary(_)
@@ -186,6 +191,7 @@ impl std::fmt::Display for Expr {
             Expr::If(if_expr) => if_expr.fmt(f),
             Expr::Loop(loop_expr) => loop_expr.fmt(f),
             Expr::While(while_expr) => while_expr.fmt(f),
+            Expr::Then(then) => then.fmt(f),
             Expr::Break(break_expr) => break_expr.fmt(f),
             Expr::Continue(continue_expr) => continue_expr.fmt(f),
             Expr::Return(return_expr) => return_expr.fmt(f),
@@ -207,6 +213,7 @@ impl Latex for Expr {
             Expr::If(if_expr) => if_expr.fmt_latex(f),
             Expr::Loop(loop_expr) => loop_expr.fmt_latex(f),
             Expr::While(while_expr) => while_expr.fmt_latex(f),
+            Expr::Then(then) => then.fmt_latex(f),
             Expr::Break(break_expr) => break_expr.fmt_latex(f),
             Expr::Continue(continue_expr) => continue_expr.fmt_latex(f),
             Expr::Return(return_expr) => return_expr.fmt_latex(f),
@@ -249,6 +256,9 @@ pub enum Primary {
     /// A while loop expression, as in `while x > 0 then { ... }`.
     While(While),
 
+    /// A then expression, as in `then x += 1`.
+    Then(Then),
+
     /// A break expression, used to exit a loop, optionally with a value.
     Break(Break),
 
@@ -275,6 +285,7 @@ impl Primary {
             Primary::If(if_expr) => if_expr.span(),
             Primary::Loop(loop_expr) => loop_expr.span(),
             Primary::While(while_expr) => while_expr.span(),
+            Primary::Then(then) => then.span(),
             Primary::Break(break_expr) => break_expr.span(),
             Primary::Continue(continue_expr) => continue_expr.span(),
             Primary::Return(return_expr) => return_expr.span(),
@@ -321,6 +332,7 @@ impl From<Primary> for Expr {
             Primary::If(if_expr) => Self::If(if_expr),
             Primary::Loop(loop_expr) => Self::Loop(loop_expr),
             Primary::While(while_expr) => Self::While(while_expr),
+            Primary::Then(then) => Self::Then(then),
             Primary::Break(break_expr) => Self::Break(break_expr),
             Primary::Continue(continue_expr) => Self::Continue(continue_expr),
             Primary::Return(return_expr) => Self::Return(return_expr),
@@ -365,6 +377,9 @@ pub enum Atom {
     /// A while loop expression, as in `while x > 0 then { ... }`.
     While(While),
 
+    /// A then expression, as in `then x += 1`.
+    Then(Then),
+
     /// A break expression, used to exit a loop, optionally with a value.
     Break(Break),
 
@@ -380,15 +395,26 @@ impl<'source> Parse<'source> for Atom {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let _ = return_if_ok!(input.try_parse().map(Self::Literal).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Paren).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Block).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::If).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Loop).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::While).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Break).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Continue).forward_errors(recoverable_errors));
-        input.try_parse().map(Self::Return).forward_errors(recoverable_errors)
+        #[inline]
+        fn parse_no_then<'source, T: Parse<'source>>(input: &mut Parser<'source>) -> ParseResult<T> {
+            input.try_parse_with_state::<_, T>(|state| {
+                state.allow_then = false;
+            })
+        }
+
+        // definitely not every `parse_no_then` is needed, but it's safest to just try them all
+        // all this is to catch funny business like `if x > 0 { then x }`, where `then` is part
+        // of the body, not directly after the condition; that's invalid
+        let _ = return_if_ok!(parse_no_then(input).map(Self::Literal).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_then(input).map(Self::Paren).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_then(input).map(Self::Block).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_then(input).map(Self::If).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_then(input).map(Self::Loop).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_then(input).map(Self::While).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse().map(Self::Then).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_then(input).map(Self::Break).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_then(input).map(Self::Continue).forward_errors(recoverable_errors));
+        parse_no_then(input).map(Self::Return).forward_errors(recoverable_errors)
     }
 }
 
@@ -401,6 +427,7 @@ impl From<Atom> for Primary {
             Atom::If(if_expr) => Self::If(if_expr),
             Atom::Loop(loop_expr) => Self::Loop(loop_expr),
             Atom::While(while_expr) => Self::While(while_expr),
+            Atom::Then(then) => Self::Then(then),
             Atom::Break(break_expr) => Self::Break(break_expr),
             Atom::Continue(continue_expr) => Self::Continue(continue_expr),
             Atom::Return(return_expr) => Self::Return(return_expr),
@@ -417,6 +444,7 @@ impl From<Atom> for Expr {
             Atom::If(if_expr) => Self::If(if_expr),
             Atom::Loop(loop_expr) => Self::Loop(loop_expr),
             Atom::While(while_expr) => Self::While(while_expr),
+            Atom::Then(then) => Self::Then(then),
             Atom::Break(break_expr) => Self::Break(break_expr),
             Atom::Continue(continue_expr) => Self::Continue(continue_expr),
             Atom::Return(return_expr) => Self::Return(return_expr),

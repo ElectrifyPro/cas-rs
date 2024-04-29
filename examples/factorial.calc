@@ -3,7 +3,7 @@ fact(n) = {
     loop {
         n -= 1
         out *= n
-        if n <= 1 then break
+        if n <= 1 break
     }
     out
 }

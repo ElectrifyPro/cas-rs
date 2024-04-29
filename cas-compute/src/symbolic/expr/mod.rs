@@ -454,6 +454,7 @@ impl From<AstExpr> for Expr {
             AstExpr::If(_) => todo!(),
             AstExpr::Loop(_) => todo!(),
             AstExpr::While(_) => todo!(),
+            AstExpr::Then(_) => todo!(),
             AstExpr::Break(_) => todo!(),
             AstExpr::Continue(_) => todo!(),
             AstExpr::Return(_) => todo!(),

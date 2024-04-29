@@ -2,7 +2,7 @@ bad_lcm(a, b) = {
     i = 0
     loop {
         i += 1
-        if i % a == 0 && i % b == 0 then {
+        if i % a == 0 && i % b == 0 {
             break i
         }
     }

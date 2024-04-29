@@ -634,18 +634,24 @@ mod tests {
     #[test]
     fn exec_loop() {
         let result = run_program("a = 0
-while a < 10 then {
+while a < 10 {
     a += 1
 }; a").unwrap();
         assert_eq!(result, Value::Integer(int(10)));
     }
 
     #[test]
+    fn exec_dumb_loop() {
+        let result = run_program("while true break").unwrap();
+        assert_eq!(result, Value::Unit);
+    }
+
+    #[test]
     fn exec_loop_with_conditions() {
         let result = run_program("a = 0
 j = 2
-while a < 10 && j < 15 then {
-    if a < 5 then {
+while a < 10 && j < 15 {
+    if a < 5 {
         a += 2
     } else {
         a += 1
@@ -676,7 +682,7 @@ while a < 10 && j < 15 then {
 loop {
     n -= 1
     result *= n
-    if n <= 1 then break result
+    if n <= 1 break result
 }").unwrap();
         assert_eq!(result, Value::Integer(int(40320)));
     }
@@ -685,7 +691,7 @@ loop {
     fn exec_partial_factorial() {
         let result = run_program("partial_factorial(n, k) = {
     result = 1
-    while n > k then {
+    while n > k {
         result *= n
         n -= 1
     }
@@ -701,9 +707,9 @@ partial_factorial(10, 7)").unwrap();
         let result = run_program("n = 200
 c = 0
 sum = 0
-while c < n then {
+while c < n {
     c += 1
-    if c & 1 == 1 then continue
+    if c & 1 == 1 continue
     sum += c
 }; sum").unwrap();
         assert_eq!(result, Value::Integer(int(10100)));
@@ -763,7 +769,7 @@ g(2, 3)").unwrap() {
     #[test]
     fn exec_branching_return() {
         let result = run_program("f(x) = {
-    if x < 0 then return -x
+    if x < 0 return -x
     x
 }
 f(-5)").unwrap();

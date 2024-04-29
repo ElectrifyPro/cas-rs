@@ -1,9 +1,8 @@
 use crate::parser::{
     ast::expr::Expr,
-    error::{kind, Error},
+    error::Error,
     fmt::Latex,
-    garbage::Garbage,
-    keyword::{Then, While as WhileToken},
+    keyword::While as WhileToken,
     Parse,
     Parser,
 };
@@ -28,9 +27,6 @@ pub struct While {
 
     /// The span of the `while` keyword.
     pub while_span: Range<usize>,
-
-    /// The span of the `then` keyword.
-    pub then_span: Range<usize>,
 }
 
 impl While {
@@ -46,51 +42,25 @@ impl<'source> Parse<'source> for While {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let while_token = input.try_parse::<WhileToken>().forward_errors(recoverable_errors)?;
-        let condition = input.try_parse().forward_errors(recoverable_errors)?;
-        let (then_token, body) = 'then: {
-            let then_token = match input.try_parse::<Then>().forward_errors(recoverable_errors) {
-                Ok(token) => token,
-                Err(_) => {
-                    // TODO: add error for missing `then` keyword
-                    recoverable_errors.push(Error::new(
-                        vec![while_token.span.clone(), input.span()],
-                        kind::MissingIfKeyword {
-                            keyword: "then",
-                        },
-                    ));
-                    break 'then Garbage::garbage();
-                },
-            };
-            input.try_parse_with_state::<_, Expr>(|state| {
-                state.allow_loop_control = true;
-            })
-                .forward_errors(recoverable_errors)
-                .map(|expr| (then_token, expr))
-                .unwrap_or_else(|_| {
-                    recoverable_errors.push(Error::new(
-                        vec![while_token.span.clone(), input.span()],
-                        kind::MissingIfBranch {
-                            keyword: "then",
-                        },
-                    ));
-                    Garbage::garbage()
-                })
-        };
-        let span = while_token.span.start..body.span().end;
+        let condition = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
+        let then_body = input.try_parse_with_state::<_, Expr>(|state| {
+            state.allow_then = true;
+            state.allow_loop_control = true;
+        }).forward_errors(recoverable_errors)?;
+        let span = while_token.span.start..then_body.span().end;
 
         Ok(Self {
             condition: Box::new(condition),
-            body: Box::new(body),
+            body: Box::new(then_body),
             span,
             while_span: while_token.span,
-            then_span: then_token.span,
         })
     }
 }
 
 impl std::fmt::Display for While {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "while {} then {}", self.condition, self.body)
+        write!(f, "while {} {}", self.condition, self.body)
     }
 }
 
@@ -98,7 +68,6 @@ impl Latex for While {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\\text{{while }}")?;
         self.condition.fmt_latex(f)?;
-        write!(f, "\\text{{ then }}")?;
         self.body.fmt_latex(f)?;
         Ok(())
     }

@@ -4,9 +4,6 @@ use crate::{error::Error, Compile, Compiler, InstructionKind};
 
 impl Compile for Loop {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
-        // NOTE: we don't have to do the same hack as in `while` loops, since `loop`s cannot
-        // terminate without a `break` expression
-
         let loop_start = compiler.new_end_label();
         let loop_end = compiler.new_unassociated_label();
 
@@ -22,6 +19,10 @@ impl Compile for Loop {
         })?;
 
         compiler.add_instr(InstructionKind::Jump(loop_start));
+
+        // NOTE: we don't have to do the same "hack" as in `while` loops, since `loop`s cannot
+        // terminate without a `break` expression
+
         compiler.set_end_label(loop_end);
         Ok(())
     }
@@ -29,19 +30,12 @@ impl Compile for Loop {
 
 impl Compile for While {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
-        // TODO: this is a hack to ensure the loop always returns something so that the
-        // automatically generated `Drop` instruction drops this value if the loop doesn't end up
-        // producing anything
-        //
-        // the ideal solution would be to not emit this `LoadConst` if the loop body contains a
-        // `break` expression
-        compiler.add_instr(InstructionKind::LoadConst(Value::Unit));
-
         let condition_start = compiler.new_end_label();
         self.condition.compile(compiler)?;
 
+        let end_with_no_break = compiler.new_unassociated_label();
         let loop_end = compiler.new_unassociated_label();
-        compiler.add_instr(InstructionKind::JumpIfFalse(loop_end));
+        compiler.add_instr(InstructionKind::JumpIfFalse(end_with_no_break));
         compiler.with_state(|state| {
             // in case `continue` and `break` expressions are inside, we need the loop start and
             // end labels for their jumps
@@ -54,6 +48,12 @@ impl Compile for While {
         })?;
 
         compiler.add_instr(InstructionKind::Jump(condition_start));
+
+        // if the loop doesn't terminate through a `break` expression, we need to load something to
+        // the stack so that the automatically generated `Drop` instruction has something to drop
+        compiler.set_end_label(end_with_no_break);
+        compiler.add_instr(InstructionKind::LoadConst(Value::Unit));
+
         compiler.set_end_label(loop_end);
         Ok(())
     }

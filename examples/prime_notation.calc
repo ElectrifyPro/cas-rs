@@ -16,7 +16,7 @@ tests = [
 result = [false; 15]
 
 t = 0
-while t < 7 then {
+while t < 7 {
     result[t] = g(tests[t]) ~== f'(tests[t]) // use ~== since prime notation is an approximation
     t += 1
 }

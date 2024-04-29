@@ -17,12 +17,20 @@ use std::{ops::Range, sync::Arc};
 /// The state cannot be mutated directly; it can only be changed when parsing using the [`Parser::try_parse_with_state`] method.
 #[derive(Debug, Clone, Default)]
 pub struct ParserState {
-    /// Whether loop control expressions are allowed in the current context. This is used to
-    /// determine if a `break` or `continue` expression is valid.
+    /// Whether a `then` expression is allowed in the current context.
+    ///
+    /// `then` expressions are only allowed after the conditions of `if` and `while` expressions.
+    pub allow_then: bool,
+
+    /// Whether loop control expressions are allowed in the current context.
+    ///
+    /// Loop control expressions are `break` and `continue` expressions. They are only allowed
+    /// inside loop expressions, such as `while` and `loop`.
     pub allow_loop_control: bool,
 
-    /// Whether a `return` expression is allowed in the current context. This is used to determine
-    /// if a `return` expression is valid.
+    /// Whether a `return` expression is allowed in the current context.
+    ///
+    /// `return` expressions are only allowed inside function assignments.
     pub allow_return: bool,
 }
 
@@ -134,7 +142,7 @@ impl<'source> Parser<'source> {
     /// ```text
     /// fact(n) = {
     ///     out = n;
-    ///     while n > 1 then {
+    ///     while n > 1 {
     ///         n -= 1;
     ///         out *= n;
     ///     };
@@ -155,7 +163,7 @@ impl<'source> Parser<'source> {
     /// ```text
     /// fact(n) = {
     ///     out = n;
-    ///     while n > 1 then {
+    ///     while n > 1 {
     ///         n -= 1;
     ///         out *= n;
     ///     };
@@ -1840,7 +1848,7 @@ mod tests {
 
     #[test]
     fn if_block() {
-        let mut parser = Parser::new("if d then { abs''(d) } else { f = 1; f }");
+        let mut parser = Parser::new("if d { abs''(d) } else { f = 1; f }");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::If(If {
@@ -1854,23 +1862,23 @@ mod tests {
                         expr: Expr::Call(Call {
                             name: LitSym {
                                 name: "abs".to_string(),
-                                span: 12..15,
+                                span: 7..10,
                             },
                             derivatives: 2,
                             args: vec![
                                 Expr::Literal(Literal::Symbol(LitSym {
                                     name: "d".to_string(),
-                                    span: 18..19,
+                                    span: 13..14,
                                 })),
                             ],
-                            span: 12..20,
-                            paren_span: 17..20,
+                            span: 7..15,
+                            paren_span: 12..15,
                         }),
                         semicolon: None,
-                        span: 12..20,
+                        span: 7..15,
                     },
                 ],
-                span: 10..22,
+                span: 5..17,
             })),
             else_expr: Some(Box::new(Expr::Block(Block {
                 stmts: vec![
@@ -1878,36 +1886,35 @@ mod tests {
                         expr: Expr::Assign(Assign {
                             target: AssignTarget::Symbol(LitSym {
                                 name: "f".to_string(),
-                                span: 30..31,
+                                span: 25..26,
                             }),
                             op: AssignOp {
                                 kind: AssignOpKind::Assign,
-                                span: 32..33,
+                                span: 27..28,
                             },
                             value: Box::new(Expr::Literal(Literal::Integer(LitInt {
                                 value: "1".to_string(),
-                                span: 34..35,
+                                span: 29..30,
                             }))),
-                            span: 30..35,
+                            span: 25..30,
                         }),
-                        semicolon: Some(35..36),
-                        span: 30..36,
+                        semicolon: Some(30..31),
+                        span: 25..31,
                     },
                     Stmt {
                         expr: Expr::Literal(Literal::Symbol(LitSym {
                             name: "f".to_string(),
-                            span: 37..38,
+                            span: 32..33,
                         })),
                         semicolon: None,
-                        span: 37..38,
+                        span: 32..33,
                     },
                 ],
-                span: 28..40,
+                span: 23..35,
             }))),
-            span: 0..40,
+            span: 0..35,
             if_span: 0..2,
-            then_span: 5..9,
-            else_span: Some(23..27),
+            else_span: Some(18..22),
         }));
     }
 
@@ -2242,24 +2249,27 @@ mod tests {
                 }))),
                 span: 6..11,
             })),
-            body: Box::new(Expr::Assign(Assign {
-                target: AssignTarget::Symbol(LitSym {
-                    name: "x".to_string(),
-                    span: 17..18,
-                }),
-                op: AssignOp {
-                    kind: AssignOpKind::Add,
-                    span: 19..21,
-                },
-                value: Box::new(Expr::Literal(Literal::Integer(LitInt {
-                    value: "1".to_string(),
-                    span: 22..23,
-                }))),
-                span: 17..23,
+            body: Box::new(Expr::Then(Then {
+                expr: Box::new(Expr::Assign(Assign {
+                    target: AssignTarget::Symbol(LitSym {
+                        name: "x".to_string(),
+                        span: 17..18,
+                    }),
+                    op: AssignOp {
+                        kind: AssignOpKind::Add,
+                        span: 19..21,
+                    },
+                    value: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                        value: "1".to_string(),
+                        span: 22..23,
+                    }))),
+                    span: 17..23,
+                })),
+                span: 12..23,
+                then_span: 12..16,
             })),
             span: 0..23,
             while_span: 0..5,
-            then_span: 12..16,
         }));
     }
 
@@ -2292,9 +2302,9 @@ mod tests {
     fn source_code() {
         let mut parser = Parser::new("x = 5;
 iseven(n) = n % 2 == 0;
-if iseven(x) then {
+if iseven(x) {
     x^2 + 5x + 6
-} else if (bool(x) && false) then {
+} else if (bool(x) && false) {
     exp(x)
 } else {
     log(x, 2)

@@ -99,8 +99,10 @@ impl From<cas_compute::numerical::builtin::error::TypeMismatch> for TypeMismatch
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "maximum stack depth exceeded",
-    labels = ["this function called itself too many times", ""],
-    help = "the maximum stack depth is equal to: `2^11`"
+    labels = ["stack overflowed when executing this function call", ""],
+    help = "stack overflows occur when I have to keep track of too many function calls at once",
+    // help = "there might be an error in the function you're calling that's causing it to infinitely recurse",
+    note = "the maximum stack depth is equal to: `2^16`",
 )]
 pub struct StackOverflow;
 

@@ -44,6 +44,7 @@ use error::{
         InvalidIndexType,
         InvalidLengthType,
         LengthOutOfRange,
+        StackOverflow,
         TypeMismatch,
     },
     Error as EvalError,
@@ -55,6 +56,9 @@ use instruction::{
     Derivative,
 };
 use std::{cell::RefCell, collections::HashMap, ops::Range, rc::Rc};
+
+/// The maximum number of stack frames before a stack overflow error is thrown in the [`Vm`].
+const MAX_STACK_FRAMES: usize = 2usize.pow(16);
 
 /// After executing [`Vm::run_one`], indicates if execution will continue normally, or if it
 /// something else, such as a jump, has occurred.
@@ -170,6 +174,16 @@ impl Vm {
         derivative_stack: &mut Vec<Derivative>,
         instruction_pointer: &mut (usize, usize),
     ) -> Result<ControlFlow, EvalError> {
+        /// Check for a stack overflow and return an error if one is detected.
+        fn check_stack_overflow(call_span: &[Range<usize>], call_stack: &[Frame]) -> Result<(), EvalError> {
+            // MAX_STACK_FRAMES is an arbitrary limit to prevent infinite recursion
+            if call_stack.len() > MAX_STACK_FRAMES {
+                return Err(EvalError::new(call_span.to_vec(), StackOverflow));
+            }
+
+            Ok(())
+        }
+
         /// Extracts the `usize` index from the given [`Value`] for the indexing instructions.
         fn extract_index(value: Value, spans: Vec<Range<usize>>) -> Result<usize, EvalError> {
             let typename = value.typename();
@@ -323,6 +337,7 @@ impl Vm {
                         instruction_pointer.0,
                         instruction_pointer.1 + 1,
                     )));
+                    check_stack_overflow(&instruction.spans, call_stack)?;
                     *instruction_pointer = (call.chunk, 0);
                     return Ok(ControlFlow::Jump);
                 },
@@ -344,6 +359,7 @@ impl Vm {
                         instruction_pointer.0,
                         instruction_pointer.1 + 1,
                     )).with_derivative());
+                    check_stack_overflow(&instruction.spans, call_stack)?;
                     value_stack.push(derivative.next_eval().unwrap());
                     derivative_stack.push(derivative);
                     *instruction_pointer = (call.chunk, 0);
@@ -371,7 +387,9 @@ impl Vm {
                         *instruction_pointer = (frame.return_instruction.0, frame.return_instruction.1);
                     } else {
                         // back to the top; put the stack frame back
+                        // no need to check for stack overflow here, since we're not adding a new frame
                         call_stack.push(frame);
+
                         value_stack.push(derivative.next_eval().unwrap());
                         *instruction_pointer = (instruction_pointer.0, 0);
                     }

@@ -1,6 +1,7 @@
+use cas_error::Error;
 use crate::parser::{
     ast::expr::Expr,
-    error::{kind::ThenOutsideIfWhile, Error},
+    error::ThenOutsideIfWhile,
     fmt::Latex,
     keyword::Then as ThenToken,
     Parse,

@@ -4,15 +4,15 @@ use cas_compute::numerical::{
     fmt::{FormatOptions, FormatOptionsBuilder, NumberFormat, Scientific, Separator},
     value::Value,
 };
+use error::ReplError;
 use cas_parser::parser::Parser;
 use cas_vm::{ReplVm, Vm};
-use error::Error;
 use rustyline::{error::ReadlineError, DefaultEditor};
 use std::{fs::File, io::{self, BufReader, IsTerminal, Read}};
 
 /// Executes the given input string in a new VM, returning the results of the execution.
 #[inline]
-fn execute(input: &str) -> Result<Value, Error> {
+fn execute(input: &str) -> Result<Value, ReplError> {
     let ast = Parser::new(&input).try_parse_full_many()?;
     let mut vm = Vm::compile_program(ast)?;
     let value = vm.run()?;
@@ -26,7 +26,7 @@ fn execute_and_print(source_name: &str, input: &str, fmt: FormatOptions) {
 
 /// Executes the given input string in the REPL VM, returning the results of the execution.
 #[inline]
-fn repl_execute(input: &str, vm: &mut ReplVm) -> Result<Value, Error> {
+fn repl_execute(input: &str, vm: &mut ReplVm) -> Result<Value, ReplError> {
     let ast = Parser::new(&input).try_parse_full_many()?;
     let value = vm.execute(ast)?;
     Ok(value)
@@ -39,7 +39,7 @@ fn repl_execute_and_print(source_name: &str, input: &str, vm: &mut ReplVm, fmt: 
 
 /// Prints the result of the execution.
 #[inline]
-fn output(source_name: &str, input: &str, res: Result<Value, Error>, fmt: FormatOptions) {
+fn output(source_name: &str, input: &str, res: Result<Value, ReplError>, fmt: FormatOptions) {
     match res {
         Ok(Value::Unit) => (), // intentionally print nothing
         Ok(res) => println!("{}", res.fmt(fmt)),

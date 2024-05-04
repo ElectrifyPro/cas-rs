@@ -1,7 +1,8 @@
 //! Structs to help parse binary and unary operators.
 
+use cas_error::Error;
 use crate::{
-    parser::{error::{Error, kind}, fmt::Latex, Parse, Parser},
+    parser::{error::UnexpectedToken, fmt::Latex, Parse, Parser},
     tokenizer::TokenKind,
 };
 use std::{fmt, ops::Range};
@@ -159,7 +160,7 @@ impl<'source> Parse<'source> for UnaryOp {
             TokenKind::Sub => Ok(UnaryOpKind::Neg),
             _ => Err(vec![Error::new(
                 vec![token.span.clone()],
-                kind::UnexpectedToken {
+                UnexpectedToken {
                     expected: &[
                         TokenKind::Not,
                         TokenKind::BitNot,
@@ -313,7 +314,7 @@ impl<'source> Parse<'source> for BinOp {
             TokenKind::Or => Ok(BinOpKind::Or),
             _ => Err(vec![Error::new(
                 vec![token.span.clone()],
-                kind::UnexpectedToken {
+                UnexpectedToken {
                     expected: &[
                         TokenKind::Exp,
                         TokenKind::Mul,
@@ -481,7 +482,7 @@ impl<'source> Parse<'source> for AssignOp {
             TokenKind::BitLeftAssign => Ok(AssignOpKind::BitLeft),
             _ => Err(vec![Error::new(
                 vec![token.span.clone()],
-                kind::UnexpectedToken {
+                UnexpectedToken {
                     expected: &[
                         TokenKind::Assign,
                         TokenKind::AddAssign,

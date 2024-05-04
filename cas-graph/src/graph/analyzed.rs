@@ -1,4 +1,9 @@
-use cas_parser::parser::{ast::{binary::Binary, expr::Expr, literal::Literal}, token::op::{BinOp, BinOpKind}};
+use cas_error::Error;
+use cas_parser::parser::{
+    ast::{binary::Binary, expr::Expr, literal::Literal},
+    token::op::{BinOp, BinOpKind},
+    Parser,
+};
 use std::collections::HashSet;
 
 /// Predicts and extracts the independent variable from the given expression.
@@ -111,8 +116,9 @@ impl AnalyzedExpr {
     }
 
     /// Parses and analyzes the given expression and returns a new [`AnalyzedExpr`].
-    pub fn parse(expr: &str) -> Result<Self, Vec<cas_parser::parser::error::Error>> {
-        cas_parser::parser::Parser::new(expr).try_parse_full()
+    pub fn parse(expr: &str) -> Result<Self, Vec<Error>> {
+        Parser::new(expr)
+            .try_parse_full()
             .map(Self::new)
     }
 

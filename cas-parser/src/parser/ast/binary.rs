@@ -1,10 +1,11 @@
+use cas_error::Error;
 use crate::parser::{
     ast::{
         assign::{Assign as AssignExpr, AssignTarget},
         expr::Expr,
         unary::Unary,
     },
-    error::{kind, Error},
+    error::NonFatal,
     fmt::{Latex, fmt_pow},
     token::{op::{AssignOp, Associativity, BinOp, BinOpKind, Precedence}, Assign},
     Parse,
@@ -233,7 +234,7 @@ impl Binary {
                 if bin_op.precedence() >= precedence {
                     ParseResult::Ok(())
                 } else {
-                    ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
+                    ParseResult::Unrecoverable(vec![input.error(NonFatal)])
                 }
             }).forward_errors(recoverable_errors) {
                 input.set_cursor(&input_ahead);
@@ -243,7 +244,7 @@ impl Binary {
                 if Precedence::Assign >= precedence {
                     ParseResult::Ok(())
                 } else {
-                    ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
+                    ParseResult::Unrecoverable(vec![input.error(NonFatal)])
                 }
             }).forward_errors(recoverable_errors) {
                 // assignment is also a binary expression, however it requires special handling
@@ -268,7 +269,7 @@ impl Binary {
                 // has lower precedence
                 if input_ahead.try_parse_then::<BinOp, _>(|op, input| {
                     if op.precedence() > BinOpKind::Mul.precedence() {
-                        ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
+                        ParseResult::Unrecoverable(vec![input.error(NonFatal)])
                     } else {
                         ParseResult::Ok(())
                     }

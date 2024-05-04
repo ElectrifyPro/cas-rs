@@ -1,6 +1,6 @@
+use cas_error::Error;
 use crate::parser::{
     ast::expr::Expr,
-    error::Error,
     fmt::Latex,
     keyword::While as WhileToken,
     Parse,

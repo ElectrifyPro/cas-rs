@@ -3,16 +3,13 @@ use cas_compute::{
     numerical::{builtin::Builtin, value::Value},
     primitive::{complex, float, int_from_float},
 };
-use cas_error::ErrorKind;
+use cas_error::{ErrorKind, Error};
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
 use crate::error::{
-    kind::{
-        BitshiftOverflow,
-        InvalidBinaryOperation,
-        InvalidUnaryOperation,
-        NonNumericDerivative,
-    },
-    Error,
+    BitshiftOverflow,
+    InvalidBinaryOperation,
+    InvalidUnaryOperation,
+    NonNumericDerivative,
 };
 use replace_with::replace_with_or_abort;
 use rug::{ops::Pow, Float};

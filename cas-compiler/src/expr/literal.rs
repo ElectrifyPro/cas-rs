@@ -2,8 +2,9 @@ use cas_compute::{
     numerical::value::Value,
     primitive::{float_from_str, from_str_radix, int_from_str},
 };
+use cas_error::Error;
 use cas_parser::parser::ast::literal::Literal;
-use crate::{error::Error, Compile, Compiler, InstructionKind};
+use crate::{Compile, Compiler, InstructionKind};
 
 impl Compile for Literal {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {

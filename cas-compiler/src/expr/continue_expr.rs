@@ -1,5 +1,6 @@
+use cas_error::Error;
 use cas_parser::parser::ast::loop_expr::Continue;
-use crate::{error::Error, Compile, Compiler, InstructionKind};
+use crate::{Compile, Compiler, InstructionKind};
 
 impl Compile for Continue {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {

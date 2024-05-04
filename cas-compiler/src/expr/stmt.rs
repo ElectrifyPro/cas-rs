@@ -1,6 +1,7 @@
 use cas_compute::numerical::value::Value;
+use cas_error::Error;
 use cas_parser::parser::ast::stmt::Stmt;
-use crate::{error::Error, Compile, Compiler, InstructionKind};
+use crate::{Compile, Compiler, InstructionKind};
 
 /// Helper function to compile multiple statements.
 pub fn compile_stmts(stmts: &[Stmt], compiler: &mut Compiler) -> Result<(), Error> {

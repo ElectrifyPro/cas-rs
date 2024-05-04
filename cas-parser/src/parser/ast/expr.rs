@@ -1,3 +1,4 @@
+use cas_error::Error;
 use crate::{
     parser::{
         ast::{
@@ -15,7 +16,7 @@ use crate::{
             unary::Unary,
             while_expr::While,
         },
-        error::{kind, Error},
+        error::UnclosedParenthesis,
         fmt::Latex,
         iter::ExprIter,
         token::{op::Precedence, CloseParen},
@@ -145,7 +146,7 @@ impl<'source> Parse<'source> for Expr {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         if input.clone().try_parse::<CloseParen>().is_ok() {
-            return Err(vec![input.error(kind::UnclosedParenthesis { opening: false })]);
+            return Err(vec![input.error(UnclosedParenthesis { opening: false })]);
         }
 
         let _ = return_if_ok!(input.try_parse().map(Self::Assign).forward_errors(recoverable_errors));

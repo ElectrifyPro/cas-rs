@@ -6,8 +6,8 @@ pub mod iter;
 pub mod keyword;
 pub mod token;
 
-use cas_error::ErrorKind;
-use error::{Error, kind};
+use cas_error::{ErrorKind, Error};
+use error::{ExpectedEof, UnexpectedEof};
 use super::tokenizer::{tokenize_complete, Token};
 use std::{ops::Range, sync::Arc};
 
@@ -201,7 +201,7 @@ impl<'source> Parser<'source> {
     pub fn next_token_raw(&mut self) -> Result<Token<'source>, Error> {
         let result = self.current_token()
             .cloned() // cloning is cheap; only Range<_> is cloned
-            .ok_or_else(|| self.error(kind::UnexpectedEof));
+            .ok_or_else(|| self.error(UnexpectedEof));
         self.cursor += 1;
         result
     }
@@ -298,7 +298,7 @@ impl<'source> Parser<'source> {
         self.advance_past_whitespace();
 
         if self.cursor < self.tokens.len() {
-            errors.push(self.error(kind::ExpectedEof));
+            errors.push(self.error(ExpectedEof));
         }
 
         if errors.is_empty() {
@@ -325,7 +325,7 @@ impl<'source> Parser<'source> {
         self.advance_past_whitespace();
 
         if self.cursor < self.tokens.len() {
-            errors.push(self.error(kind::ExpectedEof));
+            errors.push(self.error(ExpectedEof));
         }
 
         if errors.is_empty() {

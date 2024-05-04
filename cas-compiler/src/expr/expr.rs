@@ -1,5 +1,6 @@
+use cas_error::Error;
 use cas_parser::parser::ast::expr::Expr;
-use crate::{error::Error, Compile, Compiler};
+use crate::{Compile, Compiler};
 use super::stmt::compile_stmts;
 
 impl Compile for Expr {

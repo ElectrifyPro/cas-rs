@@ -1,6 +1,7 @@
 use cas_compute::numerical::value::Value;
+use cas_error::Error;
 use cas_parser::parser::ast::{loop_expr::Loop, while_expr::While};
-use crate::{error::Error, Compile, Compiler, InstructionKind};
+use crate::{Compile, Compiler, InstructionKind};
 
 impl Compile for Loop {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {

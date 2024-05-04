@@ -1,6 +1,7 @@
+use cas_error::Error;
 use crate::parser::{
     ast::expr::Expr,
-    error::{kind::ReturnOutsideFunction, Error},
+    error::ReturnOutsideFunction,
     fmt::Latex,
     keyword::Return as ReturnToken,
     Parse,

@@ -1,6 +1,6 @@
+use cas_error::Error;
 use crate::parser::{
     ast::{expr::{Expr, Primary}, helper::Square},
-    error::Error,
     fmt::Latex,
     Parser,
 };

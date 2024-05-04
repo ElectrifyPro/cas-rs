@@ -1,7 +1,8 @@
+use cas_error::Error;
 use crate::{
     parser::{
         ast::{expr::Expr, helper::{SquareDelimited, Surrounded}},
-        error::{kind, Error},
+        error::{EmptyRadixLiteral, InvalidRadixBase, InvalidRadixDigit},
         fmt::Latex,
         token::{
             Boolean,
@@ -155,11 +156,11 @@ fn validate_radix_base(num: &Int) -> ParseResult<u8> {
         Ok(base) if (2..=64).contains(&base) => ParseResult::Ok(base),
         Ok(base) if base < 2 => ParseResult::Recoverable(
             64, // use base 64 to limit invalid radix digit errors
-            vec![Error::new(vec![num.span.clone()], kind::InvalidRadixBase { too_large: false })],
+            vec![Error::new(vec![num.span.clone()], InvalidRadixBase { too_large: false })],
         ),
         _ => ParseResult::Recoverable(
             64,
-            vec![Error::new(vec![num.span.clone()], kind::InvalidRadixBase { too_large: true })],
+            vec![Error::new(vec![num.span.clone()], InvalidRadixBase { too_large: true })],
         ),
     }
 }
@@ -190,7 +191,7 @@ impl<'source> Parse<'source> for LitRadix {
         let base = validate_radix_base(&num).forward_errors(recoverable_errors)?;
         let word = RadixWord::parse(input);
         if word.value.is_empty() {
-            recoverable_errors.push(Error::new(vec![quote.span], kind::EmptyRadixLiteral {
+            recoverable_errors.push(Error::new(vec![quote.span], EmptyRadixLiteral {
                 radix: base,
                 allowed: &DIGITS[..base as usize],
             }));
@@ -222,7 +223,7 @@ impl<'source> Parse<'source> for LitRadix {
         }
 
         if !bad_digit_spans.is_empty() {
-            recoverable_errors.push(Error::new(bad_digit_spans, kind::InvalidRadixDigit {
+            recoverable_errors.push(Error::new(bad_digit_spans, InvalidRadixDigit {
                 radix: base,
                 allowed: allowed_digits,
                 digits: bad_digits,

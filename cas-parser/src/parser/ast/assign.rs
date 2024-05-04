@@ -1,3 +1,4 @@
+use cas_error::Error;
 use crate::{
     parser::{
         ast::{
@@ -7,13 +8,10 @@ use crate::{
             literal::{Literal, LitSym},
         },
         error::{
-            kind::{
-                CompoundAssignmentInHeader,
-                DefaultArgumentNotLast,
-                InvalidAssignmentLhs,
-                InvalidCompoundAssignmentLhs,
-            },
-            Error,
+            CompoundAssignmentInHeader,
+            DefaultArgumentNotLast,
+            InvalidAssignmentLhs,
+            InvalidCompoundAssignmentLhs,
         },
         fmt::Latex,
         garbage::Garbage,

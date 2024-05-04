@@ -1,5 +1,6 @@
+use cas_error::Error;
 use cas_parser::parser::ast::{call::Call, Expr, Param};
-use crate::{error::{kind, Error}, item::Func, Compile, Compiler, InstructionKind};
+use crate::{error::InvalidDifferentiation, item::Func, Compile, Compiler, InstructionKind};
 
 /// Compiles the correct instructions that generate the arguments for the function call, in
 /// order to check if the user is relying on the default value of an optional parameter.
@@ -41,7 +42,7 @@ impl Compile for Call {
             } else {
                 return Err(Error::new(
                     vec![self.name.span.clone()],
-                    kind::InvalidDifferentiation {
+                    InvalidDifferentiation {
                         name: self.name.name.to_string(),
                         actual: func.arity(),
                     },

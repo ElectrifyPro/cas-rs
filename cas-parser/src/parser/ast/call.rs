@@ -1,6 +1,7 @@
+use cas_error::Error;
 use crate::parser::{
     ast::{expr::{Expr, Primary}, helper::ParenDelimited, literal::{Literal, LitSym}},
-    error::{kind::TooManyDerivatives, Error},
+    error::TooManyDerivatives,
     fmt::{Latex, fmt_pow},
     token::Quote,
     Parser,

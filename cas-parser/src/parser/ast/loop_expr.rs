@@ -1,6 +1,7 @@
+use cas_error::Error;
 use crate::parser::{
     ast::expr::Expr,
-    error::{kind::{BreakOutsideLoop, ContinueOutsideLoop}, Error},
+    error::{BreakOutsideLoop, ContinueOutsideLoop},
     fmt::Latex,
     keyword::{Break as BreakToken, Continue as ContinueToken, Loop as LoopToken},
     Parse,

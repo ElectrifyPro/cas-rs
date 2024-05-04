@@ -26,9 +26,7 @@ use cas_compute::{
     numerical::{builtin::error::BuiltinError, trig_mode::TrigMode, value::Value},
     primitive::{complex, float},
 };
-use cas_parser::parser::ast::Stmt;
 use cas_compiler::{
-    error::Error as CompileError,
     expr::compile_stmts,
     instruction::InstructionKind,
     item::{Func, Item, Symbol},
@@ -37,17 +35,16 @@ use cas_compiler::{
     Compiler,
     Label,
 };
+use cas_error::Error;
+use cas_parser::parser::ast::Stmt;
 use error::{
-    kind::{
-        IndexOutOfBounds,
-        IndexOutOfRange,
-        InvalidIndexType,
-        InvalidLengthType,
-        LengthOutOfRange,
-        StackOverflow,
-        TypeMismatch,
-    },
-    Error as EvalError,
+    IndexOutOfBounds,
+    IndexOutOfRange,
+    InvalidIndexType,
+    InvalidLengthType,
+    LengthOutOfRange,
+    StackOverflow,
+    TypeMismatch,
 };
 use frame::Frame;
 use instruction::{
@@ -129,7 +126,7 @@ impl Vm {
     }
 
     /// Creates a [`Vm`] by compiling the given source AST.
-    pub fn compile<T: Compile>(expr: T) -> Result<Self, CompileError> {
+    pub fn compile<T: Compile>(expr: T) -> Result<Self, Error> {
         let compiler = Compiler::compile(expr)?;
         Ok(Self {
             trig_mode: TrigMode::default(),
@@ -144,7 +141,7 @@ impl Vm {
     }
 
     /// Creates a [`Vm`] by compiling multiple statements.
-    pub fn compile_program(stmts: Vec<Stmt>) -> Result<Self, CompileError> {
+    pub fn compile_program(stmts: Vec<Stmt>) -> Result<Self, Error> {
         let compiler = Compiler::compile_program(stmts)?;
         Ok(Self {
             trig_mode: TrigMode::default(),
@@ -173,22 +170,22 @@ impl Vm {
         call_stack: &mut Vec<Frame>,
         derivative_stack: &mut Vec<Derivative>,
         instruction_pointer: &mut (usize, usize),
-    ) -> Result<ControlFlow, EvalError> {
+    ) -> Result<ControlFlow, Error> {
         /// Check for a stack overflow and return an error if one is detected.
-        fn check_stack_overflow(call_span: &[Range<usize>], call_stack: &[Frame]) -> Result<(), EvalError> {
+        fn check_stack_overflow(call_span: &[Range<usize>], call_stack: &[Frame]) -> Result<(), Error> {
             // MAX_STACK_FRAMES is an arbitrary limit to prevent infinite recursion
             if call_stack.len() > MAX_STACK_FRAMES {
-                return Err(EvalError::new(call_span.to_vec(), StackOverflow));
+                return Err(Error::new(call_span.to_vec(), StackOverflow));
             }
 
             Ok(())
         }
 
         /// Extracts the `usize` index from the given [`Value`] for the indexing instructions.
-        fn extract_index(value: Value, spans: Vec<Range<usize>>) -> Result<usize, EvalError> {
+        fn extract_index(value: Value, spans: Vec<Range<usize>>) -> Result<usize, Error> {
             let typename = value.typename();
             let Value::Integer(int) = value.coerce_integer() else {
-                return Err(EvalError::new(
+                return Err(Error::new(
                     spans,
                     InvalidIndexType {
                         expr_type: typename,
@@ -196,7 +193,7 @@ impl Vm {
                 ));
             };
 
-            int.to_usize().ok_or_else(|| EvalError::new(
+            int.to_usize().ok_or_else(|| Error::new(
                 spans,
                 IndexOutOfRange,
             ))
@@ -205,10 +202,10 @@ impl Vm {
         /// Extracts the `usize` length from the given [`Value`] for the
         /// [`InstructionKind::CreateListRepeat`] instruction, which uses slightly different error
         /// types than [`extract_index`].
-        fn extract_length(value: Value, spans: Vec<Range<usize>>) -> Result<usize, EvalError> {
+        fn extract_length(value: Value, spans: Vec<Range<usize>>) -> Result<usize, Error> {
             let typename = value.typename();
             let Value::Integer(int) = value.coerce_integer() else {
-                return Err(EvalError::new(
+                return Err(Error::new(
                     spans,
                     InvalidLengthType {
                         expr_type: typename,
@@ -216,14 +213,14 @@ impl Vm {
                 ));
             };
 
-            int.to_usize().ok_or_else(|| EvalError::new(
+            int.to_usize().ok_or_else(|| Error::new(
                 spans,
                 LengthOutOfRange,
             ))
         }
 
         /// Convert a [`BuiltinError`] to an [`EvalError`].
-        fn from_builtin_error(err: BuiltinError, spans: Vec<Range<usize>>) -> EvalError {
+        fn from_builtin_error(err: BuiltinError, spans: Vec<Range<usize>>) -> Error {
             match err {
                 BuiltinError::TypeMismatch(err) => {
                     // remove spans of all arguments but the mentioned one
@@ -231,7 +228,7 @@ impl Vm {
                         spans[0].start..spans[1].end,
                         spans[2 + err.index].clone(),
                     ];
-                    EvalError::new(spans, TypeMismatch::from(err))
+                    Error::new(spans, TypeMismatch::from(err))
                 },
                 _ => todo!(),
             }
@@ -294,7 +291,7 @@ impl Vm {
                     let mut list = list.borrow_mut();
                     let len = list.len();
                     *list.get_mut(index).ok_or_else(|| {
-                        EvalError::new(instruction.spans.clone(), IndexOutOfBounds { len, index })
+                        Error::new(instruction.spans.clone(), IndexOutOfBounds { len, index })
                     })? = value;
                 } else {
                     todo!()
@@ -309,7 +306,7 @@ impl Vm {
                     let list = list.borrow();
                     let len = list.len();
                     let value = list.get(index).cloned().ok_or_else(|| {
-                        EvalError::new(instruction.spans.clone(), IndexOutOfBounds { len, index })
+                        Error::new(instruction.spans.clone(), IndexOutOfBounds { len, index })
                     })?;
                     value_stack.push(value);
                 } else {
@@ -421,7 +418,7 @@ impl Vm {
     }
 
     /// Executes the bytecode instructions.
-    pub fn run(&mut self) -> Result<Value, EvalError> {
+    pub fn run(&mut self) -> Result<Value, Error> {
         let mut call_stack = vec![Frame::new((0, 0)).with_variables(std::mem::take(&mut self.variables))];
         let mut derivative_stack = vec![];
         let mut value_stack = vec![];
@@ -463,25 +460,6 @@ pub struct ReplVm {
     vm: Vm,
 }
 
-/// A compilation error or an execution error.
-#[derive(Debug)]
-pub enum ReplVmError {
-    Compile(CompileError),
-    Eval(EvalError),
-}
-
-impl From<CompileError> for ReplVmError {
-    fn from(err: CompileError) -> Self {
-        Self::Compile(err)
-    }
-}
-
-impl From<EvalError> for ReplVmError {
-    fn from(err: EvalError) -> Self {
-        Self::Eval(err)
-    }
-}
-
 impl ReplVm {
     /// Creates a new [`ReplVm`] with the default context.
     pub fn new() -> Self {
@@ -489,7 +467,7 @@ impl ReplVm {
     }
 
     /// Compiles the given source code and executes it, updating the VM state.
-    pub fn execute(&mut self, stmts: Vec<Stmt>) -> Result<Value, ReplVmError> {
+    pub fn execute(&mut self, stmts: Vec<Stmt>) -> Result<Value, Error> {
         // TODO: this feels kinda hacky
         let compiler_clone = self.compiler.clone();
         let vm_clone = self.vm.clone();
@@ -514,7 +492,7 @@ impl ReplVm {
             .map(|(label, location)| (label, location.unwrap()))
             .collect();
 
-        self.vm.run().map_err(ReplVmError::from)
+        self.vm.run()
     }
 }
 
@@ -530,7 +508,7 @@ mod tests {
     use rug::ops::Pow;
 
     /// Compile the given source code and execute the resulting bytecode.
-    fn run_program(source: &str) -> Result<Value, CompileError> {
+    fn run_program(source: &str) -> Result<Value, Error> {
         let mut parser = Parser::new(source);
         let stmts = parser.try_parse_full_many::<Stmt>().unwrap();
 
@@ -540,7 +518,7 @@ mod tests {
 
     /// Compile the given source code and execute the resulting bytecode, using degrees as the
     /// trigonometric mode.
-    fn run_program_degrees(source: &str) -> Result<Value, CompileError> {
+    fn run_program_degrees(source: &str) -> Result<Value, Error> {
         let mut parser = Parser::new(source);
         let stmts = parser.try_parse_full_many::<Stmt>().unwrap();
 

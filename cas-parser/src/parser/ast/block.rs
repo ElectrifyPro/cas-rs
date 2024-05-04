@@ -1,6 +1,7 @@
+use cas_error::Error;
 use crate::parser::{
     ast::stmt::Stmt,
-    error::{kind, Error},
+    error::UnclosedParenthesis,
     fmt::Latex,
     garbage::Garbage,
     token::{CloseCurly, OpenCurly},
@@ -46,7 +47,7 @@ impl<'source> Parse<'source> for Block {
             .unwrap_or_else(|_| {
                 recoverable_errors.push(Error::new(
                     vec![open_curly.span.clone()],
-                    kind::UnclosedParenthesis { opening: true },
+                    UnclosedParenthesis { opening: true },
                 ));
 
                 // fake a close paren for recovery purposes

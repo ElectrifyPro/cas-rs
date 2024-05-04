@@ -1,6 +1,7 @@
 use cas_compute::numerical::value::Value;
+use cas_error::Error;
 use cas_parser::parser::ast::return_expr::Return;
-use crate::{error::Error, Compile, Compiler, InstructionKind};
+use crate::{Compile, Compiler, InstructionKind};
 
 impl Compile for Return {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {

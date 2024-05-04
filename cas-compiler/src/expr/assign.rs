@@ -1,10 +1,11 @@
 use cas_compute::numerical::value::Value;
+use cas_error::Error;
 use cas_parser::parser::{
     ast::{assign::{Assign, AssignTarget}, LitSym},
     token::op::AssignOpKind,
 };
 use crate::{
-    error::{kind, Error},
+    error::OverrideBuiltinConstant,
     item::Symbol,
     Compile,
     Compiler,
@@ -15,7 +16,7 @@ use crate::{
 /// user-defined symbol.
 fn extract_user_symbol(lit: &LitSym, symbol: Symbol) -> Result<usize, Error> {
     symbol.index()
-        .map_err(|name| Error::new(vec![lit.span.clone()], kind::OverrideBuiltinConstant {
+        .map_err(|name| Error::new(vec![lit.span.clone()], OverrideBuiltinConstant {
             name: name.to_string(),
         }))
 }

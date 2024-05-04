@@ -1,5 +1,6 @@
+use cas_error::Error;
 use cas_parser::parser::ast::index::Index;
-use crate::{error::Error, Compile, Compiler, InstructionKind};
+use crate::{Compile, Compiler, InstructionKind};
 
 impl Compile for Index {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {

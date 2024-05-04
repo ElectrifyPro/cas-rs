@@ -4,8 +4,14 @@ pub mod instruction;
 pub mod item;
 
 use cas_compute::{consts::all as all_consts, funcs::all as all_funcs};
+use cas_error::Error;
 use cas_parser::parser::ast::{Call, FuncHeader, LitSym, Stmt};
-use error::{kind, Error};
+use error::{
+    OverrideBuiltinConstant,
+    OverrideBuiltinFunction,
+    UnknownFunction,
+    UnknownVariable,
+};
 use std::collections::HashMap;
 use expr::compile_stmts;
 pub use instruction::{Instruction, InstructionKind};
@@ -173,8 +179,8 @@ impl Compiler {
     ///
     /// If the item to add matches that of a builtin item, one of the following will occur:
     ///
-    /// - If this function is called from the global scope, an [`kind::OverrideBuiltinConstant`] or
-    /// [`kind::OverrideBuiltinFunction`] error is returned.
+    /// - If this function is called from the global scope, an [`OverrideBuiltinConstant`] or
+    /// [`OverrideBuiltinFunction`] error is returned.
     /// - If this function is called anywhere else, the symbol table will successfully be updated
     /// with the new item. This item shadows the existing builtin, meaning the builtin will not be
     /// accessible until the scope in which this item was declared, ends.
@@ -191,14 +197,14 @@ impl Compiler {
             match &item {
                 Item::Symbol(_) => {
                     if all_consts().contains(&*symbol.name) {
-                        return Err(Error::new(vec![symbol.span.clone()], kind::OverrideBuiltinConstant {
+                        return Err(Error::new(vec![symbol.span.clone()], OverrideBuiltinConstant {
                             name: symbol.name.to_string(),
                         }));
                     }
                 },
                 Item::Func(_) => {
                     if all_funcs().contains_key(&*symbol.name) {
-                        return Err(Error::new(vec![symbol.span.clone()], kind::OverrideBuiltinFunction {
+                        return Err(Error::new(vec![symbol.span.clone()], OverrideBuiltinFunction {
                             name: symbol.name.to_string(),
                         }));
                     }
@@ -252,7 +258,7 @@ impl Compiler {
     ///
     /// If the symbol name matches that of a builtin constant, one of the following will occur:
     ///
-    /// - If this function is called from the global scope, an [`kind::OverrideBuiltinConstant`]
+    /// - If this function is called from the global scope, an [`OverrideBuiltinConstant`]
     /// error is returned.
     /// - If this function is called anywhere else, the symbol table will successfully be updated
     /// with the new symbol. This symbol shadows the existing builtin constant, meaning the builtin
@@ -263,7 +269,7 @@ impl Compiler {
     pub fn resolve_user_symbol_or_insert(&mut self, symbol: &LitSym) -> Result<usize, Error> {
         if self.state.path.is_empty() {
             if all_consts().contains(&*symbol.name) {
-                return Err(Error::new(vec![symbol.span.clone()], kind::OverrideBuiltinConstant {
+                return Err(Error::new(vec![symbol.span.clone()], OverrideBuiltinConstant {
                     name: symbol.name.to_string(),
                 }));
             }
@@ -361,7 +367,7 @@ impl Compiler {
             Ok(symbol)
         } else {
             // not found
-            Err(Error::new(vec![symbol.span.clone()], kind::UnknownVariable {
+            Err(Error::new(vec![symbol.span.clone()], UnknownVariable {
                 name: symbol.name.clone(),
             }))
         }
@@ -425,7 +431,7 @@ impl Compiler {
             Ok(func)
         } else {
             // not found
-            Err(Error::new(vec![call.name.span.clone()], kind::UnknownFunction {
+            Err(Error::new(vec![call.name.span.clone()], UnknownFunction {
                 name: call.name.name.to_string(),
                 suggestions: Vec::new(), // TODO
             }))

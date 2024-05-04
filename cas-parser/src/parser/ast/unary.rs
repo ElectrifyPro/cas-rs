@@ -1,7 +1,8 @@
+use cas_error::Error;
 use crate::{
     parser::{
         ast::{binary::Binary, expr::{Expr, Primary}},
-        error::{kind, Error},
+        error::NonFatal,
         fmt::Latex,
         token::op::{Associativity, UnaryOp},
         Parser,
@@ -21,7 +22,7 @@ fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Resul
         if op.associativity() == associativity {
             ParseResult::Ok(())
         } else {
-            ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
+            ParseResult::Unrecoverable(vec![input.error(NonFatal)])
         }
     }).forward_errors(&mut Vec::new())
 }

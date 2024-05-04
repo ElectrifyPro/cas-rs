@@ -1,4 +1,5 @@
-use crate::parser::{error::Error, Parse, Parser};
+use cas_error::Error;
+use crate::parser::{Parse, Parser};
 use std::marker::PhantomData;
 
 /// Represents zero or more values that are delimited by a certain token.

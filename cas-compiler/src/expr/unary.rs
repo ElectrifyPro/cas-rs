@@ -1,5 +1,6 @@
+use cas_error::Error;
 use cas_parser::parser::ast::unary::Unary;
-use crate::{error::Error, Compile, Compiler, InstructionKind};
+use crate::{Compile, Compiler, InstructionKind};
 
 impl Compile for Unary {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {

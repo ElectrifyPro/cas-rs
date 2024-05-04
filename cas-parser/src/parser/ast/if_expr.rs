@@ -1,6 +1,7 @@
+use cas_error::Error;
 use crate::parser::{
     ast::expr::{Atom, Expr},
-    error::{kind, Error},
+    error::MissingIfBranch,
     fmt::Latex,
     garbage::Garbage,
     keyword::{Else, If as IfToken},
@@ -64,7 +65,7 @@ impl<'source> Parse<'source> for If {
                 .unwrap_or_else(|_| {
                     recoverable_errors.push(Error::new(
                         vec![if_token.span.clone(), input.span()],
-                        kind::MissingIfBranch {
+                        MissingIfBranch {
                             keyword: "else",
                         },
                     ));

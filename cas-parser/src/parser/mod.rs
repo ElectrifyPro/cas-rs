@@ -7,7 +7,7 @@ pub mod keyword;
 pub mod token;
 
 use cas_error::{ErrorKind, Error};
-use error::{ExpectedEof, UnexpectedEof};
+use error::{ExpectedEof, UnexpectedEoExpr, UnexpectedEof};
 use super::tokenizer::{tokenize_complete, Token};
 use std::{ops::Range, sync::Arc};
 
@@ -32,6 +32,30 @@ pub struct ParserState {
     ///
     /// `return` expressions are only allowed inside function assignments.
     pub allow_return: bool,
+
+    /// Whether to require the current expression to end at the end of the line.
+    ///
+    /// This is enabled on when parsing the expression of a `return` or `break` expression. The
+    /// expression returned by the `return` / `break` expression must lie on the same line as the
+    /// `return` / `break` keyword to prevent confusion in cases like:
+    ///
+    /// ```text
+    /// if k > n return
+    ///
+    /// sub = n - k
+    /// ```
+    ///
+    /// Without this requirement, the `return` expression would eagerly consume the assignment
+    /// `sub = n - k`, resulting in the above code being treated as:
+    ///
+    /// ```text
+    /// if k > n {
+    ///    return sub = n - k
+    /// }
+    /// ```
+    ///
+    /// Which is almost certainly not what the user intended.
+    pub expr_end_at_eol: bool,
 }
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
@@ -157,8 +181,9 @@ impl<'source> Parser<'source> {
     /// 1. Define the `fact` function.
     /// 2. Call the `fact` function with the argument `14` and compare the result to `14!`.
     ///
-    /// It certainly seems that way. However, in this example, implicit multiplication is actually
-    /// inserted between the "end" of the function definition `}`, and `fact(14)`, resulting in:
+    /// It certainly seems that way. However, in the past, parsing this example would actually
+    /// insert timplicit multiplication between the "end" of the function definition `}`, and
+    /// `fact(14)`, resulting in:
     ///
     /// ```text
     /// fact(n) = {
@@ -204,6 +229,22 @@ impl<'source> Parser<'source> {
             .ok_or_else(|| self.error(UnexpectedEof));
         self.cursor += 1;
         result
+    }
+
+    /// Returns an [`UnexpectedEoExpr`] error if the state field `expr_end_at_eol` is set to `true`
+    /// and the cursor is on a newline token. This state would indicate that an expression has been
+    /// broken up to span multiple lines, which is not allowed in the context of `return` and
+    /// `break` expressions.
+    fn check_eol(&mut self) -> Result<(), Error> {
+        if self.state.expr_end_at_eol {
+            if let Some(token) = self.current_token() {
+                if token.is_significant_whitespace() {
+                    return Err(self.error(UnexpectedEoExpr));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Speculatively parses a value from the given stream of tokens. This function can be used
@@ -257,7 +298,12 @@ impl<'source> Parser<'source> {
         F: FnOnce(&mut Parser<'source>) -> ParseResult<T>,
     {
         let start = self.cursor;
-        f(self).inspect_unrecoverable(|_| self.cursor = start)
+        let out = if let Err(err) = self.check_eol() {
+            ParseResult::Unrecoverable(vec![err])
+        } else {
+            f(self)
+        };
+        out.inspect_unrecoverable(|_| self.cursor = start)
     }
 
     /// Speculatively parses a value from the given stream of tokens, with a validation predicate.
@@ -274,6 +320,7 @@ impl<'source> Parser<'source> {
         let mut errors = Vec::new();
 
         let inner = || {
+            self.check_eol().map_err(|err| vec![err])?;
             let value = T::parse(self).forward_errors(&mut errors)?;
             predicate(&value, self).forward_errors(&mut errors)?;
             Ok(value)

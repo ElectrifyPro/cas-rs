@@ -8,11 +8,7 @@ my_ncr(n, k) = {
         result
     }
 
-    // NOTE: `return` expression must be clearly terminated
-    // or surrounded by {}, (), or []; otherwise, the
-    // assignment expression will be considered as the
-    // return value.
-    if k > n { return }
+    if k > n return
 
     sub = n - k
 

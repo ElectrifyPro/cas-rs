@@ -11,9 +11,7 @@ to_bin(n) = {
             out[i] = n % 2
             n = floor(n / 2)
             i -= 1
-            if i < 0 {
-                break
-            }
+            if i < 0 break
         }
         out
     }

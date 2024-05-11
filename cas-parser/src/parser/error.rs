@@ -22,6 +22,14 @@ pub struct NonFatal;
 )]
 pub struct UnexpectedEof;
 
+/// Unexpected end of an expression.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "unexpected end of expression",
+    labels = [format!("I expected to see more {} here", "expression".fg(EXPR))],
+)]
+pub struct UnexpectedEoExpr;
+
 /// The end of the source code was expected, but something else was found.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

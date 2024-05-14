@@ -141,7 +141,7 @@ fn eval_float_operands(
         unreachable!()
     };
     Ok(match op {
-        BinOpKind::Exp => Value::Float(left.pow(right)),
+        BinOpKind::Exp => complex(left).pow(right).into(),
         BinOpKind::Mul => Value::Float(left * right),
         BinOpKind::Div => Value::Float(left / right),
         BinOpKind::Mod => Value::Float(left % right),

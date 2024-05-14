@@ -5,8 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
+[dev-dependencies]
 ariadne = "0.2.0"
+
+[dependencies]
 cas-compiler = { path = "../cas-compiler" }
 cas-compute = { path = "../cas-compute", default-features = false, features = ["numerical"] }
 cas-error = { path = "../cas-error" }

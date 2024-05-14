@@ -1,4 +1,3 @@
-use ariadne::Source;
 use cas_error::Error;
 
 /// Utility enum to package one or multiple errors.
@@ -18,13 +17,9 @@ impl ReplError {
     ///
     /// [`Report`]: ariadne::Report
     pub fn report_to_stderr(&self, src_id: &str, input: &str) {
-        let do_one = |err: &Error| {
-            let report = err.build_report(src_id);
-            report.eprint((src_id, Source::from(input))).unwrap();
-        };
         match self {
-            Self::Many(errs) => errs.iter().for_each(do_one),
-            Self::One(err) => do_one(err),
+            Self::Many(errs) => errs.iter().for_each(|err| err.report_to_stderr(src_id, input).unwrap()),
+            Self::One(err) => err.report_to_stderr(src_id, input).unwrap(),
         }
     }
 }

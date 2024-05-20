@@ -295,14 +295,10 @@ impl Compiler {
                 }
 
                 // let's check the next scope
-                if table.contains_key(component) {
-                    let Item::Func(func) = table.get_mut(component).unwrap() else {
-                        panic!("oops");
-                    };
-                    table = &mut func.symbols;
-                } else {
-                    panic!("oops");
-                }
+                let Item::Func(func) = table.get_mut(component).unwrap() else {
+                    unreachable!();
+                };
+                table = &mut func.symbols;
             }
         }
 
@@ -348,14 +344,10 @@ impl Compiler {
                 }
 
                 // let's check the next scope
-                if table.contains_key(component) {
-                    let Item::Func(func) = table.get(component).unwrap() else {
-                        panic!("oops");
-                    };
-                    table = &func.symbols;
-                } else {
-                    panic!("oops");
-                }
+                let Item::Func(func) = table.get(component).unwrap() else {
+                    unreachable!();
+                };
+                table = &func.symbols;
             }
         }
 
@@ -404,15 +396,17 @@ impl Compiler {
             // work our way up to the current scope
             // if we find items with the same name, replace result
             for component in self.state.path.iter() {
-                if table.contains_key(component) {
-                    let Item::Func(func) = table.get(component).unwrap() else {
-                        panic!("oops");
-                    };
-                    // result = Some(Func::User(func.chunk)); // TODO what??
-                    table = &func.symbols;
-                } else {
+                let Item::Func(func) = table.get(component).unwrap() else {
                     break;
+                };
+                if component == &call.name.name {
+                    result = Some(Func::User(UserCall {
+                        chunk: func.chunk,
+                        signature: func.signature.clone(),
+                        num_given: call.args.len(),
+                    }));
                 }
+                table = &func.symbols;
             }
         }
 
@@ -563,6 +557,13 @@ g()").unwrap_err();
         compile("f(x) = return x + 1/sqrt(x)
 g(x, y) = f(x) + f(y)
 g(2, 3)").unwrap();
+    }
+
+    #[test]
+    fn refer_to_parent() {
+        compile("f(x) = g(x) = h(x) = f(x)").unwrap();
+        compile("f(x) = g(x) = h(x) = g(x)").unwrap();
+        compile("f(x) = g(x) = h(x) = h(x)").unwrap();
     }
 
     #[test]

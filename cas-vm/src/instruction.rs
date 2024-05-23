@@ -459,7 +459,11 @@ pub fn exec_unary_instruction(op: UnaryOpKind, value_stack: &mut Vec<Value>) -> 
                     }
                 }
                 Value::List(list)
-            }
+            },
+            Value::Function(_) => return Err(InvalidUnaryOperation {
+                op,
+                expr_type: typename,
+            })?,
         })
     }
 

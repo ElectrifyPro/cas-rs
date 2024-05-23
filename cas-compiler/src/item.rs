@@ -102,8 +102,18 @@ pub enum Item {
     /// A symbol declaration.
     Symbol(SymbolDecl),
 
-    /// A function declaration.
+    /// A function declaration. Function bodies introduce new scopes where symbols can be declared.
     Func(FuncDecl),
+}
+
+impl Item {
+    /// Returns the unique item ID for the item.
+    pub fn id(&self) -> usize {
+        match self {
+            Self::Symbol(symbol) => symbol.id,
+            Self::Func(func) => func.id,
+        }
+    }
 }
 
 /// A symbol declaration.
@@ -113,9 +123,12 @@ pub struct SymbolDecl {
     pub id: usize,
 }
 
-/// A function declaration.
+/// A function declaration. Function bodies introduce new scopes where symbols can be declared.
 #[derive(Clone, Debug)]
 pub struct FuncDecl {
+    /// The unique identifier for the function.
+    pub id: usize,
+
     /// The index of the chunk containing the function body.
     pub chunk: usize,
 

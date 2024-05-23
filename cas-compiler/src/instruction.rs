@@ -88,6 +88,12 @@ pub enum InstructionKind {
     /// ```
     Call(Func),
 
+    /// Call the function at the top of the value stack, passing the specified number of arguments.
+    ///
+    /// Arguments are passed to the function via the value stack. The function will be popped from
+    /// the stack first, followed by the arguments in reverse order.
+    NewCall(usize),
+
     /// Computes the `n`th numerical derivative of the function at the top of the stack.
     CallDerivative(Func, u8),
 

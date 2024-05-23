@@ -4,7 +4,7 @@ mod integer;
 
 use crate::primitive::float;
 use std::fmt::{Display, Formatter};
-use super::value::Value;
+use super::{func::Function, value::Value};
 
 /// Formatting options for values.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -255,6 +255,10 @@ impl Display for ValueFormatter<'_> {
                 } else {
                     write!(f, "]")
                 }
+            },
+            Value::Function(kind) => match kind {
+                Function::User(_) => write!(f, "<function>"),
+                Function::Builtin(builtin) => write!(f, "<builtin function: {}>", builtin.name()),
             },
         }
     }

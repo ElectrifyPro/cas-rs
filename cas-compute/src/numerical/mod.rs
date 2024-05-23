@@ -6,5 +6,6 @@
 
 pub mod builtin;
 pub mod fmt;
+pub mod func;
 pub mod trig_mode;
 pub mod value;

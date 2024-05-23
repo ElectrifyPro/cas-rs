@@ -2,7 +2,7 @@ use crate::consts::PI;
 use crate::primitive::{complex, float};
 use rug::{Complex, Float, Integer};
 use std::{cell::RefCell, fmt::{Display, Formatter}, rc::Rc};
-use super::fmt::{FormatOptions, ValueFormatter};
+use super::{fmt::{FormatOptions, ValueFormatter}, func::Function};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,12 @@ pub enum Value {
     /// TODO: In the future, a `clone` method may be added to `cas-rs` to allow the user to
     /// explicitly clone the list instead of copying the reference.
     List(Rc<RefCell<Vec<Value>>>),
+
+    /// A function.
+    ///
+    /// Functions are treated as values just like any other value in `cas-rs`; they can be stored
+    /// in variables, passed as arguments to other functions, and returned from functions.
+    Function(Function),
 }
 
 impl Value {
@@ -54,6 +60,7 @@ impl Value {
             Value::Boolean(_) => "Boolean",
             Value::Unit => "Unit",
             Value::List(_) => "List",
+            Value::Function(_) => "Function",
         }
     }
 
@@ -201,6 +208,16 @@ impl Value {
     }
 
     /// Returns true if this value is truthy.
+    ///
+    /// For each type, the following values are considered "truthy":
+    ///
+    /// - `Float`: any value except `0.0` and `NaN`
+    /// - `Integer`: any value except `0`
+    /// - `Complex`: any value except `0.0 + 0.0i` and `NaN + NaNi`
+    /// - `Bool`: `true`
+    /// - `Unit`: never true; always false
+    /// - `List`: lists with at least one element; element(s) does not have to be truthy
+    /// - `Function`: always true
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Float(n) => !n.is_zero(),
@@ -209,6 +226,7 @@ impl Value {
             Value::Boolean(b) => *b,
             Value::Unit => false,
             Value::List(l) => !l.borrow().is_empty(),
+            Value::Function(_) => true,
         }
     }
 

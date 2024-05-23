@@ -1,4 +1,4 @@
-use cas_compute::numerical::value::Value;
+use cas_compute::numerical::{func::Function, value::Value};
 use cas_error::Error;
 use cas_parser::parser::{
     ast::{assign::{Assign, AssignTarget}, LitSym},
@@ -83,7 +83,7 @@ impl Compile for Assign {
             },
             AssignTarget::Func(header) => {
                 // for function assignment, create a new chunk for the function body
-                compiler.new_chunk(header, |compiler| {
+                let (symbol_id, chunk) = compiler.new_chunk(header, |compiler| {
                     // arguments to function are placed on the stack, so we need to go through the
                     // parameters in reverse order to store them in the correct order
                     for param in header.params.iter().rev() {
@@ -95,11 +95,8 @@ impl Compile for Assign {
                     Ok(())
                 })?;
 
-                // TODO: function assignment needs to return something so the automatically
-                // generated `Drop` instruction drops this value instead of something else
-                // important in the stack
-                // also, in the future, we might want to make functions their own type
-                compiler.add_instr(InstructionKind::LoadConst(Value::Unit));
+                compiler.add_instr(InstructionKind::LoadConst(Value::Function(Function::User(chunk))));
+                compiler.add_instr(InstructionKind::StoreVar(symbol_id));
             },
         };
 

@@ -5,17 +5,16 @@ pub mod item;
 
 use cas_compute::{consts::all as all_consts, funcs::all as all_funcs};
 use cas_error::Error;
-use cas_parser::parser::ast::{Call, FuncHeader, LitSym, Stmt};
+use cas_parser::parser::ast::{FuncHeader, LitSym, Stmt};
 use error::{
     OverrideBuiltinConstant,
     OverrideBuiltinFunction,
-    UnknownFunction,
     UnknownVariable,
 };
 use std::collections::HashMap;
 use expr::compile_stmts;
 pub use instruction::{Instruction, InstructionKind};
-use item::{BuiltinCall, Func, FuncDecl, Item, Symbol, SymbolDecl, UserCall};
+use item::{FuncDecl, Item, Symbol, SymbolDecl};
 use std::ops::Range;
 
 /// A label that can be used to reference a specific instruction in the bytecode.
@@ -111,8 +110,8 @@ pub struct Compiler {
     /// This value is manually updated by the compiler.
     chunk: usize,
 
-    /// Next unique identifier for a symbol.
-    next_symbol_id: usize,
+    /// Next unique identifier for a symbol or function.
+    next_item_id: usize,
 
     /// Holds state for the current loop.
     state: CompilerState,
@@ -125,7 +124,7 @@ impl Default for Compiler {
             labels: Default::default(),
             symbols: Default::default(),
             chunk: 0,
-            next_symbol_id: 0,
+            next_item_id: 0,
             state: Default::default(),
         }
     }
@@ -214,14 +213,10 @@ impl Compiler {
 
         let mut table = &mut self.symbols;
         for component in self.state.path.iter() {
-            if table.contains_key(component) {
-                let Item::Func(func) = table.get_mut(component).unwrap() else {
-                    panic!("oops");
-                };
-                table = &mut func.symbols;
-            } else {
-                panic!("oops");
-            }
+            let Item::Func(func) = table.get_mut(component).unwrap() else {
+                unreachable!();
+            };
+            table = &mut func.symbols;
         }
 
         // add to this final table
@@ -229,16 +224,23 @@ impl Compiler {
         Ok(())
     }
 
-    /// Creates a new chunk and a scope for compilation. All methods that edit instructions will do
-    /// so to the new chunk.
-    pub fn new_chunk<F>(&mut self, header: &FuncHeader, f: F) -> Result<(), Error>
+    /// Creates a new chunk and a scope for compilation. Within the provided function, all
+    /// `compiler` methods that add or edit instructions will do so to the new chunk.
+    ///
+    /// Returns the unique identifier for the function and the index of the new chunk, which will
+    /// be used to add [`InstructionKind::LoadConst`] and [`InstructionKind::StoreVar`] instructions
+    /// to the parent chunk.
+    pub fn new_chunk<F>(&mut self, header: &FuncHeader, f: F) -> Result<(usize, usize), Error>
         where F: FnOnce(&mut Compiler) -> Result<(), Error>
     {
         let old_chunk_idx = self.chunk;
         self.chunks.push(Chunk::new(header.params.len()));
         let new_chunk_idx = self.chunks.len() - 1;
 
+        let id = self.next_item_id;
+
         self.add_item(&header.name, Item::Func(FuncDecl {
+            id,
             chunk: new_chunk_idx,
             signature: header.params.clone(),
             symbols: HashMap::new(),
@@ -250,7 +252,9 @@ impl Compiler {
         self.state.path.pop().unwrap();
         self.chunk = old_chunk_idx;
 
-        Ok(())
+        self.next_item_id += 1;
+
+        Ok((id, new_chunk_idx))
     }
 
     /// Resolves a path to a user-created symbol, inserting it into the symbol table if it doesn't
@@ -282,16 +286,16 @@ impl Compiler {
         let mut table = &mut self.symbols;
 
         if self.state.path.len() > 0 {
-            // is the symbol in the global scope?
-            if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-                result = Some(symbol.id);
+            // is the symbol / function in the global scope?
+            if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
+                result = Some(id);
             }
 
             // work our way up to the current scope
             for component in self.state.path.iter() {
                 // is the symbol in this scope?
-                if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-                    result = Some(symbol.id);
+                if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
+                    result = Some(id);
                 }
 
                 // let's check the next scope
@@ -302,17 +306,17 @@ impl Compiler {
             }
         }
 
-        if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-            // is the symbol in the current scope?
-            Ok(symbol.id)
+        if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
+            // is the symbol / function in the current scope?
+            Ok(id)
         } else if let Some(symbol) = result {
             // use the last one we found
             Ok(symbol)
         } else {
             // if not, insert it
-            let id = self.next_symbol_id;
+            let id = self.next_item_id;
             table.insert(symbol.name.to_string(), Item::Symbol(SymbolDecl { id }));
-            self.next_symbol_id += 1;
+            self.next_item_id += 1;
             Ok(id)
         }
     }
@@ -322,25 +326,26 @@ impl Compiler {
     /// Returns the unique identifier for the symbol, or an error if the symbol is not found within
     /// the current scope.
     pub fn resolve_symbol(&self, symbol: &LitSym) -> Result<Symbol, Error> {
-        // check for builtin constants
+        // check for builtin constants and functions
         let mut result = all_consts()
             .get(&*symbol.name)
-            .map(|name| Symbol::Builtin(name));
+            .map(|name| Symbol::Builtin(name))
+            .or_else(|| all_funcs().get(&*symbol.name).map(|func| Symbol::Builtin(func.name())));
 
         // then check the symbol table (including possibly variables that shadow the constant)
         let mut table = &self.symbols;
 
         if self.state.path.len() > 0 {
             // is the symbol in the global scope?
-            if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-                result = Some(Symbol::User(symbol.id));
+            if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
+                result = Some(Symbol::User(id));
             }
 
             // work our way up to the current scope
             for component in self.state.path.iter() {
                 // is the symbol in this scope?
-                if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-                    result = Some(Symbol::User(symbol.id));
+                if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
+                    result = Some(Symbol::User(id));
                 }
 
                 // let's check the next scope
@@ -351,9 +356,9 @@ impl Compiler {
             }
         }
 
-        if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
+        if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
             // is the symbol in the current scope?
-            Ok(Symbol::User(symbol.id))
+            Ok(Symbol::User(id))
         } else if let Some(symbol) = result {
             // use the last one we found
             Ok(symbol)
@@ -361,73 +366,6 @@ impl Compiler {
             // not found
             Err(Error::new(vec![symbol.span.clone()], UnknownVariable {
                 name: symbol.name.clone(),
-            }))
-        }
-    }
-
-    /// Resolves a path to a function.
-    ///
-    /// The function call must match the function's signature. An error is returned if this is not
-    /// the case, or if the function does not exist.
-    ///
-    /// Returns the index of the chunk containing the function.
-    pub fn resolve_function(&self, call: &Call) -> Result<Func, Error> {
-        // check for native functions
-        let mut result = all_funcs()
-            .get(&*call.name.name)
-            .map(|func| Func::Builtin(BuiltinCall {
-                builtin: func.as_ref(),
-                num_given: call.args.len(),
-            }));
-
-        // then check the symbol table (including possibly functions that shadow native functions)
-        let mut table = &self.symbols;
-
-        if self.state.path.len() > 0 {
-            // is the function in the global scope?
-            if let Some(Item::Func(func)) = table.get(&call.name.name) {
-                result = Some(Func::User(UserCall {
-                    chunk: func.chunk,
-                    signature: func.signature.clone(),
-                    num_given: call.args.len(),
-                }));
-            }
-
-            // work our way up to the current scope
-            // if we find items with the same name, replace result
-            for component in self.state.path.iter() {
-                let Item::Func(func) = table.get(component).unwrap() else {
-                    break;
-                };
-                if component == &call.name.name {
-                    result = Some(Func::User(UserCall {
-                        chunk: func.chunk,
-                        signature: func.signature.clone(),
-                        num_given: call.args.len(),
-                    }));
-                }
-                table = &func.symbols;
-            }
-        }
-
-        // found matching function; now verify arg count (types are checked at runtime)
-        if let Some(Item::Func(func)) = table.get(&call.name.name) {
-            // is the function in the current scope?
-            func.check_call(call)?;
-            Ok(Func::User(UserCall {
-                chunk: func.chunk,
-                signature: func.signature.clone(),
-                num_given: call.args.len(),
-            }))
-        } else if let Some(func) = result {
-            // use the last one we found
-            func.check_call(call)?;
-            Ok(func)
-        } else {
-            // not found
-            Err(Error::new(vec![call.name.span.clone()], UnknownFunction {
-                name: call.name.name.to_string(),
-                suggestions: Vec::new(), // TODO
             }))
         }
     }

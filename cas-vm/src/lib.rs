@@ -23,7 +23,8 @@ mod instruction;
 
 use cas_compute::{
     consts::{E, I, PHI, PI, TAU},
-    numerical::{builtin::error::BuiltinError, trig_mode::TrigMode, value::Value},
+    funcs::all as all_funcs,
+    numerical::{builtin::error::BuiltinError, func::Function, trig_mode::TrigMode, value::Value},
     primitive::{complex, float},
 };
 use cas_compiler::{
@@ -235,9 +236,9 @@ impl Vm {
         }
 
         let instruction = &self.chunks[instruction_pointer.0].instructions[instruction_pointer.1];
-        // println!("value stack: {:?}", value_stack.iter().map(|v: &Value| v.to_string()).collect::<Vec<_>>());
-        // println!("call stack: {:?}", call_stack);
-        // println!("instruction to execute: {:?} (chunk/inst: {}/{})", instruction, instruction_pointer.0, instruction_pointer.1);
+        println!("value stack: {:?}", value_stack.iter().map(|v: &Value| v.to_string()).collect::<Vec<_>>());
+        println!("call stack: {:?}", call_stack);
+        println!("instruction to execute: {:?} (chunk/inst: {}/{})", instruction, instruction_pointer.0, instruction_pointer.1);
 
         match &instruction.kind {
             InstructionKind::LoadConst(value) => value_stack.push(value.clone()),
@@ -268,7 +269,7 @@ impl Vm {
                         "phi" => Value::Float(float(&*PHI)),
                         "pi" => Value::Float(float(&*PI)),
                         "tau" => Value::Float(float(&*TAU)),
-                        _ => unreachable!(),
+                        other => Value::Function(Function::Builtin(all_funcs().get(other).unwrap().as_ref())),
                     });
                 }
             },
@@ -326,6 +327,30 @@ impl Vm {
             InstructionKind::Unary(op) => {
                 if let Err(err) = exec_unary_instruction(*op, value_stack) {
                     return Err(err.into_error(instruction.spans.clone()));
+                }
+            },
+            InstructionKind::NewCall(args_given) => {
+                let Value::Function(func) = value_stack.pop().unwrap() else {
+                    todo!()
+                };
+                // TODO: default parameter support
+                match func {
+                    Function::User(chunk) => {
+                        call_stack.push(Frame::new((
+                            instruction_pointer.0,
+                            instruction_pointer.1 + 1,
+                        )));
+                        check_stack_overflow(&instruction.spans, call_stack)?;
+                        *instruction_pointer = (chunk, 0);
+                        return Ok(ControlFlow::Jump);
+                    },
+                    Function::Builtin(func) => {
+                        let args = value_stack.split_off(value_stack.len() - *args_given);
+                        let value = func
+                            .eval(self.trig_mode, &mut args.into_iter())
+                            .map_err(|err| from_builtin_error(err, instruction.spans.clone()))?;
+                        value_stack.push(value);
+                    }
                 }
             },
             InstructionKind::Call(func) => match func {

@@ -316,7 +316,10 @@ impl<'source> Parse<'source> for Primary {
                     }
                 },
                 Ok(next) if next.kind == TokenKind::OpenSquare => {
-                    primary = Index::parse_or_lower(input, recoverable_errors, primary);
+                    match Index::parse_or_lower(input, recoverable_errors, primary) {
+                        (true, new_primary) => primary = new_primary,
+                        (false, unchanged_primary) => break Ok(unchanged_primary),
+                    }
                 },
                 _ => break Ok(primary),
             }

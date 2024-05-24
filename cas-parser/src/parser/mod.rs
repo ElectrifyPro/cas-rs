@@ -798,6 +798,12 @@ mod tests {
     }
 
     #[test]
+    fn not_indexing() {
+        let mut parser = Parser::new("abs(4) [8, 16]");
+        assert!(parser.try_parse_full::<Expr>().is_err());
+    }
+
+    #[test]
     fn unary_left_associativity() {
         let mut parser = Parser::new("3!!");
         let expr = parser.try_parse_full::<Expr>().unwrap();

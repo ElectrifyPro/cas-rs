@@ -48,7 +48,9 @@ impl Index {
         input: &mut Parser,
         recoverable_errors: &mut Vec<Error>,
         mut target: Primary,
-    ) -> Primary {
+    ) -> (bool, Primary) {
+        let mut changed = false;
+
         // iteratively search for nested index expressions
         while let Ok(surrounded) = input.try_parse::<Square<_>>().forward_errors(recoverable_errors) {
             let span = target.span().start..surrounded.close.span.end;
@@ -58,9 +60,10 @@ impl Index {
                 span,
                 bracket_span: surrounded.open.span.start..surrounded.close.span.end,
             });
+            changed = true;
         }
 
-        target
+        (changed, target)
     }
 }
 

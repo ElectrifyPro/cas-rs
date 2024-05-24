@@ -44,11 +44,20 @@ impl Index {
     }
 
     /// Attempts to parse an [`Index`], where the initial target has already been parsed.
+    ///
+    /// Besides the returned [`Primary`], the return value also includes a boolean that indicates
+    /// if the expression was changed due to successfully parsing a [`Index`]. This function can
+    /// return even if no [`Index`], which occurs when we determine that we shouldn't have taken the
+    /// [`Index`] path. The boolean is used to let the caller know that this is was the case.
+    ///
+    /// This is similar to what we had to do with [`Binary`].
+    ///
+    /// [`Binary`]: crate::parser::ast::binary::Binary
     pub fn parse_or_lower(
         input: &mut Parser,
         recoverable_errors: &mut Vec<Error>,
         mut target: Primary,
-    ) -> (bool, Primary) {
+    ) -> (Primary, bool) {
         let mut changed = false;
 
         // iteratively search for nested index expressions
@@ -63,7 +72,7 @@ impl Index {
             changed = true;
         }
 
-        (changed, target)
+        (target, changed)
     }
 }
 

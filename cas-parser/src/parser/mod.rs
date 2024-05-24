@@ -2198,6 +2198,51 @@ mod tests {
     }
 
     #[test]
+    fn assign_function_to_list() {
+        let mut parser = Parser::new("arr[0] = f() = pi");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Assign(Assign {
+            target: AssignTarget::Index(Index {
+                target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                    name: "arr".to_string(),
+                    span: 0..3,
+                }))),
+                index: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "0".to_string(),
+                    span: 4..5,
+                }))),
+                span: 0..6,
+                bracket_span: 3..6,
+            }),
+            op: AssignOp {
+                kind: AssignOpKind::Assign,
+                span: 7..8,
+            },
+            value: Box::new(Expr::Assign(Assign {
+                target: AssignTarget::Func(FuncHeader {
+                    name: LitSym {
+                        name: "f".to_string(),
+                        span: 9..10,
+                    },
+                    params: vec![],
+                    span: 9..12,
+                }),
+                op: AssignOp {
+                    kind: AssignOpKind::Assign,
+                    span: 13..14,
+                },
+                value: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                    name: "pi".to_string(),
+                    span: 15..17,
+                }))),
+                span: 9..17,
+            })),
+            span: 0..17,
+        }));
+    }
+
+    #[test]
     fn function_call() {
         let mut parser = Parser::new("f(x)");
         let expr = parser.try_parse_full::<Expr>().unwrap();

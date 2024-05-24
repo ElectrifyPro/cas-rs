@@ -54,14 +54,24 @@ impl Call {
     }
 
     /// Attempts to parse a [`Call`], where the initial target has already been parsed.
+    ///
+    /// Besides the returned [`Primary`], the return value also includes a boolean that indicates
+    /// if the expression was changed due to successfully parsing a [`Call`]. This function can
+    /// return `Ok` even if no [`Call`], which occurs when we determine that we shouldn't have
+    /// taken the [`Call`] path. The boolean is used to let the caller know that this is was the
+    /// case.
+    ///
+    /// This is similar to what we had to do with [`Binary`].
+    ///
+    /// [`Binary`]: crate::parser::ast::binary::Binary
     pub fn parse_or_lower(
         input: &mut Parser,
         recoverable_errors: &mut Vec<Error>,
         target: Primary,
-    ) -> Result<Primary, Vec<Error>> {
+    ) -> Result<(Primary, bool), Vec<Error>> {
         let name = match target {
             Primary::Literal(Literal::Symbol(name)) => name,
-            target => return Ok(Primary::from(target)),
+            target => return Ok((Primary::from(target), false)),
         };
 
         let mut derivatives = 0usize;
@@ -90,13 +100,13 @@ impl Call {
 
         // use `name` here before it is moved into the struct
         let span = name.span.start..surrounded.close.span.end;
-        Ok(Primary::Call(Self {
+        Ok((Primary::Call(Self {
             name,
             derivatives: derivatives as u8,
             args: surrounded.value.values,
             span,
             paren_span: surrounded.open.span.start..surrounded.close.span.end,
-        }))
+        }), true))
     }
 }
 

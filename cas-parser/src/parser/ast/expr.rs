@@ -16,7 +16,7 @@ use crate::{
             unary::Unary,
             while_expr::While,
         },
-        error::UnclosedParenthesis,
+        error::{ExpectedExpr, UnclosedParenthesis},
         fmt::Latex,
         iter::ExprIter,
         token::{op::Precedence, CloseParen},
@@ -160,7 +160,7 @@ impl<'source> Parse<'source> for Expr {
 ///
 /// This is done for completeness.
 macro_rules! impl_by_parsing_expr {
-    ($( $variant:ident ),* $(,)?) => {
+    ($( $variant:ident $expected:literal ),* $(,)?) => {
         $(
             impl<'source> Parse<'source> for $variant {
                 fn std_parse(
@@ -169,7 +169,7 @@ macro_rules! impl_by_parsing_expr {
                 ) -> Result<Self, Vec<Error>> {
                     match input.try_parse::<Expr>().forward_errors(recoverable_errors) {
                         Ok(Expr::$variant(expr)) => Ok(expr),
-                        _ => Err(todo!()),
+                        _ => Err(vec![input.error(ExpectedExpr { expected: $expected })]),
                     }
                 }
             }
@@ -178,9 +178,9 @@ macro_rules! impl_by_parsing_expr {
 }
 
 impl_by_parsing_expr!(
-    Call,
-    Index,
-    Unary,
+    Call "a function call",
+    Index "a list indexing expression",
+    Unary "a unary operation",
 );
 
 impl std::fmt::Display for Expr {
@@ -308,17 +308,16 @@ impl<'source> Parse<'source> for Primary {
             let mut fork = input.clone();
             match fork.next_token() {
                 Ok(next) if next.kind == TokenKind::OpenParen || next.kind == TokenKind::Quote => {
-                    let input_start = input.cursor;
-                    primary = Call::parse_or_lower(input, recoverable_errors, primary)?;
-                    if input.cursor == input_start {
+                    match Call::parse_or_lower(input, recoverable_errors, primary)? {
+                        (new_primary, true) => primary = new_primary,
                         // call was not parsed; is this implicit multiplication?
-                        break Ok(primary);
+                        (unchanged_primary, false) => break Ok(unchanged_primary),
                     }
                 },
                 Ok(next) if next.kind == TokenKind::OpenSquare => {
                     match Index::parse_or_lower(input, recoverable_errors, primary) {
-                        (true, new_primary) => primary = new_primary,
-                        (false, unchanged_primary) => break Ok(unchanged_primary),
+                        (new_primary, true) => primary = new_primary,
+                        (unchanged_primary, false) => break Ok(unchanged_primary),
                     }
                 },
                 _ => break Ok(primary),

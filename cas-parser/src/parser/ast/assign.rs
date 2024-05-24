@@ -2,7 +2,7 @@ use cas_error::Error;
 use crate::{
     parser::{
         ast::{
-            expr::Expr,
+            expr::{Atom, Expr, Primary},
             helper::Surrounded,
             index::Index,
             literal::{Literal, LitSym},
@@ -10,6 +10,7 @@ use crate::{
         error::{
             CompoundAssignmentInHeader,
             DefaultArgumentNotLast,
+            ExpectedExpr,
             InvalidAssignmentLhs,
             InvalidCompoundAssignmentLhs,
         },
@@ -20,7 +21,7 @@ use crate::{
         Parser,
         ParseResult,
     },
-    return_if_ok,
+    tokenizer::TokenKind,
 };
 use std::{fmt, ops::Range};
 
@@ -119,15 +120,13 @@ impl FuncHeader {
     pub fn span(&self) -> Range<usize> {
         self.span.clone()
     }
-}
 
-impl<'source> Parse<'source> for FuncHeader {
-    fn std_parse(
+    /// Attempts to parse a [`FuncHeader`], where the function name has already been parsed.
+    fn parse_or_lower<'source>(
         input: &mut Parser<'source>,
-        recoverable_errors: &mut Vec<Error>
+        recoverable_errors: &mut Vec<Error>,
+        name: LitSym,
     ) -> Result<Self, Vec<Error>> {
-        let name = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
-
         /// Helper duplicate of the `Delimited` helper struct with additional state to ensure
         /// default parameters in the correct position.
         struct FuncHeaderInner {
@@ -276,13 +275,62 @@ impl AssignTarget {
     }
 }
 
+impl From<LitSym> for AssignTarget {
+    fn from(symbol: LitSym) -> Self {
+        AssignTarget::Symbol(symbol)
+    }
+}
+
+impl From<Index> for AssignTarget {
+    fn from(index: Index) -> Self {
+        AssignTarget::Index(index)
+    }
+}
+
+impl From<FuncHeader> for AssignTarget {
+    fn from(func: FuncHeader) -> Self {
+        AssignTarget::Func(func)
+    }
+}
+
 impl<'source> Parse<'source> for AssignTarget {
     fn std_parse(
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let _ = return_if_ok!(input.try_parse().map(AssignTarget::Func).forward_errors(recoverable_errors));
-        input.try_parse().map(AssignTarget::Symbol).forward_errors(recoverable_errors)
+        // this uses a similar approach to Primary::parse, where we try to parse an Atom first
+        // and then check if it's followed by an open parenthesis or open square bracket
+        // to determine if the target is a function or index
+        let atom = input.try_parse::<Atom>().forward_errors(recoverable_errors)?;
+
+        let mut fork = input.clone();
+        match fork.next_token() {
+            Ok(next) if next.kind == TokenKind::OpenParen => {
+                if let Atom::Literal(Literal::Symbol(symbol)) = atom {
+                    Ok(FuncHeader::parse_or_lower(input, recoverable_errors, symbol)
+                        .map(Into::into)?)
+                } else {
+                    Err(vec![input.error(ExpectedExpr { expected: "a symbol" })])
+                }
+            },
+            Ok(next) if next.kind == TokenKind::OpenSquare => {
+                match Index::parse_or_lower(input, recoverable_errors, atom.into()) {
+                    (new_primary, true) => match new_primary {
+                        Primary::Index(index) => Ok(AssignTarget::Index(index)),
+                        _ => unreachable!(),
+                    },
+                    (unchanged_primary, false) => match unchanged_primary {
+                        Primary::Literal(Literal::Symbol(symbol)) => return Ok(AssignTarget::Symbol(symbol)),
+                        _ => unreachable!(),
+                    },
+                }
+            },
+            _ => if let Atom::Literal(Literal::Symbol(symbol)) = atom {
+                Ok(AssignTarget::Symbol(symbol))
+            } else {
+                Err(vec![input.error(ExpectedExpr { expected: "a symbol" })])
+            },
+        }
     }
 }
 

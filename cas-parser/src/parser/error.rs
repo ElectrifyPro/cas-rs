@@ -14,6 +14,20 @@ use std::{collections::HashSet, ops::Range};
 )]
 pub struct NonFatal;
 
+/// Expected to see a certain kind of expression here.
+///
+/// The `expected` field should also contain the word "a" or "an" at the beginning to make the
+/// error grammatically correct.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!("expected {}", self.expected),
+    labels = [format!("I expected to see {} here", self.expected)],
+)]
+pub struct ExpectedExpr {
+    /// The kind of expression that was expected.
+    pub expected: &'static str,
+}
+
 /// The end of the source code was reached unexpectedly.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

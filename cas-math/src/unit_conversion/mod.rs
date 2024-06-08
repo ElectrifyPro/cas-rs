@@ -28,7 +28,7 @@ pub mod convert;
 pub mod unit;
 
 use std::ops::Mul;
-pub use unit::{ConversionError, Length, Quantity, Unit};
+pub use unit::{Area, ConversionError, Length, Quantity, Time, Unit};
 
 /// A value and the unit it represents.
 ///

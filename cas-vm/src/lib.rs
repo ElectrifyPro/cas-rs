@@ -29,7 +29,7 @@ use cas_compute::{
 };
 use cas_compiler::{
     expr::compile_stmts,
-    instruction::InstructionKind,
+    instruction::{Instruction, InstructionKind},
     item::{Func, Item, Symbol},
     Chunk,
     Compile,
@@ -41,6 +41,7 @@ use cas_parser::parser::ast::Stmt;
 use error::{
     IndexOutOfBounds,
     IndexOutOfRange,
+    InternalError,
     InvalidIndexType,
     InvalidLengthType,
     LengthOutOfRange,
@@ -235,6 +236,17 @@ impl Vm {
             }
         }
 
+        /// Helper to build an internal error.
+        fn internal_err(instruction: &Instruction, data: impl Into<String>) -> Error {
+            Error::new(
+                instruction.spans.clone(),
+                InternalError {
+                    instruction: format!("{:?}", instruction.kind),
+                    data: data.into(),
+                },
+            )
+        }
+
         let instruction = &self.chunks[instruction_pointer.0].instructions[instruction_pointer.1];
         println!("value stack: {:?}", value_stack.iter().map(|v: &Value| v.to_string()).collect::<Vec<_>>());
         println!("call stack: {:?}", call_stack);
@@ -247,8 +259,14 @@ impl Vm {
                 value_stack.push(Value::List(Rc::new(RefCell::new(elements))));
             },
             InstructionKind::CreateListRepeat => {
-                let count = value_stack.pop().unwrap();
-                let value = value_stack.pop().unwrap();
+                let count = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing # of repetitions",
+                ))?;
+                let value = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing value to repeat",
+                ))?;
                 let list = vec![value; extract_length(count, instruction.spans.clone())?];
                 value_stack.push(Value::List(Rc::new(RefCell::new(list))));
             },
@@ -259,7 +277,10 @@ impl Vm {
                         .rev()
                         .find_map(|frame| frame.get_variable(*id))
                         .cloned()
-                        .unwrap();
+                        .ok_or_else(|| internal_err(
+                            &instruction,
+                            format!("user variable `{}` not initialized", id),
+                        ))?;
                     value_stack.push(value);
                 }
                 Symbol::Builtin(name) => {
@@ -269,55 +290,93 @@ impl Vm {
                         "phi" => Value::Float(float(&*PHI)),
                         "pi" => Value::Float(float(&*PI)),
                         "tau" => Value::Float(float(&*TAU)),
-                        other => Value::Function(Function::Builtin(all_funcs().get(other).unwrap().as_ref())),
+                        other => Value::Function(Function::Builtin(
+                            all_funcs()
+                                .get(other)
+                                .ok_or_else(|| internal_err(
+                                    &instruction,
+                                    format!("builtin function `{}` not found", other),
+                                ))?
+                                .as_ref()
+                        )),
                     });
                 }
             },
             InstructionKind::StoreVar(id) => {
-                let last_frame = call_stack.last_mut().unwrap();
-                let value = value_stack.last().cloned().unwrap();
+                let last_frame = call_stack.last_mut().ok_or_else(|| internal_err(
+                    &instruction,
+                    "no stack frame to store variable in",
+                ))?;
+                let value = value_stack.last().cloned().ok_or_else(|| internal_err(
+                    &instruction,
+                    "no value to store in variable",
+                ))?;
                 last_frame.add_variable(id.to_owned(), value);
             },
             InstructionKind::AssignVar(id) => {
-                let last_frame = call_stack.last_mut().unwrap();
-                last_frame.add_variable(id.to_owned(), value_stack.pop().unwrap());
+                let last_frame = call_stack.last_mut().ok_or_else(|| internal_err(
+                    &instruction,
+                    "no stack frame to store variable in",
+                ))?;
+                last_frame.add_variable(id.to_owned(), value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "no value to store in variable",
+                ))?);
             },
             InstructionKind::StoreIndexed => {
-                let index = value_stack.pop().unwrap();
-                let list = value_stack.pop().unwrap();
-                let value = value_stack.last().cloned().unwrap();
-                if let Value::List(list) = list {
-                    let index = extract_index(index, instruction.spans.clone())?;
+                let index = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing index to store value at",
+                ))?;
+                let list = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing list to store value in",
+                ))?;
+                let value = value_stack.last().cloned().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing value to store",
+                ))?;
+                let Value::List(list) = list else {
+                    return Err(internal_err(&instruction, "cannot index into non-list"));
+                };
 
-                    let mut list = list.borrow_mut();
-                    let len = list.len();
-                    *list.get_mut(index).ok_or_else(|| {
-                        Error::new(instruction.spans.clone(), IndexOutOfBounds { len, index })
-                    })? = value;
-                } else {
-                    todo!()
-                }
+                let index = extract_index(index, instruction.spans.clone())?;
+
+                let mut list = list.borrow_mut();
+                let len = list.len();
+                *list.get_mut(index).ok_or_else(|| {
+                    Error::new(instruction.spans.clone(), IndexOutOfBounds { len, index })
+                })? = value;
             },
             InstructionKind::LoadIndexed => {
-                let index = value_stack.pop().unwrap();
-                let list = value_stack.pop().unwrap();
-                if let Value::List(list) = list {
-                    let index = extract_index(index, instruction.spans.clone())?;
+                let index = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing index to load value at",
+                ))?;
+                let list = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing list to load value from",
+                ))?;
+                let Value::List(list) = list else {
+                    return Err(internal_err(&instruction, "cannot index into non-list"));
+                };
 
-                    let list = list.borrow();
-                    let len = list.len();
-                    let value = list.get(index).cloned().ok_or_else(|| {
-                        Error::new(instruction.spans.clone(), IndexOutOfBounds { len, index })
-                    })?;
-                    value_stack.push(value);
-                } else {
-                    todo!()
-                }
+                let index = extract_index(index, instruction.spans.clone())?;
+
+                let list = list.borrow();
+                let len = list.len();
+                let value = list.get(index).cloned().ok_or_else(|| {
+                    Error::new(instruction.spans.clone(), IndexOutOfBounds { len, index })
+                })?;
+                value_stack.push(value);
             },
-            // .unwrap() helps us verify that exactly the right number of values are produced
+            // erroring here helps us verify that exactly the right number of values are produced
             // and popped through the program
             InstructionKind::Drop => {
-                value_stack.pop().unwrap();
+                value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "nothing to drop",
+                ))?;
             },
             InstructionKind::Binary(op) => {
                 if let Err(err) = exec_binary_instruction(*op, value_stack) {
@@ -330,8 +389,11 @@ impl Vm {
                 }
             },
             InstructionKind::NewCall(args_given) => {
-                let Value::Function(func) = value_stack.pop().unwrap() else {
-                    todo!()
+                let Value::Function(func) = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing function to call",
+                ))? else {
+                    return Err(internal_err(&instruction, "cannot call non-function"));
                 };
                 // TODO: default parameter support
                 match func {
@@ -374,7 +436,10 @@ impl Vm {
             },
             InstructionKind::CallDerivative(func, derivatives) => match func {
                 Func::User(call) => {
-                    let initial = value_stack.pop().unwrap();
+                    let initial = value_stack.pop().ok_or_else(|| internal_err(
+                        &instruction,
+                        "missing initial value for derivative computation",
+                    ))?;
                     let derivative = Derivative::new(*derivatives, initial)
                         .map_err(|err| err.into_error(instruction.spans.clone()))?;
                     call_stack.push(Frame::new((
@@ -382,13 +447,19 @@ impl Vm {
                         instruction_pointer.1 + 1,
                     )).with_derivative());
                     check_stack_overflow(&instruction.spans, call_stack)?;
-                    value_stack.push(derivative.next_eval().unwrap());
+                    value_stack.push(derivative.next_eval().ok_or_else(|| internal_err(
+                        &instruction,
+                        "missing next value in derivative computation",
+                    ))?);
                     derivative_stack.push(derivative);
                     *instruction_pointer = (call.chunk, 0);
                     return Ok(ControlFlow::Jump);
                 },
                 Func::Builtin(call) => {
-                    let initial = value_stack.pop().unwrap();
+                    let initial = value_stack.pop().ok_or_else(|| internal_err(
+                        &instruction,
+                        "missing initial value for derivative computation",
+                    ))?;
                     let value = Derivative::new(*derivatives, initial)
                         .and_then(|mut derv| derv.eval_builtin(call.builtin))
                         .map_err(|err| err.into_error(instruction.spans.clone()))?;
@@ -396,12 +467,21 @@ impl Vm {
                 },
             },
             InstructionKind::Return => {
-                let frame = call_stack.pop().unwrap();
+                let frame = call_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "no frame to return to",
+                ))?;
 
                 if frame.derivative {
                     // progress the derivative computation if needed
-                    let derivative = derivative_stack.last_mut().unwrap();
-                    let value = value_stack.pop().unwrap();
+                    let derivative = derivative_stack.last_mut().ok_or_else(|| internal_err(
+                        &instruction,
+                        "no derivative computation to return to",
+                    ))?;
+                    let value = value_stack.pop().ok_or_else(|| internal_err(
+                        &instruction,
+                        "missing value to feed in derivative computation",
+                    ))?;
                     if let Some(value) = derivative.advance(value)
                         .map_err(|err| err.into_error(instruction.spans.clone()))?
                     {
@@ -412,7 +492,10 @@ impl Vm {
                         // no need to check for stack overflow here, since we're not adding a new frame
                         call_stack.push(frame);
 
-                        value_stack.push(derivative.next_eval().unwrap());
+                        value_stack.push(derivative.next_eval().ok_or_else(|| internal_err(
+                            &instruction,
+                            "missing next value in derivative computation",
+                        ))?);
                         *instruction_pointer = (instruction_pointer.0, 0);
                     }
                 } else {
@@ -427,14 +510,16 @@ impl Vm {
                 return Ok(ControlFlow::Jump);
             },
             InstructionKind::JumpIfFalse(label) => {
-                let value = value_stack.pop().unwrap();
-                if let Value::Boolean(b) = value {
-                    if !b {
-                        *instruction_pointer = self.labels[label];
-                        return Ok(ControlFlow::Jump);
-                    }
-                } else {
-                    todo!()
+                let Value::Boolean(b) = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing value to check",
+                ))? else {
+                    return Err(internal_err(&instruction, "expected boolean value"));
+                };
+
+                if !b {
+                    *instruction_pointer = self.labels[label];
+                    return Ok(ControlFlow::Jump);
                 }
             },
         }

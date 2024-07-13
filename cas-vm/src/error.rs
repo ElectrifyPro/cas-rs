@@ -195,3 +195,23 @@ pub struct InvalidLengthType {
     help = "the length must be positive and less than or equal to: `2^64 - 1`"
 )]
 pub struct LengthOutOfRange;
+
+/// An internal error that can't be resolved by the user.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!("an internal error occurred at instruction: `{:#?}`", self.instruction),
+    labels = spans.iter()
+        .enumerate()
+        .map(|(idx, span)| format!("{}: `{}..{}`", idx, span.start, span.end)),
+    help = "please copy this error message and report it to the developer",
+    note = &self.data,
+)]
+pub struct InternalError {
+    /// The [`InstructionKind`] the virtual machine was executing when the error occurred.
+    ///
+    /// [`InstructionKind`]: cas_compiler::InstructionKind
+    pub instruction: String,
+
+    /// Arbitrary data that may help the developer diagnose the issue.
+    pub data: String,
+}

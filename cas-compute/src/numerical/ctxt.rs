@@ -107,6 +107,22 @@ pub struct Ctxt {
     pub(crate) max_depth_reached: bool,
 }
 
+#[cfg(all(feature = "mysql", feature = "serde"))]
+impl FromValue for Ctxt {
+    type Intermediate = Ctxt;
+}
+
+#[cfg(all(feature = "mysql", feature = "serde"))]
+impl TryFrom<mysql_common::Value> for Ctxt {
+    type Error = mysql_common::FromValueError;
+
+    fn try_from(value: mysql_common::Value) -> Result<Self, Self::Error> {
+        use mysql_common::value::json::Deserialized;
+        let Deserialized(ctxt) = Deserialized::from_value_opt(value)?;
+        Ok(ctxt)
+    }
+}
+
 impl Default for Ctxt {
     fn default() -> Self {
         Self {

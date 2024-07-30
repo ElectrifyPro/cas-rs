@@ -2,7 +2,7 @@ use cas_compute::numerical::builtin::{Builtin, ParamKind};
 use cas_error::Error;
 use cas_parser::parser::ast::{Call, Param as ParserParam};
 use crate::error::{MissingArgument, TooManyArguments};
-use std::{cmp::Ordering, collections::HashMap};
+use std::{cmp::Ordering, collections::{HashMap, HashSet}};
 
 enum Signature<'a> {
     Builtin(&'static dyn Builtin),
@@ -135,11 +135,29 @@ pub struct FuncDecl {
     /// The function signature.
     pub signature: Vec<ParserParam>,
 
+    /// Table containing items captured from the environment of this function.
+    ///
+    /// Captured items are items used inside the function, but are not declared inside the
+    /// function itself. During runtime, at the site of the function declaration, the values
+    /// of captured items are saved for every invocation of the function.
+    pub captures: HashSet<Symbol>,
+
     /// Symbol table for items declared inside this function.
     pub symbols: HashMap<String, Item>,
 }
 
 impl FuncDecl {
+    /// Returns a function declaration with the initial given chunk and signature.
+    pub fn new(id: usize, chunk: usize, signature: Vec<ParserParam>) -> Self {
+        Self {
+            id,
+            chunk,
+            signature,
+            captures: HashSet::new(),
+            symbols: HashMap::new(),
+        }
+    }
+
     /// Checks if this function call matches the signature of its target function in argmuent
     /// count.
     ///
@@ -154,7 +172,7 @@ impl FuncDecl {
 }
 
 /// An identifier for a symbol, user-defined or builtin.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Symbol {
     /// A user-defined symbol. The inner value represents the index of the symbol in the symbol
     /// table.

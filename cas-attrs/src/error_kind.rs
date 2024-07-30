@@ -136,7 +136,8 @@ impl ToTokens for ErrorKindTarget {
                     src_id: &'a str,
                     spans: &[std::ops::Range<usize>],
                 ) -> ariadne::Report<(&'a str, std::ops::Range<usize>)> {
-                    let mut builder = ariadne::Report::build(ariadne::ReportKind::Error, src_id, spans[0].start)
+                    let start_span = spans.get(0).expect("ErrorKind derive: need at least one span to build a report").start;
+                    let mut builder = ariadne::Report::build(ariadne::ReportKind::Error, src_id, start_span)
                         .with_message(#message)
                         .with_labels(#labels);
 

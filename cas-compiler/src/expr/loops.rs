@@ -59,26 +59,3 @@ impl Compile for While {
         Ok(())
     }
 }
-
-// ex:
-// i = 0
-// while i < 10 then {
-//    i = i + 1
-// }
-//
-// becomes
-//
-// LoadConst 0
-// StoreVar i
-// Label condition_start
-//   LoadVar i
-//   LoadConst 10
-//   LessThan
-//   JumpIfFalse loop_end
-//
-//   LoadVar i
-//   LoadConst 1
-//   Add
-//   StoreVar i
-//   Jump condition_start
-// Label loop_end

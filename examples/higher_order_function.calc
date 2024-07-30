@@ -1,0 +1,12 @@
+divisor(d) = f(x) = x / d
+
+half = divisor(2)  // = half(x) = x / 2
+third = divisor(3) // = third(x) = x / 3
+
+print(half(32))  // 32 / 2 = 16
+print(third(32)) // 32 / 3 = 10.666...
+
+print(half(40))  // 40 / 2 = 20
+print(third(40)) // 40 / 3 = 13.333...
+
+[half(32), third(32), half(40), third(40)]

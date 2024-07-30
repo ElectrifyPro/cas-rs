@@ -34,7 +34,11 @@ impl Compile for Call {
 
         // TODO: allow calling any receiever when it is supported
         // load the function
-        compiler.add_instr(InstructionKind::LoadVar(compiler.resolve_symbol(&self.name)?));
+        let symbol_id = compiler.resolve_symbol(&self.name)?;
+        compiler.add_instr_with_spans(
+            InstructionKind::LoadVar(symbol_id),
+            vec![self.name.span.clone()],
+        );
 
         if self.derivatives > 0 {
             // TODO

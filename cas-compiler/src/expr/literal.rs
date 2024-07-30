@@ -13,7 +13,13 @@ impl Compile for Literal {
             Literal::Float(float) => compiler.add_instr(InstructionKind::LoadConst(Value::Float(float_from_str(&float.value)))),
             Literal::Radix(radix) => compiler.add_instr(InstructionKind::LoadConst(Value::Integer(from_str_radix(radix.value.as_str(), radix.base)))),
             Literal::Boolean(boolean) => compiler.add_instr(InstructionKind::LoadConst(Value::Boolean(boolean.value))),
-            Literal::Symbol(sym) => compiler.add_instr(InstructionKind::LoadVar(compiler.resolve_symbol(sym)?)),
+            Literal::Symbol(sym) => {
+                let symbol = compiler.resolve_symbol(sym)?;
+                compiler.add_instr_with_spans(
+                    InstructionKind::LoadVar(symbol),
+                    vec![sym.span.clone()],
+                );
+            },
             Literal::Unit(_) => compiler.add_instr(InstructionKind::LoadConst(Value::Unit)),
             Literal::List(list) => {
                 // compile the elements of the list

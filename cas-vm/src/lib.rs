@@ -248,12 +248,22 @@ impl Vm {
         }
 
         let instruction = &self.chunks[instruction_pointer.0].instructions[instruction_pointer.1];
-        println!("value stack: {:?}", value_stack.iter().map(|v: &Value| v.to_string()).collect::<Vec<_>>());
-        println!("call stack: {:?}", call_stack);
-        println!("instruction to execute: {:?} (chunk/inst: {}/{})", instruction, instruction_pointer.0, instruction_pointer.1);
+        // println!("value stack: {:?}", value_stack.iter().map(|v: &Value| v.to_string()).collect::<Vec<_>>());
+        // println!("call stack: {:?}", call_stack);
+        // println!("instruction to execute: {:?} (chunk/inst: {}/{})", instruction, instruction_pointer.0, instruction_pointer.1);
 
         match &instruction.kind {
-            InstructionKind::LoadConst(value) => value_stack.push(value.clone()),
+            InstructionKind::LoadConst(value) => {
+                let mut value = value.clone();
+
+                // if the value created is a function, store its environment, which is the
+                // variables in the current stack frame
+                if let Value::Function(Function::User(user)) = &mut value {
+                    user.environment = call_stack.last().unwrap().variables.clone();
+                }
+
+                value_stack.push(value);
+            },
             InstructionKind::CreateList(len) => {
                 let elements = value_stack.split_off(value_stack.len() - *len);
                 value_stack.push(Value::List(Rc::new(RefCell::new(elements))));
@@ -270,7 +280,7 @@ impl Vm {
                 let list = vec![value; extract_length(count, instruction.spans.clone())?];
                 value_stack.push(Value::List(Rc::new(RefCell::new(list))));
             },
-            InstructionKind::LoadVar(id) => match id {
+            InstructionKind::LoadVar(symbol) => match symbol {
                 Symbol::User(id) => {
                     let value = call_stack
                         .iter()
@@ -397,13 +407,13 @@ impl Vm {
                 };
                 // TODO: default parameter support
                 match func {
-                    Function::User(chunk) => {
+                    Function::User(user) => {
                         call_stack.push(Frame::new((
                             instruction_pointer.0,
                             instruction_pointer.1 + 1,
-                        )));
+                        )).with_variables(user.environment));
                         check_stack_overflow(&instruction.spans, call_stack)?;
-                        *instruction_pointer = (chunk, 0);
+                        *instruction_pointer = (user.index, 0);
                         return Ok(ControlFlow::Jump);
                     },
                     Function::Builtin(func) => {
@@ -588,6 +598,7 @@ impl ReplVm {
             .into_iter()
             .map(|(label, location)| (label, Some(location)))
             .collect();
+        self.compiler.symbols = std::mem::take(&mut self.vm.symbols);
 
         compile_stmts(&stmts, &mut self.compiler).inspect_err(|_| {
             // restore the previous state of the VM to ensure compilation errors don't affect the
@@ -601,6 +612,7 @@ impl ReplVm {
             .into_iter()
             .map(|(label, location)| (label, location.unwrap()))
             .collect();
+        self.vm.symbols = std::mem::take(&mut self.compiler.symbols);
 
         self.vm.run()
     }
@@ -689,7 +701,7 @@ mod tests {
     #[test]
     fn func_call() {
         let source = [
-            ("f(x) = x^2 + 5x + 6", Value::Unit),
+            ("f(x) = x^2 + 5x + 6;", Value::Unit),
             ("f(7)", 90.into()),
         ];
 
@@ -704,7 +716,7 @@ mod tests {
     #[test]
     fn complicated_func_call() {
         let source = [
-            ("f(n = 3, k = 6) = n * k", Value::Unit),
+            ("f(n = 3, k = 6) = n * k;", Value::Unit),
             ("f()", 18.into()),
             ("f(9)", 54.into()),
             ("f(8, 14)", 112.into()),
@@ -911,10 +923,29 @@ f()").unwrap();
     }
 
     #[test]
+    fn example_environment_capture() {
+        let source = include_str!("../../examples/environment_capture.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, vec![55.into(), 20.into()].into());
+    }
+
+    #[test]
     fn example_function_scope() {
         let source = include_str!("../../examples/function_scope.calc");
         let result = run_program(source).unwrap();
         assert_eq!(result, 14.into());
+    }
+
+    #[test]
+    fn example_higher_order_function() {
+        let source = include_str!("../../examples/higher_order_function.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, vec![
+            16.0.into(),
+            (float(32) / float(3)).into(),
+            20.0.into(),
+            (float(40) / float(3)).into(),
+        ].into());
     }
 
     #[test]

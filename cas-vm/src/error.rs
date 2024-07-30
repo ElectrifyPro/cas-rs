@@ -203,7 +203,7 @@ pub struct LengthOutOfRange;
     labels = spans.iter()
         .enumerate()
         .map(|(idx, span)| format!("{}: `{}..{}`", idx, span.start, span.end)),
-    help = "please copy this error message and report it to the developer",
+    help = "please copy your code and this error message and report them to the developer",
     note = &self.data,
 )]
 pub struct InternalError {

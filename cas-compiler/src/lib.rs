@@ -11,7 +11,7 @@ use error::{
     OverrideBuiltinFunction,
     UnknownVariable,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use expr::compile_stmts;
 pub use instruction::{Instruction, InstructionKind};
 use item::{FuncDecl, Item, Symbol, SymbolDecl};
@@ -81,6 +81,18 @@ impl Chunk {
             arity,
         }
     }
+}
+
+/// Value returned by [`Compiler::new_chunk`].
+pub struct NewChunk {
+    /// The unique identifier for the function.
+    pub id: usize,
+
+    /// The index of the new chunk.
+    pub chunk: usize,
+
+    /// The symbols captured by the function from parent scopes.
+    pub captures: HashSet<usize>,
 }
 
 /// A compiler that provides tools to generate bytecode instructions for a virtual machine (see
@@ -228,9 +240,9 @@ impl Compiler {
     /// `compiler` methods that add or edit instructions will do so to the new chunk.
     ///
     /// Returns the unique identifier for the function and the index of the new chunk, which will
-    /// be used to add [`InstructionKind::LoadConst`] and [`InstructionKind::StoreVar`] instructions
-    /// to the parent chunk.
-    pub fn new_chunk<F>(&mut self, header: &FuncHeader, f: F) -> Result<(usize, usize), Error>
+    /// be used to add corresponding [`InstructionKind::LoadConst`] and [`InstructionKind::StoreVar`]
+    /// instructions to the parent chunk.
+    pub fn new_chunk<F>(&mut self, header: &FuncHeader, f: F) -> Result<NewChunk, Error>
         where F: FnOnce(&mut Compiler) -> Result<(), Error>
     {
         let old_chunk_idx = self.chunk;
@@ -238,23 +250,35 @@ impl Compiler {
         let new_chunk_idx = self.chunks.len() - 1;
 
         let id = self.next_item_id;
-
-        self.add_item(&header.name, Item::Func(FuncDecl {
-            id,
-            chunk: new_chunk_idx,
-            signature: header.params.clone(),
-            symbols: HashMap::new(),
-        }))?;
+        self.add_item(
+            &header.name,
+            Item::Func(FuncDecl::new(id, new_chunk_idx, header.params.clone())),
+        )?;
+        self.next_item_id += 1;
 
         self.chunk = new_chunk_idx;
         self.state.path.push(header.name.name.to_string());
         f(self)?;
+        let captures = self.captured_symbols();
         self.state.path.pop().unwrap();
         self.chunk = old_chunk_idx;
 
-        self.next_item_id += 1;
+        Ok(NewChunk {
+            id,
+            chunk: new_chunk_idx,
+            captures: captures.unwrap(),
+        })
+    }
 
-        Ok((id, new_chunk_idx))
+    /// Adds a symbol to the symbol table at the current scope.
+    ///
+    /// This is a shortcut for [`Compiler::add_item`] that creates a new [`Item::Symbol`] from the
+    /// given symbol and returns the unique identifier for the symbol.
+    pub fn add_symbol(&mut self, symbol: &LitSym) -> Result<usize, Error> {
+        let id = self.next_item_id;
+        self.add_item(symbol, Item::Symbol(SymbolDecl { id }))?;
+        self.next_item_id += 1;
+        Ok(id)
     }
 
     /// Resolves a path to a user-created symbol, inserting it into the symbol table if it doesn't
@@ -321,11 +345,13 @@ impl Compiler {
         }
     }
 
-    /// Resolves a path to a symbol without inserting it into the symbol table.
+    /// Resolves a path to a symbol without inserting it into the symbol table. If the symbol is
+    /// determined to be captured from a parent scope, the enclosing function will be marked as
+    /// capturing the symbol.
     ///
     /// Returns the unique identifier for the symbol, or an error if the symbol is not found within
     /// the current scope.
-    pub fn resolve_symbol(&self, symbol: &LitSym) -> Result<Symbol, Error> {
+    pub fn resolve_symbol(&mut self, symbol: &LitSym) -> Result<Symbol, Error> {
         // check for builtin constants and functions
         let mut result = all_consts()
             .get(&*symbol.name)
@@ -335,25 +361,32 @@ impl Compiler {
         // then check the symbol table (including possibly variables that shadow the constant)
         let mut table = &self.symbols;
 
-        if self.state.path.len() > 0 {
+        if let Some((last, head)) = self.state.path.split_last() {
             // is the symbol in the global scope?
             if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
                 result = Some(Symbol::User(id));
             }
 
-            // work our way up to the current scope
-            for component in self.state.path.iter() {
-                // is the symbol in this scope?
-                if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
-                    result = Some(Symbol::User(id));
-                }
-
+            // work our way up to the current scope; do not check the current scope (it will be
+            // checked at the end so that we can check if the symbol is captured from a parent scope)
+            for component in head {
                 // let's check the next scope
                 let Item::Func(func) = table.get(component).unwrap() else {
                     unreachable!();
                 };
                 table = &func.symbols;
+
+                // is the symbol in this scope?
+                if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
+                    result = Some(Symbol::User(symbol.id));
+                }
             }
+
+            // prep the table for the current scope
+            let Item::Func(func) = table.get(last).unwrap() else {
+                unreachable!();
+            };
+            table = &func.symbols;
         }
 
         if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
@@ -361,6 +394,7 @@ impl Compiler {
             Ok(Symbol::User(id))
         } else if let Some(symbol) = result {
             // use the last one we found
+            self.mark_captured(symbol);
             Ok(symbol)
         } else {
             // not found
@@ -368,6 +402,67 @@ impl Compiler {
                 name: symbol.name.clone(),
             }))
         }
+    }
+
+    /// Marks the given variable as being captured from a parent scope.
+    fn mark_captured(&mut self, symbol: Symbol) {
+        // builtin symbols can never be captured
+        if let Symbol::Builtin(_) = symbol {
+            return;
+        }
+
+        let Some((first, rest)) = self.state.path.split_first() else {
+            unreachable!();
+        };
+
+        // let Item::Func(mut func) = self.symbols.get_mut(first).unwrap() else {
+        //     unreachable!();
+        // };
+        // NOTE: when writing `let Item::Func(mut func)` above, the compiler complains that
+        // `func` has the type `FuncDecl` instead of `&mut FuncDecl`. i assume this is because
+        // the `mut` keyword is part of the pattern, but i'm not sure? below is the equivalent
+        // using `match` instead.
+        let mut func = match self.symbols.get_mut(first).unwrap() {
+            Item::Func(func) => func,
+            _ => unreachable!(),
+        };
+
+        for component in rest {
+            let Item::Func(next_func) = func.symbols.get_mut(component).unwrap() else {
+                unreachable!();
+            };
+            func = next_func;
+        }
+
+        func.captures.insert(symbol);
+    }
+
+    /// Returns the captured user symbols for the current function. Returns [`None`] if the current
+    /// scope is the global scope.
+    fn captured_symbols(&self) -> Option<HashSet<usize>> {
+        let Some((first, rest)) = self.state.path.split_first() else {
+            return None;
+        };
+
+        let mut func = match self.symbols.get(first).unwrap() {
+            Item::Func(func) => func,
+            _ => unreachable!(),
+        };
+
+        for component in rest {
+            let Item::Func(next_func) = func.symbols.get(component).unwrap() else {
+                unreachable!();
+            };
+            func = next_func;
+        }
+
+        let captures = func.captures.iter()
+            .map(|symbol| match symbol {
+                Symbol::User(id) => *id,
+                _ => unreachable!(),
+            })
+            .collect();
+        Some(captures)
     }
 
     /// Adds an instruction to the current chunk with no associated source code span.

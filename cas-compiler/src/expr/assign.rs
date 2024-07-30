@@ -1,4 +1,4 @@
-use cas_compute::numerical::{func::Function, value::Value};
+use cas_compute::numerical::{func::{Function, User}, value::Value};
 use cas_error::Error;
 use cas_parser::parser::{
     ast::{assign::{Assign, AssignTarget}, LitSym},
@@ -10,6 +10,7 @@ use crate::{
     Compile,
     Compiler,
     InstructionKind,
+    NewChunk,
 };
 
 /// Extracts the user symbol ID from a [`Symbol`], returning an error if the symbol is not a
@@ -38,7 +39,11 @@ impl Compile for Assign {
                         compiler.add_instr(InstructionKind::StoreVar(symbol_id));
                     },
                     compound => {
-                        compiler.add_instr(InstructionKind::LoadVar(compiler.resolve_symbol(symbol)?));
+                        let resolved = compiler.resolve_symbol(symbol)?;
+                        compiler.add_instr_with_spans(
+                            InstructionKind::LoadVar(resolved),
+                            vec![symbol.span.clone()],
+                        );
 
                         compiler.with_state(|state| {
                             state.top_level_assign = false;
@@ -83,11 +88,11 @@ impl Compile for Assign {
             },
             AssignTarget::Func(header) => {
                 // for function assignment, create a new chunk for the function body
-                let (symbol_id, chunk) = compiler.new_chunk(header, |compiler| {
+                let NewChunk { id, chunk, captures } = compiler.new_chunk(header, |compiler| {
                     // arguments to function are placed on the stack, so we need to go through the
                     // parameters in reverse order to store them in the correct order
                     for param in header.params.iter().rev() {
-                        let symbol_id = compiler.resolve_user_symbol_or_insert(param.symbol())?;
+                        let symbol_id = compiler.add_symbol(param.symbol())?;
                         compiler.add_instr(InstructionKind::AssignVar(symbol_id));
                     }
                     self.value.compile(compiler)?;
@@ -95,8 +100,9 @@ impl Compile for Assign {
                     Ok(())
                 })?;
 
-                compiler.add_instr(InstructionKind::LoadConst(Value::Function(Function::User(chunk))));
-                compiler.add_instr(InstructionKind::StoreVar(symbol_id));
+                let user_func = User::new(chunk, captures);
+                compiler.add_instr(InstructionKind::LoadConst(Value::Function(Function::User(user_func))));
+                compiler.add_instr(InstructionKind::StoreVar(id));
             },
         };
 

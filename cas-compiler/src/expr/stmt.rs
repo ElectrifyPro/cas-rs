@@ -28,6 +28,10 @@ pub fn compile_stmts(stmts: &[Stmt], compiler: &mut Compiler) -> Result<(), Erro
 impl Compile for Stmt {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
         self.expr.compile(compiler)?;
+        if self.semicolon.is_some() {
+            compiler.add_instr(InstructionKind::Drop);
+            compiler.add_instr(InstructionKind::LoadConst(Value::Unit));
+        }
         if !compiler.state.last_stmt {
             compiler.add_instr(InstructionKind::Drop);
         }

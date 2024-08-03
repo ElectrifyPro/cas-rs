@@ -30,7 +30,7 @@ use cas_compute::{
 use cas_compiler::{
     expr::compile_stmts,
     instruction::{Instruction, InstructionKind},
-    item::{Func, Item, Symbol},
+    item::{Item, Symbol},
     Chunk,
     Compile,
     Compiler,
@@ -413,7 +413,7 @@ impl Vm {
                     return Err(err.into_error(instruction.spans.clone()));
                 }
             },
-            InstructionKind::NewCall(args_given) => {
+            InstructionKind::Call(args_given) => {
                 let Value::Function(func) = value_stack.pop().ok_or_else(|| internal_err(
                     &instruction,
                     "missing function to call",
@@ -437,59 +437,48 @@ impl Vm {
                             .eval(self.trig_mode, args)
                             .map_err(|err| from_builtin_error(err, instruction.spans.clone()))?;
                         value_stack.push(value);
-                    }
+                    },
                 }
             },
-            InstructionKind::Call(func) => match func {
-                Func::User(call) => {
-                    call_stack.push(Frame::new((
-                        instruction_pointer.0,
-                        instruction_pointer.1 + 1,
-                    )));
-                    check_stack_overflow(&instruction.spans, call_stack)?;
-                    *instruction_pointer = (call.chunk, 0);
-                    return Ok(ControlFlow::Jump);
-                },
-                Func::Builtin(call) => {
-                    let args = value_stack.split_off(value_stack.len() - call.num_given);
-                    let value = call
-                        .builtin
-                        .eval(self.trig_mode, args)
-                        .map_err(|err| from_builtin_error(err, instruction.spans.clone()))?;
-                    value_stack.push(value);
-                },
-            },
-            InstructionKind::CallDerivative(func, derivatives) => match func {
-                Func::User(call) => {
-                    let initial = value_stack.pop().ok_or_else(|| internal_err(
-                        &instruction,
-                        "missing initial value for derivative computation",
-                    ))?;
-                    let derivative = Derivative::new(*derivatives, initial)
-                        .map_err(|err| err.into_error(instruction.spans.clone()))?;
-                    call_stack.push(Frame::new((
-                        instruction_pointer.0,
-                        instruction_pointer.1 + 1,
-                    )).with_derivative());
-                    check_stack_overflow(&instruction.spans, call_stack)?;
-                    value_stack.push(derivative.next_eval().ok_or_else(|| internal_err(
-                        &instruction,
-                        "missing next value in derivative computation",
-                    ))?);
-                    derivative_stack.push(derivative);
-                    *instruction_pointer = (call.chunk, 0);
-                    return Ok(ControlFlow::Jump);
-                },
-                Func::Builtin(call) => {
-                    let initial = value_stack.pop().ok_or_else(|| internal_err(
-                        &instruction,
-                        "missing initial value for derivative computation",
-                    ))?;
-                    let value = Derivative::new(*derivatives, initial)
-                        .and_then(|mut derv| derv.eval_builtin(call.builtin))
-                        .map_err(|err| err.into_error(instruction.spans.clone()))?;
-                    value_stack.push(value);
-                },
+            InstructionKind::CallDerivative(derivatives) => {
+                let Value::Function(func) = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing function for prime notation",
+                ))? else {
+                    return Err(internal_err(&instruction, "cannot use prime notation on non-function"));
+                };
+                match func {
+                    Function::User(user) => {
+                        let initial = value_stack.pop().ok_or_else(|| internal_err(
+                            &instruction,
+                            "missing initial value for derivative computation",
+                        ))?;
+                        let derivative = Derivative::new(*derivatives, initial)
+                            .map_err(|err| err.into_error(instruction.spans.clone()))?;
+                        call_stack.push(Frame::new((
+                            instruction_pointer.0,
+                            instruction_pointer.1 + 1,
+                        )).with_derivative());
+                        check_stack_overflow(&instruction.spans, call_stack)?;
+                        value_stack.push(derivative.next_eval().ok_or_else(|| internal_err(
+                            &instruction,
+                            "missing next value in derivative computation",
+                        ))?);
+                        derivative_stack.push(derivative);
+                        *instruction_pointer = (user.index, 0);
+                        return Ok(ControlFlow::Jump);
+                    },
+                    Function::Builtin(builtin) => {
+                        let initial = value_stack.pop().ok_or_else(|| internal_err(
+                            &instruction,
+                            "missing initial value for derivative computation",
+                        ))?;
+                        let value = Derivative::new(*derivatives, initial)
+                            .and_then(|mut derv| derv.eval_builtin(builtin))
+                            .map_err(|err| err.into_error(instruction.spans.clone()))?;
+                        value_stack.push(value);
+                    },
+                }
             },
             InstructionKind::Return => {
                 let frame = call_stack.pop().ok_or_else(|| internal_err(

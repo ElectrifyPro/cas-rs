@@ -40,48 +40,19 @@ impl Compile for Call {
             vec![self.name.span.clone()],
         );
 
+        let spans = self.outer_span()
+            .into_iter()
+            .chain(self.args.iter().map(|arg| arg.span()))
+            .collect::<Vec<_>>();
+
         if self.derivatives > 0 {
-            // TODO
+            // compute derivative of function
+            compiler.add_instr_with_spans(InstructionKind::CallDerivative(self.derivatives), spans);
         } else {
             // call the function
-            let spans = self.outer_span()
-                .into_iter()
-                .chain(self.args.iter().map(|arg| arg.span()))
-                .collect::<Vec<_>>();
-            compiler.add_instr_with_spans(InstructionKind::NewCall(self.args.len()), spans);
+            compiler.add_instr_with_spans(InstructionKind::Call(self.args.len()), spans);
         }
 
         Ok(())
-        // let func = compiler.resolve_function(self)?;
-        // compile_args(compiler, &func, &self.args)?;
-        //
-        // if self.derivatives > 0 {
-        //     if func.arity() == 1 {
-        //         compiler.add_instr_with_spans(
-        //             InstructionKind::CallDerivative(func, self.derivatives),
-        //             self.outer_span().to_vec(),
-        //         );
-        //     } else {
-        //         return Err(Error::new(
-        //             vec![self.name.span.clone()],
-        //             InvalidDifferentiation {
-        //                 name: self.name.name.to_string(),
-        //                 actual: func.arity(),
-        //             },
-        //         ));
-        //     }
-        // } else {
-        //     // let mut spans = self.outer_span().to_vec();
-        //     // for arg in &self.args {
-        //     //     spans.push(arg.span());
-        //     // }
-        //     let spans = self.outer_span()
-        //         .into_iter()
-        //         .chain(self.args.iter().map(|arg| arg.span()))
-        //         .collect::<Vec<_>>();
-        //     compiler.add_instr_with_spans(InstructionKind::Call(func), spans);
-        // }
-        //
-        // Ok(())
     }
 }

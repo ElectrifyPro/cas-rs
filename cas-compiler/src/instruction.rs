@@ -1,6 +1,6 @@
 use cas_compute::numerical::value::Value;
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
-use crate::{item::{Func, Symbol}, Label};
+use crate::{item::Symbol, Label};
 use std::ops::Range;
 
 /// Kinds of bytecode instructions emitted by the compiler.
@@ -71,9 +71,10 @@ pub enum InstructionKind {
     /// Performs the unary operation on the top stack value.
     Unary(UnaryOpKind),
 
-    /// Calls the function at the given chunk.
+    /// Call the function at the top of the value stack, passing the specified number of arguments.
     ///
-    /// Arguments are passed to the function via the value stack.
+    /// Arguments are passed to the function via the value stack. The function will be popped from
+    /// the stack first, followed by the arguments in reverse order.
     ///
     /// # Span information
     ///
@@ -82,20 +83,14 @@ pub enum InstructionKind {
     ///     0: outer_span[0], // span including the function name to the opening parenthesis
     ///     1: outer_span[1], // closing parenthesis
     ///     2: arg1,
-    ///     3: args2,
+    ///     3: arg2,
     ///     ...
     /// ]
     /// ```
-    Call(Func),
-
-    /// Call the function at the top of the value stack, passing the specified number of arguments.
-    ///
-    /// Arguments are passed to the function via the value stack. The function will be popped from
-    /// the stack first, followed by the arguments in reverse order.
-    NewCall(usize),
+    Call(usize),
 
     /// Computes the `n`th numerical derivative of the function at the top of the stack.
-    CallDerivative(Func, u8),
+    CallDerivative(u8),
 
     /// Returns from the current function.
     Return,

@@ -580,7 +580,7 @@ impl Derivative {
             let eval = self.next_eval().unwrap();
 
             // TODO remove unwrap
-            let value = builtin.eval(Default::default(), &mut Some(eval).into_iter()).unwrap();
+            let value = builtin.eval(Default::default(), vec![eval]).unwrap();
             match self.advance(value) {
                 Ok(Some(result)) => break Ok(result),
                 Ok(None) => (),

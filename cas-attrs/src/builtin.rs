@@ -306,7 +306,11 @@ impl Builtin {
 
     /// Generates the statements that typecheck the arguments.
     pub fn generate_check_stmts(&self, radian: Radian) -> TokenStream2 {
-        let Self { name, .. } = self;
+        let Self { name, params, .. } = self;
+        let num_params = params.len();
+        let missing_arg_boundary = params.iter()
+            .position(|param| param.ty.optional)
+            .unwrap_or(params.len());
 
         // for each parameter, we generate a binding with three patterns to typecheck the arguments, and
         // possibly use the default expression if the argument is not provided
@@ -336,21 +340,24 @@ impl Builtin {
                 // accept argument of any type
                 if ty.kind == TypeKind::Value {
                     return quote! {
-                        let #ident = crate::funcs::helper::next_arg(args, &mut arg_count)
-                            .unwrap();
-                            // TODO: `cas-compiler` can verify this condition at compile time,
-                            // making this error impossible
-                            // .ok_or_else(|| crate::numerical::builtin::error::BuiltinError::MissingArgument(crate::numerical::error::kind::MissingArgument {
-                            //     name: stringify!(#name).to_owned(),
-                            //     index: #i,
-                            //     expected: #num_params,
-                            //     given: crate::funcs::helper::count_all_args(args, &mut arg_count),
-                            //     signature: #signature.to_owned(),
-                            // }))?;
+                        let #ident = args.next()
+                            .ok_or_else(|| crate::numerical::builtin::error::BuiltinError::MissingArgument(crate::numerical::builtin::error::check::MissingArgument {
+                                name: stringify!(#name),
+                                indices: #i..#missing_arg_boundary,
+                                expected: #num_params,
+                                given: arg_count,
+                                signature: self.sig_str(),
+                            }))?;
+                        // TODO: previously, there was this comment throughout this function:
+                        // "`cas-compiler` can verify this condition at compile time, making [the
+                        // MissingArgument and TooManyArguments] errors impossible"
+                        // now, with support for higher-order functions, this is no longer true;
+                        // `cas-compiler` cannot verify this condition at compile time and it must
+                        // be done at runtime
                     };
                 }
 
-                let base_call = quote! { crate::funcs::helper::next_arg(args, &mut arg_count) };
+                let base_call = quote! { args.next() };
 
                 // coerce real / complex numbers into each other if necessary
                 let type_coerce_expr = match param.ty.kind {
@@ -387,16 +394,13 @@ impl Builtin {
                     (
                         quote! { #ident },
                         quote! {
-                            todo!()
-                            // TODO: `cas-compiler` can verify this condition at compile time,
-                            // making this error impossible
-                            // return Err(crate::numerical::builtin::error::BuiltinError::MissingArgument(crate::numerical::error::kind::MissingArgument {
-                            //     name: stringify!(#name).to_owned(),
-                            //     index: #i,
-                            //     expected: #num_params,
-                            //     given: crate::funcs::helper::count_all_args(args, &mut arg_count),
-                            //     signature: #signature.to_owned(),
-                            // }));
+                            return Err(crate::numerical::builtin::error::BuiltinError::MissingArgument(crate::numerical::builtin::error::check::MissingArgument {
+                                name: stringify!(#name),
+                                indices: #i..#missing_arg_boundary,
+                                expected: #num_params,
+                                given: arg_count,
+                                signature: self.sig_str(),
+                            }));
                         },
                     )
                 };
@@ -422,16 +426,14 @@ impl Builtin {
 
         quote! {
             #( #type_checkers )*
-            // TODO: `cas-compiler` can verify this condition at compile time, making this error
-            // impossible
-            // if crate::funcs::helper::count_all_args(args, &mut arg_count) > #num_params {
-            //     return Err(crate::numerical::builtin::error::BuiltinError::TooManyArguments(crate::numerical::error::kind::TooManyArguments {
-            //         name: stringify!(#name).to_owned(),
-            //         expected: #num_params,
-            //         given: crate::funcs::helper::count_all_args(args, &mut arg_count),
-            //         signature: #signature.to_owned(),
-            //     }));
-            // }
+            if arg_count > #num_params {
+                return Err(crate::numerical::builtin::error::BuiltinError::TooManyArguments(crate::numerical::builtin::error::check::TooManyArguments {
+                    name: stringify!(#name),
+                    expected: #num_params,
+                    given: arg_count,
+                    signature: self.sig_str(),
+                }));
+            }
         }
     }
 
@@ -503,9 +505,10 @@ impl Builtin {
                 fn eval(
                     &self,
                     trig_mode: crate::numerical::trig_mode::TrigMode,
-                    args: &mut dyn Iterator<Item = crate::numerical::value::Value>,
+                    args: std::vec::Vec<crate::numerical::value::Value>,
                 ) -> Result<crate::numerical::value::Value, crate::numerical::builtin::error::BuiltinError> {
-                    let mut arg_count = 0;
+                    let arg_count = args.len();
+                    let mut args = args.into_iter();
                     #type_checkers
                     #call
                 }

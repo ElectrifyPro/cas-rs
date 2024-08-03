@@ -1,5 +1,8 @@
+use ariadne::Fmt;
 use cas_attrs::ErrorKind;
+use cas_error::EXPR;
 use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
+use std::ops::Range;
 
 /// The given binary operation cannot be applied to the given operands.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
@@ -51,6 +54,98 @@ pub struct InvalidUnaryOperation {
 )]
 pub struct BitshiftOverflow;
 
+/// Too many arguments were given to a function call.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!("too many arguments given to the `{}` function", self.name),
+    labels = ["this function call", "", "these argument(s) are extraneous"],
+    help = format!(
+        "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
+        (&self.name).fg(EXPR),
+        self.expected,
+        self.given
+    ),
+    note = format!("function signature: `{}({})`", self.name, self.signature),
+)]
+pub struct TooManyArguments {
+    /// The name of the function that was called.
+    pub name: &'static str,
+
+    /// The number of arguments that were expected.
+    pub expected: usize,
+
+    /// The number of arguments that were given.
+    pub given: usize,
+
+    /// The signature of the function, not including the function name.
+    pub signature: &'static str,
+}
+
+impl From<cas_compute::numerical::builtin::error::TooManyArguments> for TooManyArguments {
+    fn from(err: cas_compute::numerical::builtin::error::TooManyArguments) -> Self {
+        Self {
+            name: err.name,
+            expected: err.expected,
+            given: err.given,
+            signature: err.signature,
+        }
+    }
+}
+
+/// An argument to a function call is missing.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = if self.indices.start + 1 == self.indices.end { // if range has one index
+        format!("missing required argument #{} for the `{}` function", self.indices.start + 1, self.name)
+    } else {
+        format!(
+            "missing required arguments {} for the `{}` function",
+            self.indices
+                .clone()
+                .map(|i| format!("#{}", i + 1))
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.name
+        )
+    },
+    labels = ["this function call", ""],
+    help = format!(
+        "the `{}` function takes {} argument(s); there are {} argument(s) provided here",
+        (&self.name).fg(EXPR),
+        self.expected,
+        self.given
+    ),
+    note = format!("function signature: `{}({})`", self.name, self.signature),
+)]
+pub struct MissingArgument {
+    /// The name of the function that was called.
+    pub name: &'static str,
+
+    /// The indices of the missing arguments.
+    pub indices: Range<usize>,
+
+    /// The number of arguments that were expected.
+    pub expected: usize,
+
+    /// The number of arguments that were given.
+    pub given: usize,
+
+    /// The signature of the function, not including the function name.
+    pub signature: &'static str,
+}
+
+impl From<cas_compute::numerical::builtin::error::MissingArgument> for MissingArgument {
+    fn from(err: cas_compute::numerical::builtin::error::MissingArgument) -> Self {
+        Self {
+            name: err.name,
+            indices: err.indices,
+            expected: err.expected,
+            given: err.given,
+            signature: err.signature,
+        }
+    }
+}
+
 /// An argument to a function call has the wrong type.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
@@ -61,6 +156,7 @@ pub struct BitshiftOverflow;
     ),
     labels = [
         "this function call".to_string(),
+        "".to_string(),
         format!("this argument has type `{}`", self.given),
     ],
     help = format!("must be of type `{}`", self.expected),

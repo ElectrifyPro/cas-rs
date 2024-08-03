@@ -26,7 +26,6 @@
 pub mod angle;
 pub mod complex;
 pub mod combinatoric;
-mod helper;
 pub mod miscellaneous;
 pub mod power;
 pub mod print;

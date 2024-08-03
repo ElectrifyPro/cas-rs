@@ -37,9 +37,5 @@ pub trait Builtin: std::fmt::Debug + Send + Sync {
     fn sig_str(&self) -> &'static str;
 
     /// Evaluates the function.
-    fn eval(
-        &self,
-        trig_mode: TrigMode,
-        args: &mut dyn Iterator<Item = Value>,
-    ) -> Result<Value, BuiltinError>;
+    fn eval(&self, trig_mode: TrigMode, args: Vec<Value>) -> Result<Value, BuiltinError>;
 }

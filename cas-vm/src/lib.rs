@@ -45,7 +45,9 @@ use error::{
     InvalidIndexType,
     InvalidLengthType,
     LengthOutOfRange,
+    MissingArgument,
     StackOverflow,
+    TooManyArguments,
     TypeMismatch,
 };
 use frame::Frame;
@@ -224,10 +226,23 @@ impl Vm {
         /// Convert a [`BuiltinError`] to an [`EvalError`].
         fn from_builtin_error(err: BuiltinError, spans: Vec<Range<usize>>) -> Error {
             match err {
+                BuiltinError::TooManyArguments(err) => {
+                    // remove spans of all arguments, add span starting from extraneous argument
+                    let spans = vec![
+                        spans[0].clone(),
+                        spans[1].clone(),
+                        spans[2 + err.expected].start..spans.last().unwrap().end,
+                    ];
+                    Error::new(spans, TooManyArguments::from(err))
+                },
+                BuiltinError::MissingArgument(err) => {
+                    Error::new(spans, MissingArgument::from(err))
+                },
                 BuiltinError::TypeMismatch(err) => {
                     // remove spans of all arguments but the mentioned one
                     let spans = vec![
-                        spans[0].start..spans[1].end,
+                        spans[0].clone(),
+                        spans[1].clone(),
                         spans[2 + err.index].clone(),
                     ];
                     Error::new(spans, TypeMismatch::from(err))
@@ -419,7 +434,7 @@ impl Vm {
                     Function::Builtin(func) => {
                         let args = value_stack.split_off(value_stack.len() - *args_given);
                         let value = func
-                            .eval(self.trig_mode, &mut args.into_iter())
+                            .eval(self.trig_mode, args)
                             .map_err(|err| from_builtin_error(err, instruction.spans.clone()))?;
                         value_stack.push(value);
                     }
@@ -439,7 +454,7 @@ impl Vm {
                     let args = value_stack.split_off(value_stack.len() - call.num_given);
                     let value = call
                         .builtin
-                        .eval(self.trig_mode, &mut args.into_iter())
+                        .eval(self.trig_mode, args)
                         .map_err(|err| from_builtin_error(err, instruction.spans.clone()))?;
                     value_stack.push(value);
                 },
@@ -733,8 +748,8 @@ mod tests {
 
     #[test]
     fn builtin_func_arg_check() {
-        assert_eq!(Abs.eval(Default::default(), &mut [Value::from(4.0)].into_iter()).unwrap().coerce_float(), 4.0.into());
-        assert!(Abs.eval(Default::default(), &mut [Value::Unit].into_iter()).is_err());
+        assert_eq!(Abs.eval(Default::default(), vec![Value::from(4.0)]).unwrap().coerce_float(), 4.0.into());
+        assert!(Abs.eval(Default::default(), vec![Value::Unit]).is_err());
     }
 
     #[test]

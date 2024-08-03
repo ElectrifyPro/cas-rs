@@ -1,3 +1,40 @@
+use std::ops::Range;
+
+/// Too many arguments were given to a function call.
+#[derive(Debug)]
+pub struct TooManyArguments {
+    /// The name of the function that was called.
+    pub name: &'static str,
+
+    /// The number of arguments that were expected.
+    pub expected: usize,
+
+    /// The number of arguments that were given.
+    pub given: usize,
+
+    /// The signature of the function.
+    pub signature: &'static str,
+}
+
+/// An argument to a function call is missing.
+#[derive(Debug)]
+pub struct MissingArgument {
+    /// The name of the function that was called.
+    pub name: &'static str,
+
+    /// The indices of the missing arguments.
+    pub indices: Range<usize>,
+
+    /// The number of arguments that were expected.
+    pub expected: usize,
+
+    /// The number of arguments that were given.
+    pub given: usize,
+
+    /// The signature of the function.
+    pub signature: &'static str,
+}
+
 /// An argument to a function call has the wrong type.
 #[derive(Debug)]
 pub struct TypeMismatch {
@@ -16,5 +53,3 @@ pub struct TypeMismatch {
     /// The signature of the function, not including the function name.
     pub signature: &'static str,
 }
-
-// TODO missing argument / too many argument errors?

@@ -95,6 +95,21 @@ pub struct NewChunk {
     pub captures: HashSet<usize>,
 }
 
+/// Returns the corresponding error if a symbol matches the name of a builtin symbol or function.
+fn check_override_builtin(symbol: &LitSym) -> Result<(), Error> {
+    if all_consts().contains(&*symbol.name) {
+        return Err(Error::new(vec![symbol.span.clone()], OverrideBuiltinConstant {
+            name: symbol.name.to_string(),
+        }));
+    }
+    if all_funcs().contains_key(&*symbol.name) {
+        return Err(Error::new(vec![symbol.span.clone()], OverrideBuiltinFunction {
+            name: symbol.name.to_string(),
+        }));
+    }
+    Ok(())
+}
+
 /// A compiler that provides tools to generate bytecode instructions for a virtual machine (see
 /// [`Vm`]).
 #[derive(Clone, Debug)]
@@ -205,22 +220,10 @@ impl Compiler {
 
         // TODO: shadowing should probably be explicit (i.e. with `let` keyword)
         if self.state.path.is_empty() {
-            match &item {
-                Item::Symbol(_) => {
-                    if all_consts().contains(&*symbol.name) {
-                        return Err(Error::new(vec![symbol.span.clone()], OverrideBuiltinConstant {
-                            name: symbol.name.to_string(),
-                        }));
-                    }
-                },
-                Item::Func(_) => {
-                    if all_funcs().contains_key(&*symbol.name) {
-                        return Err(Error::new(vec![symbol.span.clone()], OverrideBuiltinFunction {
-                            name: symbol.name.to_string(),
-                        }));
-                    }
-                },
-            }
+            // existence of higher order functions means that a symbol could potentially override
+            // a builtin symbol or function, even if it is not explicitly declared as a function or
+            // symbol (see no_override_builtin test at bottom of file)
+            check_override_builtin(symbol)?;
         }
 
         let mut table = &mut self.symbols;
@@ -296,11 +299,7 @@ impl Compiler {
     /// the bytecode.
     pub fn resolve_user_symbol_or_insert(&mut self, symbol: &LitSym) -> Result<usize, Error> {
         if self.state.path.is_empty() {
-            if all_consts().contains(&*symbol.name) {
-                return Err(Error::new(vec![symbol.span.clone()], OverrideBuiltinConstant {
-                    name: symbol.name.to_string(),
-                }));
-            }
+            check_override_builtin(symbol)?;
         }
 
         // check for builtin constants
@@ -583,6 +582,14 @@ g()").unwrap_err();
     fn shadowing() {
         compile("pi = 5").unwrap_err();
         compile("f() = pi = 5").unwrap(); // implicit shadowing occurs in non-global scopes
+    }
+
+    #[test]
+    fn no_override_builtin() {
+        compile("i = 5").unwrap_err(); // i is a builtin constant
+        compile("pi(x) = x").unwrap_err(); // pi is a builtin constant
+        compile("sqrt = 3").unwrap_err(); // sqrt is a builtin function
+        compile("ncr(a) = a").unwrap_err(); // ncr is a builtin function
     }
 
     #[test]

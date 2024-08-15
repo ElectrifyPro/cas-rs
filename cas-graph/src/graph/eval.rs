@@ -19,42 +19,64 @@ pub(crate) fn evaluate_expr(
     analyzed: &AnalyzedExpr,
     options: GraphOptions,
 ) -> Vec<GraphPoint<f64>> {
+    match analyzed.independent {
+        Variable::X => {
+            let (bounds, cross_axis_bounds) = {
+                let x_bounds = (options.center.0 - options.scale.0, options.center.0 + options.scale.0);
+                let y_bounds = (options.center.1 - options.scale.1, options.center.1 + options.scale.1);
+                (x_bounds, y_bounds)
+            };
+            evaluate_cartesian_expr_helper(
+                analyzed,
+                bounds,
+                cross_axis_bounds,
+                |previous, current| (current.1 - previous.1) / (current.0 - previous.0) / options.scale.1,
+                (options.scale.0 / 64.0, options.scale.0 / 16.0),
+                |x, y| GraphPoint(x, y),
+            )
+        },
+        Variable::Y => {
+            let (bounds, cross_axis_bounds) = {
+                let x_bounds = (options.center.0 - options.scale.0, options.center.0 + options.scale.0);
+                let y_bounds = (options.center.1 - options.scale.1, options.center.1 + options.scale.1);
+                (y_bounds, x_bounds)
+            };
+            evaluate_cartesian_expr_helper(
+                analyzed,
+                bounds,
+                cross_axis_bounds,
+                |previous, current| (current.0 - previous.0) / (current.1 - previous.1) / options.scale.0,
+                (options.scale.1 / 64.0, options.scale.1 / 16.0),
+                |y, x| GraphPoint(x, y),
+            )
+        },
+        Variable::Theta => evaluate_polar_expr(analyzed, options),
+    }
+}
+
+/// Helper function to iteratively evaluate a cartesian expression (either in terms of `x` or `y`).
+fn evaluate_cartesian_expr_helper(
+    analyzed: &AnalyzedExpr,
+    bounds: (f64, f64),
+    cross_axis_bounds: (f64, f64),
+    compute_slope: impl Fn(GraphPoint<f64>, GraphPoint<f64>) -> f64,
+    step_len: (f64, f64),
+    create_point: impl Fn(f64, f64) -> GraphPoint<f64>,
+) -> Vec<GraphPoint<f64>> {
     let mut ctxt = Ctxt::default();
     let mut points = Vec::new();
 
     let mut last_point = None;
     let mut current_point = None;
 
-    let (bounds, cross_axis_bounds) = {
-        let x_bounds = (options.center.0 - options.scale.0, options.center.0 + options.scale.0);
-        let y_bounds = (options.center.1 - options.scale.1, options.center.1 + options.scale.1);
-        match analyzed.independent {
-            Variable::X => (x_bounds, y_bounds),
-            Variable::Y => (y_bounds, x_bounds),
-            Variable::Theta => todo!("polar coordinates"),
-        }
-    };
-    let compute_slope = |previous: GraphPoint<f64>, current: GraphPoint<f64>| {
-        match analyzed.independent {
-            Variable::X => (current.1 - previous.1) / (current.0 - previous.0) / options.scale.1,
-            Variable::Y => (current.0 - previous.0) / (current.1 - previous.1) / options.scale.0,
-            Variable::Theta => todo!("polar coordinates"),
-        }
-    };
-
     let mut current_trace = bounds.0;
-    let min_step_len = options.scale.0 / 64.0;
-    let max_step_len = options.scale.0 / 16.0;
+    let (min_step_len, max_step_len) = step_len;
     let mut last_slope: Option<f64> = None;
 
     while current_trace <= bounds.1 {
         ctxt.add_var(analyzed.independent.as_str(), current_trace.into());
         if let Ok(Value::Float(float)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_float()) {
-            let point = match analyzed.independent {
-                Variable::X => GraphPoint(current_trace, float.to_f64()),
-                Variable::Y => GraphPoint(float.to_f64(), current_trace),
-                Variable::Theta => todo!("polar coordinates"),
-            };
+            let point = create_point(current_trace, float.to_f64());
             points.push(point);
 
             last_point = current_point;
@@ -89,6 +111,64 @@ pub(crate) fn evaluate_expr(
         } else {
             min_step_len
         };
+        current_trace += step_len;
+    }
+
+    points
+}
+
+/// Helper function to iteratively evaluate a polar expression (in terms of `theta`).
+fn evaluate_polar_expr(
+    analyzed: &AnalyzedExpr,
+    options: GraphOptions,
+) -> Vec<GraphPoint<f64>> {
+    let mut ctxt = Ctxt::default();
+    let mut points = Vec::new();
+
+    let mut current_trace = 0.0;
+    let mut r_at_zero = None;
+    let mut next_trace_revolution = 2.0 * std::f64::consts::PI;
+
+    // arbitrary bounds to prevent infinite loops
+    let bound = (options.scale.0 * options.scale.1) * 2.0 * std::f64::consts::PI;
+    let step_len = (options.scale.0 + options.scale.1) / 1024.0;
+
+    while current_trace <= bound {
+        ctxt.add_var(analyzed.independent.as_str(), current_trace.into());
+        if let Ok(Value::Float(r)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_float()) {
+            let f64_r = r.to_f64();
+
+            points.push(GraphPoint(
+                f64_r * current_trace.cos(),
+                f64_r * current_trace.sin(),
+            ));
+
+            if current_trace == 0.0 {
+                r_at_zero = Some(f64_r);
+            } else if current_trace > next_trace_revolution {
+                if let Some(r_at_zero) = r_at_zero {
+                    // make a test for periodicity: if the evaluation at increments of 2π are the
+                    // same, assume the expression is periodic and stop evaluating
+                    // TODO: this is very naive and can still fail for some expressions
+                    let r_at_next_revolution = {
+                        ctxt.add_var(analyzed.independent.as_str(), next_trace_revolution.into());
+                        if let Ok(Value::Float(r)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_float()) {
+                            r.to_f64()
+                        } else {
+                            break;
+                        }
+                    };
+
+                    let epsilon = (options.scale.0 + options.scale.1) / 2.0f64.powi(32);
+                    if (r_at_zero - r_at_next_revolution).abs() <= epsilon {
+                        break;
+                    }
+
+                    next_trace_revolution += 2.0 * std::f64::consts::PI;
+                }
+            }
+        }
+
         current_trace += step_len;
     }
 

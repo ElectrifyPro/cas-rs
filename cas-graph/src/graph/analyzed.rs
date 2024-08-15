@@ -19,14 +19,14 @@ pub fn predict_independent(expr: Expr) -> (Variable, Expr) {
             return match sym.name.as_str() {
                 "x" => (Variable::Y, *rhs),
                 "y" => (Variable::X, *rhs),
-                "theta" => todo!("polar coordinates"),
+                "theta" => (Variable::Theta, *rhs),
                 _ => todo!("unknown special variable"),
             };
         } else if let Expr::Literal(Literal::Symbol(sym)) = rhs.as_ref() {
             return match sym.name.as_str() {
                 "x" => (Variable::Y, *lhs),
                 "y" => (Variable::X, *lhs),
-                "theta" => todo!("polar coordinates"),
+                "theta" => (Variable::Theta, *lhs),
                 _ => todo!("unknown special variable"),
             };
         }
@@ -58,10 +58,12 @@ pub fn predict_independent(expr: Expr) -> (Variable, Expr) {
         })
         .collect::<HashSet<_>>();
 
-    if vars.len() == 1 {
-        (vars.into_iter().next().unwrap(), expr)
-    } else {
+    if vars.len() > 1 {
         todo!("multiple special variables")
+    } else if let Some(var) = vars.into_iter().next() {
+        (var, expr)
+    } else {
+        todo!("no special variables")
     }
 }
 

@@ -76,7 +76,7 @@ pub enum Primary {
     Call(String, Vec<Expr>),
 }
 
-/// [`Hash`] is implemented manually to allow hashing [`Primary::Float`]s. This module **must
+/// [`std::hash::Hash`] is implemented manually to allow hashing [`Primary::Float`]s. This module **must
 /// never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report any bugs that cause
 /// this to happen.
 impl std::hash::Hash for Primary {
@@ -175,7 +175,7 @@ impl Mul<Primary> for Primary {
 /// single [`Expr::Add`] node with _three_ children, `x`, `y`, and `z`.
 ///
 /// For more information about this type, see the [module-level documentation](self).
-#[derive(Debug, Clone, Eq, Hash)]
+#[derive(Debug, Clone, Eq)]
 pub enum Expr {
     /// A single term or factor.
     Primary(Primary),
@@ -432,6 +432,28 @@ impl PartialEq for Expr {
                 lhs_base == rhs_base && lhs_exp == rhs_exp
             },
             _ => false,
+        }
+    }
+}
+
+/// Implements the [`std::hash::Hash`] trait for the [`Expr`] enum, which represents
+/// different types of mathematical expressions. This implementation is necessary
+/// because [`PartialEq`] is also manually implemented, and the automatically
+/// derived [`Hash`] implementation would not guarantee consistency with [`PartialEq`].
+impl std::hash::Hash for Expr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // Hash the discriminant to differentiate between enum variants.
+        let self_discr = std::mem::discriminant(self);
+        std::hash::Hash::hash(&self_discr, state);
+
+        // Hash the data associated with each variant.
+        match self {
+            Expr::Primary(val) => std::hash::Hash::hash(val, state),
+            Expr::Add(val) | Expr::Mul(val) => std::hash::Hash::hash(val, state),
+            Expr::Exp(val_base, val_exp) => {
+                std::hash::Hash::hash(val_base, state);
+                std::hash::Hash::hash(val_exp, state);
+            }
         }
     }
 }

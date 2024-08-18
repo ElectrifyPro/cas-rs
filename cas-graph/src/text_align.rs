@@ -54,8 +54,8 @@ impl ShowTextAlign for Context {
         align: (f64, f64),
         extents: &TextExtents,
     ) -> Result<(), Error> {
-        let x = x - extents.width() * align.0;
-        let y = y + extents.height() * align.1;
+        let x = x - (extents.width() + extents.x_bearing()) * align.0;
+        let y = y - extents.y_bearing() * align.1;
         self.move_to(x, y);
         self.show_text(text)
     }

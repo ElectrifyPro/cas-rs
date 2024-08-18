@@ -27,9 +27,9 @@
 //!
 //! # Example
 //!
-//! The following example creates a graph with the expression `y == 0.8214285714x^2 + 4.3785714286x
-//! + 7` and a few points with the viewport centered on the added points. The graph is then
-//! rendered to a PNG file.
+//! The following example creates a graph with the expression `y == 0.8214285714x^2 + 4.3785714286x + 7`
+//! and a few points with the viewport centered on the added points. The graph is then rendered to
+//! a PNG file.
 //!
 //! ```no_run
 //! use cas_graph::{Graph, GraphOptions};
@@ -61,6 +61,7 @@
 
 pub mod analyzed;
 mod eval;
+mod label;
 pub mod opts;
 pub mod point;
 
@@ -68,8 +69,10 @@ use analyzed::AnalyzedExpr;
 use cairo::{Context, Error, FontSlant, Format, ImageSurface, FontWeight, TextExtents};
 use cas_parser::parser::{ast::expr::Expr, Parser};
 use eval::evaluate_expr;
+use label::Labeler;
 pub use point::{CanvasPoint, GraphPoint, Point};
 use rayon::prelude::*;
+
 use super::text_align::ShowTextAlign;
 pub use opts::GraphOptions;
 
@@ -700,35 +703,35 @@ impl Graph {
     ) -> Result<(), Error> {
         context.set_font_size(30.0);
 
-        for point in self.points.iter() {
-            context.set_source_rgb(point.color.0, point.color.1, point.color.2);
+        let labeler = Labeler::new(context, self.options, &self.points, 64, 5.0)
+            .label_points();
 
-            let canvas = self.options.to_canvas(point.coordinates);
+        for labeler_point in labeler {
+            let orig_point = labeler_point.point();
+            context.set_source_rgb(orig_point.color.0, orig_point.color.1, orig_point.color.2);
+
+            let canvas = labeler_point.point_on_canvas();
             context.arc(canvas.0, canvas.1, 10.0, 0.0, 2.0 * std::f64::consts::PI);
             context.fill()?;
 
-            if let Some(label) = &point.label {
-                // draw the point's label
-                context.show_text_align(
-                    label,
-                    (canvas.0, canvas.1),
-                    (-0.1, -0.1),
-                )?;
-            } else {
-                // draw the point's coordinates
-                let point_value = (
-                    format!("{:.3}", point.coordinates.0),
-                    format!("{:.3}", point.coordinates.1),
-                );
-                context.show_text_align(
-                    &format!(
-                        "({}, {})",
-                        point_value.0.trim_end_matches('0').trim_end_matches('.'),
-                        point_value.1.trim_end_matches('0').trim_end_matches('.')
-                    ),
-                    (canvas.0, canvas.1),
-                    (-0.1, -0.1),
-                )?;
+            let label = orig_point.label.as_deref()
+                .map(std::borrow::Cow::Borrowed)
+                .unwrap_or_else(|| std::borrow::Cow::Owned(orig_point.default_label()));
+            let Some((position, leader_line)) = labeler_point.result() else {
+                // failed to place label
+                continue;
+            };
+            context.show_text_align(
+                &label,
+                (position.0, position.1),
+                (0.5, 0.5),
+            )?;
+
+            // draw leader line
+            if let Some((leader_line_start, leader_line_end)) = leader_line {
+                context.move_to(leader_line_start.0, leader_line_start.1);
+                context.line_to(leader_line_end.0, leader_line_end.1);
+                context.stroke()?;
             }
         }
 

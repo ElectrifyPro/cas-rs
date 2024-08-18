@@ -87,6 +87,25 @@ where
     }
 }
 
+impl<T> Point<T>
+where
+    T: std::fmt::Display,
+{
+    /// Generate the default label for the point, which are the coordinates of the point rounded to
+    /// 3 decimal places.
+    pub fn default_label(&self) -> String {
+        let point_value = (
+            format!("{:.3}", self.coordinates.0),
+            format!("{:.3}", self.coordinates.1),
+        );
+        format!(
+            "({}, {})",
+            point_value.0.trim_end_matches('0').trim_end_matches('.'),
+            point_value.1.trim_end_matches('0').trim_end_matches('.')
+        )
+    }
+}
+
 impl<T> From<(T, T)> for Point<T>
 where
     Point<T>: Default,

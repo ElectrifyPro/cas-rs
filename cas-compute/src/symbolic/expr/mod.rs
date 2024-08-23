@@ -830,12 +830,25 @@ impl Neg for Expr {
 mod tests {
     use cas_parser::parser::{ast::expr::Expr as AstExpr, Parser};
     use pretty_assertions::assert_eq;
+    use crate::symbolic::simplify;
+
     use super::*;
 
     /// Parse the given expression and return the [`Expr`] representation.
     fn parse_expr(input: &str) -> Expr {
         let expr = Parser::new(input).try_parse_full::<AstExpr>().unwrap();
         Expr::from(expr)
+    }
+
+    /// Get the hash of the given [`Expr`].
+    fn hasher<T: std::hash::Hash>(t: T) -> u64 {
+        use std::hash::Hasher;
+        
+        let mut hasher: std::hash::DefaultHasher = std::collections::hash_map::DefaultHasher::new();
+        
+        t.hash(&mut hasher);
+        
+        hasher.finish()
     }
 
     #[test]
@@ -1012,5 +1025,71 @@ mod tests {
     fn fmt_expr_2() {
         let expr = parse_expr("(((((((((a) b) c) d) e + f) g) h) i) j)");
         assert_eq!(expr.to_string(), "j * i * h * g * (f + e * d * c * b * a)");
+    }
+
+    #[test]
+    fn add_mul_commutative_hashing() {
+        // Commutative (should pass)
+        let eq_expressions: Vec<(&str, &str)> = vec![
+            // Addition
+            ("1 + 2", "2 + 1"),
+            ("x + y", "y + x"),
+            ("1 + x", "x + 1"),
+            ("a + b + c", "c + b + a"),
+            ("(x + y) + z", "z + (y + x)"),
+
+            // Multiplication (Explicit)
+            ("1 * 2", "2 * 1"),
+            ("x * y", "y * x"),
+            ("2 * x * y", "y * x * 2"),
+            ("a * b * c", "c * b * a"),
+            ("(x * y) * z", "z * (y * x)"),
+            ("x * (y + z)", "(y + z) * x"),
+            ("a * (b + c)", "(b + c) * a"),
+            ("1 + (x * y)", "(y * x) + 1"),
+
+            // Multiplication (Implicit)
+            ("1 2", "2 1"),
+            ("x y", "y x"),
+            ("2 x y", "y x 2"),
+            ("a b c", "c b a"),
+            ("(x y) z", "z * (y x)"),
+            ("x * (y + z)", "(y + z) x"),
+            ("a * (b + c)", "(b + c) a"),
+            ("1 + (x y)", "(y x) + 1"),
+
+        ];
+
+        // Non-commutative (should fail)
+        let ne_expressions: Vec<(&str, &str)> = vec![           
+            ("1 - 2", "2 - 1"),
+            ("x / y", "y / x"),
+            ("a - b + c", "c + b - a")
+        ];
+        
+
+        for (ea, eb) in eq_expressions {
+            let a = parse_expr(ea);
+            let b = parse_expr(eb);
+
+            assert_eq!(hasher(&a), hasher(&b), "ea: {:?}, eb: {:?}, a: {:?}, b: {:?}", ea, eb, a, b);
+
+            let sa = simplify(&a);
+            let sb = simplify(&b);
+
+            assert_eq!(hasher(&sa), hasher(&sb), "ea: {:?}, eb: {:?}, sa: {:?}, sb: {:?}", ea, eb, sa, sb);
+        }
+
+        for (nea, neb) in ne_expressions {
+            let a = parse_expr(nea);
+            let b = parse_expr(neb);
+
+            assert_ne!(hasher(&a), hasher(&b), "nea: {:?}, neb: {:?}, a: {:?}, b: {:?}", nea, neb, a, b);
+
+            let sa = simplify(&a);
+            let sb = simplify(&b);
+
+            assert_ne!(hasher(&sa), hasher(&sb), "nea: {:?}, neb: {:?}, sa: {:?}, sb: {:?}", nea, neb, sa, sb);
+        }
     }
 }

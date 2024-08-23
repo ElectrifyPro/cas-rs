@@ -57,7 +57,12 @@ use cas_parser::parser::{
 };
 use iter::ExprIter;
 use rug::{Float, Integer};
-use std::{cmp::Ordering, ops::{Add, AddAssign, Mul, MulAssign, Neg}};
+use std::{
+    cmp::Ordering,
+    collections::hash_map::DefaultHasher,
+    hash::Hasher,
+    ops::{Add, AddAssign, Mul, MulAssign, Neg},
+};
 use super::simplify::fraction::make_fraction;
 
 /// A single term / factor, such as a number, variable, or function call.
@@ -449,7 +454,29 @@ impl std::hash::Hash for Expr {
         // Hash the data associated with each variant.
         match self {
             Expr::Primary(val) => std::hash::Hash::hash(val, state),
-            Expr::Add(val) | Expr::Mul(val) => std::hash::Hash::hash(val, state),
+            Expr::Add(val) | Expr::Mul(val) => {
+                // For Add and Mul, the order of the elements should not affect the hash.
+                // Therefore, we'd have to sort the individual elemets hashes before
+                // hashing them.
+
+                let mut hashes: Vec<u64> = val
+                    .iter()
+                    .map(|expr| {
+                        let mut hasher = DefaultHasher::new();
+
+                        std::hash::Hash::hash(expr, &mut hasher);
+
+                        hasher.finish()
+                    })
+                    .collect();
+
+                // To satisfy order invariance.
+                hashes.sort_unstable();
+
+                for hash in hashes {
+                    std::hash::Hash::hash(&hash, state);
+                }
+            }
             Expr::Exp(val_base, val_exp) => {
                 std::hash::Hash::hash(val_base, state);
                 std::hash::Hash::hash(val_exp, state);

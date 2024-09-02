@@ -1056,9 +1056,11 @@ mod tests {
             ("(x y) z", "z * (y x)"),
             ("1 + (x y)", "(y x) + 1"),
 
-            // TODO: these should pass, but they don't as of now
-            // because of ambiguity in the parser it gets parsed
-            // as a fucntion call instead of implicit multiplication`1 * (2 + x)`
+            // TODO: these should pass, but they don't as of now because of ambiguity
+            // in the parser it gets parsed as a fucntion call instead of implicit
+            // multiplication `x * (y + z)` and `a * (b + c)` respectively. Reintroduce
+            // these tests once following issue is resolved:
+            // https://github.com/ElectrifyPro/cas-rs/issues/3
             // ("x (y + z)", "(y + z) x"),
             // ("a (b + c)", "(b + c) a"),
         ];

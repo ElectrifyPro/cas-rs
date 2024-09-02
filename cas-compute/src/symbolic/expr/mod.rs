@@ -60,7 +60,7 @@ use rug::{Float, Integer};
 use std::{
     cmp::Ordering,
     collections::hash_map::DefaultHasher,
-    hash::Hasher,
+    hash::{Hash, Hasher},
     ops::{Add, AddAssign, Mul, MulAssign, Neg},
 };
 use super::simplify::fraction::make_fraction;
@@ -81,11 +81,11 @@ pub enum Primary {
     Call(String, Vec<Expr>),
 }
 
-/// [`std::hash::Hash`] is implemented manually to allow hashing [`Primary::Float`]s. This module **must
+/// [`Hash`] is implemented manually to allow hashing [`Primary::Float`]s. This module **must
 /// never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report any bugs that cause
 /// this to happen.
-impl std::hash::Hash for Primary {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for Primary {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             Self::Integer(int) => int.hash(state),
             // this must be safe for the `Hash` impl to be valid
@@ -441,19 +441,19 @@ impl PartialEq for Expr {
     }
 }
 
-/// Implements the [`std::hash::Hash`] trait for the [`Expr`] enum, which represents
+/// Implements the [`Hash`] trait for the [`Expr`] enum, which represents
 /// different types of mathematical expressions. This implementation is necessary
 /// because [`PartialEq`] is also manually implemented, and the automatically
-/// derived [`Hash`] implementation would not guarantee consistency with [`PartialEq`].
-impl std::hash::Hash for Expr {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // Hash the discriminant to differentiate between enum variants.
+/// derived [`core::hash::macros::Hash`] implementation would not guarantee consistency with [`PartialEq`].
+impl Hash for Expr {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // hash the discriminant to differentiate between enum variants
         let self_discr = std::mem::discriminant(self);
-        std::hash::Hash::hash(&self_discr, state);
+        Hash::hash(&self_discr, state);
 
-        // Hash the data associated with each variant.
+        // hash the data associated with each variant
         match self {
-            Expr::Primary(val) => std::hash::Hash::hash(val, state),
+            Expr::Primary(val) => Hash::hash(val, state),
             Expr::Add(val) | Expr::Mul(val) => {
                 // For Add and Mul, the order of the elements should not affect the hash.
                 // Therefore, we'd have to sort the individual elemets hashes before
@@ -464,22 +464,22 @@ impl std::hash::Hash for Expr {
                     .map(|expr| {
                         let mut hasher = DefaultHasher::new();
 
-                        std::hash::Hash::hash(expr, &mut hasher);
+                        Hash::hash(expr, &mut hasher);
 
                         hasher.finish()
                     })
                     .collect();
 
-                // To satisfy order invariance.
+                // to satisfy order invariance
                 hashes.sort_unstable();
 
                 for hash in hashes {
-                    std::hash::Hash::hash(&hash, state);
+                    Hash::hash(&hash, state);
                 }
             }
             Expr::Exp(val_base, val_exp) => {
-                std::hash::Hash::hash(val_base, state);
-                std::hash::Hash::hash(val_exp, state);
+                Hash::hash(val_base, state);
+                Hash::hash(val_exp, state);
             }
         }
     }
@@ -841,13 +841,13 @@ mod tests {
     }
 
     /// Get the hash of the given [`Expr`].
-    fn hasher<T: std::hash::Hash>(t: T) -> u64 {
-        use std::hash::Hasher;
-        
+    fn hasher<T: Hash>(t: T) -> u64 {
+        use Hasher;
+
         let mut hasher: std::hash::DefaultHasher = std::collections::hash_map::DefaultHasher::new();
-        
+
         t.hash(&mut hasher);
-        
+
         hasher.finish()
     }
 
@@ -1061,12 +1061,11 @@ mod tests {
         ];
 
         // Non-commutative (should fail)
-        let ne_expressions: Vec<(&str, &str)> = vec![           
+        let ne_expressions: Vec<(&str, &str)> = vec![
             ("1 - 2", "2 - 1"),
             ("x / y", "y / x"),
             ("a - b + c", "c + b - a")
         ];
-        
 
         for (ea, eb) in eq_expressions {
             let a = parse_expr(ea);

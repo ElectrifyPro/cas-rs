@@ -66,6 +66,19 @@ pub struct GraphOptions {
     ///
     /// The default value is `(4, 4)`.
     pub major_grid_divisions: (u8, u8),
+
+    /// The opacity of the major grid lines, given as a value in the range `0.0` to `1.0`, where
+    /// `0.0` is fully transparent and `1.0` is fully opaque. This also affects the opacity of the
+    /// major grid line numbers.
+    ///
+    /// The default value is `0.8`.
+    pub major_grid_opacity: f64,
+
+    /// The opacity of the minor grid lines, given as a value in the range `0.0` to `1.0`, where
+    /// `0.0` is fully transparent and `1.0` is fully opaque.
+    ///
+    /// The default value is `0.5`.
+    pub minor_grid_opacity: f64,
 }
 
 /// The default options for a graph. Returns a [`GraphOptions`] with the following values:
@@ -87,6 +100,8 @@ impl Default for GraphOptions {
             label_canvas_boundaries: false,
             major_grid_spacing: GraphPoint(2.0, 2.0),
             major_grid_divisions: (4, 4),
+            major_grid_opacity: 0.8,
+            minor_grid_opacity: 0.4,
         }
     }
 }

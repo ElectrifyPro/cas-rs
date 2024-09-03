@@ -306,8 +306,6 @@ impl Graph {
         &self,
         context: &Context,
     ) -> Result<(), Error> {
-        context.set_source_rgb(0.4, 0.4, 0.4);
-
         // vertical grid lines (x = ...)
         let mut count = 0;
         let vert_bounds = (
@@ -318,9 +316,11 @@ impl Graph {
         while x <= vert_bounds.1 {
             if count == 0 {
                 // major line
+                context.set_source_rgba(0.4, 0.4, 0.4, self.options.major_grid_opacity);
                 context.set_line_width(2.0);
             } else {
                 // minor line
+                context.set_source_rgba(0.4, 0.4, 0.4, self.options.minor_grid_opacity);
                 context.set_line_width(1.0);
             }
 
@@ -349,8 +349,10 @@ impl Graph {
         let mut y = hor_bounds.0;
         while y <= hor_bounds.1 {
             if count == 0 {
+                context.set_source_rgba(0.4, 0.4, 0.4, self.options.major_grid_opacity);
                 context.set_line_width(2.0);
             } else {
+                context.set_source_rgba(0.4, 0.4, 0.4, self.options.minor_grid_opacity);
                 context.set_line_width(1.0);
             }
 
@@ -380,7 +382,7 @@ impl Graph {
         edges: EdgeExtents,
     ) -> Result<(), Error> {
         // TODO: check collisions between grid line numbers themselves
-        context.set_source_rgb(1.0, 1.0, 1.0);
+        context.set_source_rgba(1.0, 1.0, 1.0, self.options.major_grid_opacity);
         context.set_font_size(30.0);
 
         let padding = 10.0;

@@ -107,6 +107,66 @@ impl Default for GraphOptions {
 }
 
 impl GraphOptions {
+    /// Set the canvas size. Returns an updated [`GraphOptions`] for chaining.
+    pub fn canvas_size(mut self, width: u16, height: u16) -> Self {
+        self.canvas_size = CanvasPoint(width, height);
+        self
+    }
+
+    /// Set the center of the graph. Returns an updated [`GraphOptions`] for chaining.
+    pub fn center(mut self, x: f64, y: f64) -> Self {
+        self.center = GraphPoint(x, y);
+        self
+    }
+
+    /// Set the scale of the graph. Returns an updated [`GraphOptions`] for chaining.
+    pub fn scale(mut self, x: f64, y: f64) -> Self {
+        self.scale = GraphPoint(x, y);
+        self
+    }
+
+    /// Set whether to scale the x- and y-axes together. Returns an updated [`GraphOptions`] for
+    /// chaining.
+    pub fn square_scale(mut self, square_scale: bool) -> Self {
+        self.square_scale = square_scale;
+        self
+    }
+
+    /// Set whether to label the canvas boundaries with their corresponding graph values. Returns
+    /// an updated [`GraphOptions`] for chaining.
+    pub fn label_canvas_boundaries(mut self, label_canvas_boundaries: bool) -> Self {
+        self.label_canvas_boundaries = label_canvas_boundaries;
+        self
+    }
+
+    /// Set the number of graph units between each major grid line. Returns an updated
+    /// [`GraphOptions`] for chaining.
+    pub fn major_grid_spacing(mut self, x: f64, y: f64) -> Self {
+        self.major_grid_spacing = GraphPoint(x, y);
+        self
+    }
+
+    /// Set the number of spaces to divide each major grid line into. Returns an updated
+    /// [`GraphOptions`] for chaining.
+    pub fn major_grid_divisions(mut self, x: u8, y: u8) -> Self {
+        self.major_grid_divisions = (x, y);
+        self
+    }
+
+    /// Set the opacity of the major grid lines. Returns an updated [`GraphOptions`] for chaining.
+    pub fn major_grid_opacity(mut self, major_grid_opacity: f64) -> Self {
+        self.major_grid_opacity = major_grid_opacity;
+        self
+    }
+
+    /// Set the opacity of the minor grid lines. Returns an updated [`GraphOptions`] for chaining.
+    pub fn minor_grid_opacity(mut self, minor_grid_opacity: f64) -> Self {
+        self.minor_grid_opacity = minor_grid_opacity;
+        self
+    }
+}
+
+impl GraphOptions {
     /// Converts an x-value in **graph** space to an x-value in **canvas** space.
     pub(crate) fn x_to_canvas(&self, x: f64) -> f64 {
         let graph_space_range = self.scale.0 * 2.0;

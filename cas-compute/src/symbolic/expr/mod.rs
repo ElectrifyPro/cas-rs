@@ -1029,7 +1029,7 @@ mod tests {
 
     #[test]
     fn add_mul_commutative_hashing() {
-        // Commutative (should pass)
+        // Commutative or equal (should pass)
         let eq_expressions: Vec<(&str, &str)> = vec![
             // Addition
             ("1 + 2", "2 + 1"),
@@ -1065,11 +1065,13 @@ mod tests {
             // ("a (b + c)", "(b + c) a"),
         ];
 
-        // Non-commutative (should fail)
+        // Non-commutative or unequal expressions (should fail)
         let ne_expressions: Vec<(&str, &str)> = vec![
             ("1 - 2", "2 - 1"),
             ("x / y", "y / x"),
-            ("a - b + c", "c + b - a")
+            ("a - b + c", "c + b - a"),
+            ("1 + 1", "2 + 2"),
+            ("a * a", "b * b")
         ];
 
         for (ea, eb) in eq_expressions {

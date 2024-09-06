@@ -447,43 +447,43 @@ impl PartialEq for Expr {
 /// derived [`core::hash::macros::Hash`] implementation would not guarantee consistency with [`PartialEq`].
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // hash the discriminant to differentiate between enum variants
+        // Hash the discriminant to differentiate between enum variants
         let self_discr = std::mem::discriminant(self);
         Hash::hash(&self_discr, state);
 
-        // hash the data associated with each variant
+        // Hash the data associated with each variant
         match self {
-            Expr::Primary(val) => Hash::hash(val, state),
+            Expr::Primary(val) => val.hash(state),
             Expr::Add(val) | Expr::Mul(val) => {
                 // For Add and Mul, the order of the elements should not affect the hash.
                 // Therefore, we'd have to sort the individual elemets hashes before
                 // hashing them.
 
-                let mut hashes: Vec<u64> = val
-                    .iter()
-                    .map(|expr| {
-                        let mut hasher = DefaultHasher::new();
+                let mut sum_hash = 0u64;
+                let mut prod_hash = 1u64;
 
-                        Hash::hash(expr, &mut hasher);
+                for expr in val {
+                    let mut hasher = DefaultHasher::new();
+                    expr.hash(&mut hasher);
+                    let expr_hash = hasher.finish();
 
-                        hasher.finish()
-                    })
-                    .collect();
+                    sum_hash = sum_hash.wrapping_add(expr_hash);
 
-                // to satisfy order invariance
-                hashes.sort_unstable();
-
-                for hash in hashes {
-                    Hash::hash(&hash, state);
+                    // to avoid multiplicaion by `0` we add `+1` to it
+                    prod_hash = prod_hash.wrapping_mul(expr_hash.wrapping_add(1));
                 }
+
+                sum_hash.hash(state);
+                prod_hash.hash(state);
             }
             Expr::Exp(val_base, val_exp) => {
-                Hash::hash(val_base, state);
-                Hash::hash(val_exp, state);
+                val_base.hash(state);
+                val_exp.hash(state);
             }
         }
     }
 }
+
 
 impl From<AstExpr> for Expr {
     fn from(expr: AstExpr) -> Self {

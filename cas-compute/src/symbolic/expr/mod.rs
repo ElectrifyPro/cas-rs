@@ -443,8 +443,9 @@ impl PartialEq for Expr {
 
 /// Implements the [`Hash`] trait for the [`Expr`] enum, which represents
 /// different types of mathematical expressions. This implementation is necessary
-/// because [`PartialEq`] is also manually implemented, and the automatically
-/// derived [`core::hash::macros::Hash`] implementation would not guarantee consistency with [`PartialEq`].
+/// because [`PartialEq`] is also manually implemented. The derived implementation
+/// of [`Hash`] would not guarantee consistency with [`PartialEq`], especially for 
+/// commutative operations like addition and multiplication.
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // Hash the discriminant to differentiate between enum variants
@@ -456,20 +457,21 @@ impl Hash for Expr {
             Expr::Primary(val) => val.hash(state),
             Expr::Add(val) | Expr::Mul(val) => {
                 // For Add and Mul, the order of the elements should not affect the hash.
-                // Therefore, we'd have to sort the individual elemets hashes before
-                // hashing them.
+                // To handle commutativity, we'll hash the elements using both summation
+                // and multiplication of individual hashes, which will remain invariant
+                // under different orders of the same elements.
 
                 let mut sum_hash = 0u64;
                 let mut prod_hash = 1u64;
 
+                // Use a single hasher for all expressions to avoid repeatedly creating new ones.
                 for expr in val {
                     let mut hasher = DefaultHasher::new();
                     expr.hash(&mut hasher);
                     let expr_hash = hasher.finish();
 
                     sum_hash = sum_hash.wrapping_add(expr_hash);
-
-                    // to avoid multiplicaion by `0` we add `+1` to it
+                    // Avoid multiplication by `0` by adding `1` to each hash
                     prod_hash = prod_hash.wrapping_mul(expr_hash.wrapping_add(1));
                 }
 

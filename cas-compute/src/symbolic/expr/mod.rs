@@ -448,11 +448,11 @@ impl PartialEq for Expr {
 /// commutative operations like addition and multiplication.
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // Hash the discriminant to differentiate between enum variants
+        // hash the discriminant to differentiate between enum variants
         let self_discr = std::mem::discriminant(self);
-        Hash::hash(&self_discr, state);
+        self_discr.hash(state);
 
-        // Hash the data associated with each variant
+        // hash the data associated with each variant
         match self {
             Expr::Primary(val) => val.hash(state),
             Expr::Add(val) | Expr::Mul(val) => {
@@ -844,9 +844,7 @@ mod tests {
 
     /// Get the hash of the given [`Expr`].
     fn hasher<T: Hash>(t: T) -> u64 {
-        use Hasher;
-
-        let mut hasher: std::hash::DefaultHasher = std::collections::hash_map::DefaultHasher::new();
+        let mut hasher: DefaultHasher = DefaultHasher::new();
 
         t.hash(&mut hasher);
 

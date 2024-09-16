@@ -444,7 +444,7 @@ impl PartialEq for Expr {
 /// Implements the [`Hash`] trait for the [`Expr`] enum, which represents
 /// different types of mathematical expressions. This implementation is necessary
 /// because [`PartialEq`] is also manually implemented. The derived implementation
-/// of [`Hash`] would not guarantee consistency with [`PartialEq`], especially for 
+/// of [`Hash`] would not guarantee consistency with [`PartialEq`], especially for
 /// commutative operations like addition and multiplication.
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -457,26 +457,18 @@ impl Hash for Expr {
             Expr::Primary(val) => val.hash(state),
             Expr::Add(val) | Expr::Mul(val) => {
                 // For Add and Mul, the order of the elements should not affect the hash.
-                // To handle commutativity, we'll hash the elements using both summation
-                // and multiplication of individual hashes, which will remain invariant
-                // under different orders of the same elements.
+                // Thus, we would have to maintain order invariance by using a commutative operation.
 
-                let mut sum_hash = 0u64;
-                let mut prod_hash = 1u64;
+                let cumulative_hash: u64 = val
+                    .iter()
+                    .map(|expr| {
+                        let mut hasher = DefaultHasher::new();
+                        expr.hash(&mut hasher);
+                        hasher.finish()
+                    })
+                    .fold(0, |acc: u64, curr| acc.wrapping_add(curr));
 
-                // Use a single hasher for all expressions to avoid repeatedly creating new ones.
-                for expr in val {
-                    let mut hasher = DefaultHasher::new();
-                    expr.hash(&mut hasher);
-                    let expr_hash = hasher.finish();
-
-                    sum_hash = sum_hash.wrapping_add(expr_hash);
-                    // Avoid multiplication by `0` by adding `1` to each hash
-                    prod_hash = prod_hash.wrapping_mul(expr_hash.wrapping_add(1));
-                }
-
-                sum_hash.hash(state);
-                prod_hash.hash(state);
+                cumulative_hash.hash(state);
             }
             Expr::Exp(val_base, val_exp) => {
                 val_base.hash(state);
@@ -485,7 +477,6 @@ impl Hash for Expr {
         }
     }
 }
-
 
 impl From<AstExpr> for Expr {
     fn from(expr: AstExpr) -> Self {

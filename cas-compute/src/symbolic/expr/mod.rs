@@ -57,7 +57,12 @@ use cas_parser::parser::{
 };
 use iter::ExprIter;
 use rug::{Float, Integer};
-use std::{cmp::Ordering, ops::{Add, AddAssign, Mul, MulAssign, Neg}};
+use std::{
+    cmp::Ordering,
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+    ops::{Add, AddAssign, Mul, MulAssign, Neg},
+};
 use super::simplify::fraction::make_fraction;
 
 /// A single term / factor, such as a number, variable, or function call.
@@ -79,8 +84,8 @@ pub enum Primary {
 /// [`Hash`] is implemented manually to allow hashing [`Primary::Float`]s. This module **must
 /// never** produce non-normal [`Float`]s (such as `NaN` or `Infinity`)! Report any bugs that cause
 /// this to happen.
-impl std::hash::Hash for Primary {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for Primary {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             Self::Integer(int) => int.hash(state),
             // this must be safe for the `Hash` impl to be valid
@@ -175,7 +180,7 @@ impl Mul<Primary> for Primary {
 /// single [`Expr::Add`] node with _three_ children, `x`, `y`, and `z`.
 ///
 /// For more information about this type, see the [module-level documentation](self).
-#[derive(Debug, Clone, Eq, Hash)]
+#[derive(Debug, Clone, Eq)]
 pub enum Expr {
     /// A single term or factor.
     Primary(Primary),
@@ -432,6 +437,43 @@ impl PartialEq for Expr {
                 lhs_base == rhs_base && lhs_exp == rhs_exp
             },
             _ => false,
+        }
+    }
+}
+
+/// Implements the [`Hash`] trait for the [`Expr`] enum, which represents
+/// different types of mathematical expressions. This implementation is necessary
+/// because [`PartialEq`] is also manually implemented. The derived implementation
+/// of [`Hash`] would not guarantee consistency with [`PartialEq`], especially for
+/// commutative operations like addition and multiplication.
+impl Hash for Expr {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // hash the discriminant to differentiate between enum variants
+        let self_discr = std::mem::discriminant(self);
+        self_discr.hash(state);
+
+        // hash the data associated with each variant
+        match self {
+            Expr::Primary(val) => val.hash(state),
+            Expr::Add(val) | Expr::Mul(val) => {
+                // For Add and Mul, the order of the elements should not affect the hash.
+                // Thus, we would have to maintain order invariance by using a commutative operation.
+
+                let cumulative_hash: u64 = val
+                    .iter()
+                    .map(|expr| {
+                        let mut hasher = DefaultHasher::new();
+                        expr.hash(&mut hasher);
+                        hasher.finish()
+                    })
+                    .fold(0, |acc: u64, curr| acc.wrapping_add(curr));
+
+                cumulative_hash.hash(state);
+            }
+            Expr::Exp(val_base, val_exp) => {
+                val_base.hash(state);
+                val_exp.hash(state);
+            }
         }
     }
 }
@@ -781,12 +823,23 @@ impl Neg for Expr {
 mod tests {
     use cas_parser::parser::{ast::expr::Expr as AstExpr, Parser};
     use pretty_assertions::assert_eq;
+    use crate::symbolic::simplify;
+
     use super::*;
 
     /// Parse the given expression and return the [`Expr`] representation.
     fn parse_expr(input: &str) -> Expr {
         let expr = Parser::new(input).try_parse_full::<AstExpr>().unwrap();
         Expr::from(expr)
+    }
+
+    /// Get the hash of the given [`Expr`].
+    fn hasher<T: Hash>(t: T) -> u64 {
+        let mut hasher: DefaultHasher = DefaultHasher::new();
+
+        t.hash(&mut hasher);
+
+        hasher.finish()
     }
 
     #[test]
@@ -963,5 +1016,77 @@ mod tests {
     fn fmt_expr_2() {
         let expr = parse_expr("(((((((((a) b) c) d) e + f) g) h) i) j)");
         assert_eq!(expr.to_string(), "j * i * h * g * (f + e * d * c * b * a)");
+    }
+
+    #[test]
+    fn add_mul_commutative_hashing() {
+        // Commutative or equal (should pass)
+        let eq_expressions: Vec<(&str, &str)> = vec![
+            // Addition
+            ("1 + 2", "2 + 1"),
+            ("x + y", "y + x"),
+            ("1 + x", "x + 1"),
+            ("a + b + c", "c + b + a"),
+            ("(x + y) + z", "z + (y + x)"),
+
+            // Multiplication (Explicit)
+            ("1 * 2", "2 * 1"),
+            ("x * y", "y * x"),
+            ("2 * x * y", "y * x * 2"),
+            ("a * b * c", "c * b * a"),
+            ("(x * y) * z", "z * (y * x)"),
+            ("x * (y + z)", "(y + z) * x"),
+            ("a * (b + c)", "(b + c) * a"),
+            ("1 + (x * y)", "(y * x) + 1"),
+
+            // Multiplication (Implicit)
+            ("1 2", "2 1"),
+            ("x y", "y x"),
+            ("2 x y", "y x 2"),
+            ("a b c", "c b a"),
+            ("(x y) z", "z * (y x)"),
+            ("1 + (x y)", "(y x) + 1"),
+
+            // TODO: these should pass, but they don't as of now because of ambiguity
+            // in the parser it gets parsed as a fucntion call instead of implicit
+            // multiplication `x * (y + z)` and `a * (b + c)` respectively. Reintroduce
+            // these tests once following issue is resolved:
+            // https://github.com/ElectrifyPro/cas-rs/issues/3
+            // ("x (y + z)", "(y + z) x"),
+            // ("a (b + c)", "(b + c) a"),
+        ];
+
+        // Non-commutative or unequal expressions (should fail)
+        let ne_expressions: Vec<(&str, &str)> = vec![
+            ("1 - 2", "2 - 1"),
+            ("x / y", "y / x"),
+            ("a - b + c", "c + b - a"),
+            ("1 + 1", "2 + 2"),
+            ("a * a", "b * b")
+        ];
+
+        for (ea, eb) in eq_expressions {
+            let a = parse_expr(ea);
+            let b = parse_expr(eb);
+
+            assert_eq!(hasher(&a), hasher(&b), "ea: {:?}, eb: {:?}, a: {:?}, b: {:?}", ea, eb, a, b);
+
+            let sa = simplify(&a);
+            let sb = simplify(&b);
+
+            assert_eq!(hasher(&sa), hasher(&sb), "ea: {:?}, eb: {:?}, sa: {:?}, sb: {:?}", ea, eb, sa, sb);
+        }
+
+        for (nea, neb) in ne_expressions {
+            let a = parse_expr(nea);
+            let b = parse_expr(neb);
+
+            assert_ne!(hasher(&a), hasher(&b), "nea: {:?}, neb: {:?}, a: {:?}, b: {:?}", nea, neb, a, b);
+
+            let sa = simplify(&a);
+            let sb = simplify(&b);
+
+            assert_ne!(hasher(&sa), hasher(&sb), "nea: {:?}, neb: {:?}, sa: {:?}, sb: {:?}", nea, neb, sa, sb);
+        }
     }
 }

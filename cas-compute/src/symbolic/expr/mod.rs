@@ -45,8 +45,13 @@
 //! can be used **in conjunction** with simplification to determine if two expressions are similar
 //! enough to be combined, resolving the chicken-and-egg problem.
 //!
+//! ## Strict equality, [`PartialEq`] and [`Hash`]
+//!
 //! The [`PartialEq`] and [`Eq`] implementations for [`Expr`] implement **strict equality**, not
 //! semantic equality.
+//!
+//! The [`Hash`] implementation for [`Expr`] also implements **strict equality**, and runs in
+//! `O(n)` time, where `n` is the number of sub-expressions contained within the expression.
 
 mod iter;
 
@@ -441,34 +446,35 @@ impl PartialEq for Expr {
     }
 }
 
-/// Implements the [`Hash`] trait for the [`Expr`] enum, which represents
-/// different types of mathematical expressions. This implementation is necessary
-/// because [`PartialEq`] is also manually implemented. The derived implementation
-/// of [`Hash`] would not guarantee consistency with [`PartialEq`], especially for
-/// commutative operations like addition and multiplication.
+/// [`Hash`] is manually implemented for [`Expr`] to ensure consistent behavior with [`PartialEq`].
+///
+/// We also manage to hash [`Expr::Add`] and [`Expr::Mul`] in `O(n)` time by using a commutative
+/// hashing function, unaffected by the order of the elements.
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // hash the discriminant to differentiate between enum variants
-        let self_discr = std::mem::discriminant(self);
+        let self_discr = std::mem::discriminant(self).hash(state);
         self_discr.hash(state);
 
-        // hash the data associated with each variant
         match self {
             Expr::Primary(val) => val.hash(state),
             Expr::Add(val) | Expr::Mul(val) => {
-                // For Add and Mul, the order of the elements should not affect the hash.
-                // Thus, we would have to maintain order invariance by using a commutative operation.
+                // for Add and Mul, the order of the elements must not affect the resulting hash
+                // this is maintained by hashing each sub-expression individually and using a
+                // commutative operation (addition) to combine the hashes
+                //
+                // as long as the inner hash function is well-distributed and random, adding those
+                // hashes together should also be well-distributed and random
 
-                let cumulative_hash: u64 = val
+                let out: u64 = val
                     .iter()
                     .map(|expr| {
                         let mut hasher = DefaultHasher::new();
                         expr.hash(&mut hasher);
                         hasher.finish()
                     })
-                    .fold(0, |acc: u64, curr| acc.wrapping_add(curr));
+                    .fold(0, |acc, curr| acc.wrapping_add(curr));
 
-                cumulative_hash.hash(state);
+                out.hash(state);
             }
             Expr::Exp(val_base, val_exp) => {
                 val_base.hash(state);
@@ -834,11 +840,9 @@ mod tests {
     }
 
     /// Get the hash of the given [`Expr`].
-    fn hasher<T: Hash>(t: T) -> u64 {
-        let mut hasher: DefaultHasher = DefaultHasher::new();
-
-        t.hash(&mut hasher);
-
+    fn hash(expr: &Expr) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        expr.hash(&mut hasher);
         hasher.finish()
     }
 
@@ -1019,17 +1023,14 @@ mod tests {
     }
 
     #[test]
-    fn add_mul_commutative_hashing() {
-        // Commutative or equal (should pass)
-        let eq_expressions: Vec<(&str, &str)> = vec![
-            // Addition
+    fn commutative_hashing() {
+        let exprs = vec![
             ("1 + 2", "2 + 1"),
             ("x + y", "y + x"),
             ("1 + x", "x + 1"),
             ("a + b + c", "c + b + a"),
             ("(x + y) + z", "z + (y + x)"),
 
-            // Multiplication (Explicit)
             ("1 * 2", "2 * 1"),
             ("x * y", "y * x"),
             ("2 * x * y", "y * x * 2"),
@@ -1039,7 +1040,6 @@ mod tests {
             ("a * (b + c)", "(b + c) * a"),
             ("1 + (x * y)", "(y * x) + 1"),
 
-            // Multiplication (Implicit)
             ("1 2", "2 1"),
             ("x y", "y x"),
             ("2 x y", "y x 2"),
@@ -1056,8 +1056,16 @@ mod tests {
             // ("a (b + c)", "(b + c) a"),
         ];
 
-        // Non-commutative or unequal expressions (should fail)
-        let ne_expressions: Vec<(&str, &str)> = vec![
+        for (ea, eb) in exprs {
+            let a = parse_expr(ea);
+            let b = parse_expr(eb);
+            assert_eq!(hash(&a), hash(&b), "a: {:?}, b: {:?}", a, b);
+        }
+    }
+
+    #[test]
+    fn non_commutative_hashing() {
+        let exprs = vec![
             ("1 - 2", "2 - 1"),
             ("x / y", "y / x"),
             ("a - b + c", "c + b - a"),
@@ -1065,28 +1073,10 @@ mod tests {
             ("a * a", "b * b")
         ];
 
-        for (ea, eb) in eq_expressions {
-            let a = parse_expr(ea);
-            let b = parse_expr(eb);
-
-            assert_eq!(hasher(&a), hasher(&b), "ea: {:?}, eb: {:?}, a: {:?}, b: {:?}", ea, eb, a, b);
-
-            let sa = simplify(&a);
-            let sb = simplify(&b);
-
-            assert_eq!(hasher(&sa), hasher(&sb), "ea: {:?}, eb: {:?}, sa: {:?}, sb: {:?}", ea, eb, sa, sb);
-        }
-
-        for (nea, neb) in ne_expressions {
+        for (nea, neb) in exprs {
             let a = parse_expr(nea);
             let b = parse_expr(neb);
-
-            assert_ne!(hasher(&a), hasher(&b), "nea: {:?}, neb: {:?}, a: {:?}, b: {:?}", nea, neb, a, b);
-
-            let sa = simplify(&a);
-            let sb = simplify(&b);
-
-            assert_ne!(hasher(&sa), hasher(&sb), "nea: {:?}, neb: {:?}, sa: {:?}, sb: {:?}", nea, neb, sa, sb);
+            assert_ne!(hash(&a), hash(&b), "a: {:?}, b: {:?}", a, b);
         }
     }
 }

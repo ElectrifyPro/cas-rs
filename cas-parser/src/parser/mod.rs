@@ -22,6 +22,11 @@ pub struct ParserState {
     /// `then` expressions are only allowed after the conditions of `if` and `while` expressions.
     pub allow_then: bool,
 
+    /// Whether an `of` expression is allowed in the current context.
+    ///
+    /// `of` expressions are only allowed after the range of `sum` and `product` expressions.
+    pub allow_of: bool,
+
     /// Whether loop control expressions are allowed in the current context.
     ///
     /// Loop control expressions are `break` and `continue` expressions. They are only allowed

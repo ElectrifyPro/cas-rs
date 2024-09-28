@@ -5,15 +5,17 @@ use crate::{
             assign::Assign,
             binary::Binary,
             block::Block,
-            branch::Then,
+            branch::{Of, Then},
             call::Call,
             if_expr::If,
             index::Index,
             literal::Literal,
             loop_expr::{Break, Continue, Loop},
             paren::Paren,
-            range::Range as RangeExpr,
+            product::Product,
+            range::Range,
             return_expr::Return,
+            sum::Sum,
             unary::Unary,
             while_expr::While,
         },
@@ -28,7 +30,7 @@ use crate::{
     tokenizer::TokenKind,
     return_if_ok,
 };
-use std::{fmt, ops::Range};
+use std::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -51,6 +53,12 @@ pub enum Expr {
     /// A blocked expression, such as `{1 + 2}`.
     Block(Block),
 
+    /// A sum expression, such as `sum n in 1..10 of n`.
+    Sum(Sum),
+
+    /// A product expression, such as `product n in 1..10 of n`.
+    Product(Product),
+
     /// An if expression, such as `if x > 0 then x else -x`.
     If(If),
 
@@ -62,6 +70,9 @@ pub enum Expr {
 
     /// A then expression, as in `then x += 1`.
     Then(Then),
+
+    /// An of expression, as in `of x`.
+    Of(Of),
 
     /// A break expression, used to exit a loop, optionally with a value.
     Break(Break),
@@ -88,20 +99,23 @@ pub enum Expr {
     Assign(Assign),
 
     /// A range expression, such as `1..10`.
-    Range(RangeExpr),
+    Range(Range),
 }
 
 impl Expr {
     /// Returns the span of the expression.
-    pub fn span(&self) -> Range<usize> {
+    pub fn span(&self) -> std::ops::Range<usize> {
         match self {
             Expr::Literal(literal) => literal.span(),
             Expr::Paren(paren) => paren.span(),
             Expr::Block(block) => block.span(),
+            Expr::Sum(sum) => sum.span(),
+            Expr::Product(product) => product.span(),
             Expr::If(if_expr) => if_expr.span(),
             Expr::Loop(loop_expr) => loop_expr.span(),
             Expr::While(while_expr) => while_expr.span(),
             Expr::Then(then) => then.span(),
+            Expr::Of(of) => of.span(),
             Expr::Break(break_expr) => break_expr.span(),
             Expr::Continue(continue_expr) => continue_expr.span(),
             Expr::Return(return_expr) => return_expr.span(),
@@ -186,6 +200,7 @@ impl_by_parsing_expr!(
     Call "a function call",
     Index "a list indexing expression",
     Unary "a unary operation",
+    Range "a range expression"
 );
 
 impl std::fmt::Display for Expr {
@@ -194,10 +209,13 @@ impl std::fmt::Display for Expr {
             Expr::Literal(literal) => literal.fmt(f),
             Expr::Paren(paren) => paren.fmt(f),
             Expr::Block(block) => block.fmt(f),
+            Expr::Sum(sum) => sum.fmt(f),
+            Expr::Product(product) => product.fmt(f),
             Expr::If(if_expr) => if_expr.fmt(f),
             Expr::Loop(loop_expr) => loop_expr.fmt(f),
             Expr::While(while_expr) => while_expr.fmt(f),
             Expr::Then(then) => then.fmt(f),
+            Expr::Of(of) => of.fmt(f),
             Expr::Break(break_expr) => break_expr.fmt(f),
             Expr::Continue(continue_expr) => continue_expr.fmt(f),
             Expr::Return(return_expr) => return_expr.fmt(f),
@@ -217,10 +235,13 @@ impl Latex for Expr {
             Expr::Literal(literal) => literal.fmt_latex(f),
             Expr::Paren(paren) => paren.fmt_latex(f),
             Expr::Block(block) => block.fmt_latex(f),
+            Expr::Sum(sum) => sum.fmt_latex(f),
+            Expr::Product(product) => product.fmt_latex(f),
             Expr::If(if_expr) => if_expr.fmt_latex(f),
             Expr::Loop(loop_expr) => loop_expr.fmt_latex(f),
             Expr::While(while_expr) => while_expr.fmt_latex(f),
             Expr::Then(then) => then.fmt_latex(f),
+            Expr::Of(of) => of.fmt_latex(f),
             Expr::Break(break_expr) => break_expr.fmt_latex(f),
             Expr::Continue(continue_expr) => continue_expr.fmt_latex(f),
             Expr::Return(return_expr) => return_expr.fmt_latex(f),
@@ -255,6 +276,12 @@ pub enum Primary {
     /// A blocked expression, such as `{1 + 2}`.
     Block(Block),
 
+    /// A sum expression, such as `sum n in 1..10 of n`.
+    Sum(Sum),
+
+    /// A product expression, such as `product n in 1..10 of n`.
+    Product(Product),
+
     /// An if expression, such as `if x > 0 then x else -x`.
     If(If),
 
@@ -266,6 +293,9 @@ pub enum Primary {
 
     /// A then expression, as in `then x += 1`.
     Then(Then),
+
+    /// An of expression, as in `of x`.
+    Of(Of),
 
     /// A break expression, used to exit a loop, optionally with a value.
     Break(Break),
@@ -285,15 +315,18 @@ pub enum Primary {
 
 impl Primary {
     /// Returns the span of the primary expression.
-    pub fn span(&self) -> Range<usize> {
+    pub fn span(&self) -> std::ops::Range<usize> {
         match self {
             Primary::Literal(literal) => literal.span(),
             Primary::Paren(paren) => paren.span(),
             Primary::Block(block) => block.span(),
+            Primary::Sum(sum) => sum.span(),
+            Primary::Product(product) => product.span(),
             Primary::If(if_expr) => if_expr.span(),
             Primary::Loop(loop_expr) => loop_expr.span(),
             Primary::While(while_expr) => while_expr.span(),
             Primary::Then(then) => then.span(),
+            Primary::Of(of) => of.span(),
             Primary::Break(break_expr) => break_expr.span(),
             Primary::Continue(continue_expr) => continue_expr.span(),
             Primary::Return(return_expr) => return_expr.span(),
@@ -339,10 +372,13 @@ impl From<Primary> for Expr {
             Primary::Literal(literal) => Self::Literal(literal),
             Primary::Paren(paren) => Self::Paren(paren),
             Primary::Block(block) => Self::Block(block),
+            Primary::Sum(sum) => Self::Sum(sum),
+            Primary::Product(product) => Self::Product(product),
             Primary::If(if_expr) => Self::If(if_expr),
             Primary::Loop(loop_expr) => Self::Loop(loop_expr),
             Primary::While(while_expr) => Self::While(while_expr),
             Primary::Then(then) => Self::Then(then),
+            Primary::Of(of) => Self::Of(of),
             Primary::Break(break_expr) => Self::Break(break_expr),
             Primary::Continue(continue_expr) => Self::Continue(continue_expr),
             Primary::Return(return_expr) => Self::Return(return_expr),
@@ -378,6 +414,12 @@ pub enum Atom {
     /// A blocked expression, such as `{1 + 2}`.
     Block(Block),
 
+    /// A sum expression, such as `sum n in 1..10 of n`.
+    Sum(Sum),
+
+    /// A product expression, such as `product n in 1..10 of n`.
+    Product(Product),
+
     /// An if expression, such as `if x > 0 then x else -x`.
     If(If),
 
@@ -389,6 +431,9 @@ pub enum Atom {
 
     /// A then expression, as in `then x += 1`.
     Then(Then),
+
+    /// An of expression, as in `of x`.
+    Of(Of),
 
     /// A break expression, used to exit a loop, optionally with a value.
     Break(Break),
@@ -406,25 +451,33 @@ impl<'source> Parse<'source> for Atom {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         #[inline]
-        fn parse_no_then<'source, T: Parse<'source>>(input: &mut Parser<'source>) -> ParseResult<T> {
+        fn parse_no_branch<'source, T: Parse<'source>>(input: &mut Parser<'source>) -> ParseResult<T> {
             input.try_parse_with_state::<_, T>(|state| {
                 state.allow_then = false;
+                state.allow_of = false;
             })
         }
 
         // definitely not every `parse_no_then` is needed, but it's safest to just try them all
         // all this is to catch funny business like `if x > 0 { then x }`, where `then` is part
         // of the body, not directly after the condition; that's invalid
-        let _ = return_if_ok!(parse_no_then(input).map(Self::Literal).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(parse_no_then(input).map(Self::Paren).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(parse_no_then(input).map(Self::Block).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(parse_no_then(input).map(Self::If).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(parse_no_then(input).map(Self::Loop).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(parse_no_then(input).map(Self::While).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Self::Then).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(parse_no_then(input).map(Self::Break).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(parse_no_then(input).map(Self::Continue).forward_errors(recoverable_errors));
-        parse_no_then(input).map(Self::Return).forward_errors(recoverable_errors)
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::Literal).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::Paren).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::Block).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::Sum).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::Product).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::If).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::Loop).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::While).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse_with_state::<_, _>(|state| {
+            state.allow_of = false;
+        }).map(Self::Then).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(input.try_parse_with_state::<_, _>(|state| {
+            state.allow_then = false;
+        }).map(Self::Of).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::Break).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::Continue).forward_errors(recoverable_errors));
+        parse_no_branch(input).map(Self::Return).forward_errors(recoverable_errors)
     }
 }
 
@@ -434,10 +487,13 @@ impl From<Atom> for Primary {
             Atom::Literal(literal) => Self::Literal(literal),
             Atom::Paren(paren) => Self::Paren(paren),
             Atom::Block(block) => Self::Block(block),
+            Atom::Sum(sum) => Self::Sum(sum),
+            Atom::Product(product) => Self::Product(product),
             Atom::If(if_expr) => Self::If(if_expr),
             Atom::Loop(loop_expr) => Self::Loop(loop_expr),
             Atom::While(while_expr) => Self::While(while_expr),
             Atom::Then(then) => Self::Then(then),
+            Atom::Of(of) => Self::Of(of),
             Atom::Break(break_expr) => Self::Break(break_expr),
             Atom::Continue(continue_expr) => Self::Continue(continue_expr),
             Atom::Return(return_expr) => Self::Return(return_expr),
@@ -451,10 +507,13 @@ impl From<Atom> for Expr {
             Atom::Literal(literal) => Self::Literal(literal),
             Atom::Paren(paren) => Self::Paren(paren),
             Atom::Block(block) => Self::Block(block),
+            Atom::Sum(sum) => Self::Sum(sum),
+            Atom::Product(product) => Self::Product(product),
             Atom::If(if_expr) => Self::If(if_expr),
             Atom::Loop(loop_expr) => Self::Loop(loop_expr),
             Atom::While(while_expr) => Self::While(while_expr),
             Atom::Then(then) => Self::Then(then),
+            Atom::Of(of) => Self::Of(of),
             Atom::Break(break_expr) => Self::Break(break_expr),
             Atom::Continue(continue_expr) => Self::Continue(continue_expr),
             Atom::Return(return_expr) => Self::Return(return_expr),

@@ -48,7 +48,21 @@ impl<'a> Iterator for ExprIter<'a> {
                     }
                     self.stack.push(&paren.expr);
                 },
-                Expr::Block(_) => return self.visit(), // NOTE: inner statements are not visited
+                Expr::Block(_) => return self.visit(), // NOTE: inner statements are not visited; me in 2024-27-09: why?
+                Expr::Sum(sum) => {
+                    if self.is_last_visited(&sum.body) {
+                        return self.visit();
+                    }
+                    self.stack.push(&sum.body);
+                    // TODO: should the range and variable be visited?
+                },
+                Expr::Product(product) => {
+                    if self.is_last_visited(&product.body) {
+                        return self.visit();
+                    }
+                    self.stack.push(&product.body);
+                    // TODO: should the range and variable be visited?
+                },
                 Expr::If(if_expr) => {
                     if let Some(else_expr) = &if_expr.else_expr {
                         if self.is_last_visited(else_expr) {
@@ -83,6 +97,12 @@ impl<'a> Iterator for ExprIter<'a> {
                         return self.visit();
                     }
                     self.stack.push(&then.expr);
+                },
+                Expr::Of(of) => {
+                    if self.is_last_visited(&of.expr) {
+                        return self.visit();
+                    }
+                    self.stack.push(&of.expr);
                 },
                 Expr::Break(break_expr) => {
                     if let Some(value) = &break_expr.value {

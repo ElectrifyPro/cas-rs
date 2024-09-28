@@ -1,11 +1,4 @@
-use cas_error::Error;
-use crate::parser::{
-    ast::expr::Expr,
-    fmt::Latex,
-    token::{RangeClosed, RangeHalfOpen},
-    Parse,
-    Parser,
-};
+use crate::parser::{ast::expr::Expr, fmt::Latex};
 use std::fmt;
 
 /// Whether a range is inclusive or exclusive.
@@ -41,32 +34,6 @@ impl Range {
     /// Returns the span of the `range` expression.
     pub fn span(&self) -> std::ops::Range<usize> {
         self.span.clone()
-    }
-}
-
-impl<'source> Parse<'source> for Range {
-    fn std_parse(
-        input: &mut Parser<'source>,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
-        let start = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
-        let kind = {
-            if input.try_parse::<RangeClosed>().forward_errors(recoverable_errors).is_ok() {
-                RangeKind::Closed
-            } else {
-                input.try_parse::<RangeHalfOpen>().forward_errors(recoverable_errors)?;
-                RangeKind::HalfOpen
-            }
-        };
-        let end = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
-        let span = start.span().start..end.span().end;
-
-        Ok(Self {
-            start: Box::new(start),
-            end: Box::new(end),
-            kind,
-            span,
-        })
     }
 }
 

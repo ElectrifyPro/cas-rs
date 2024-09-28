@@ -307,6 +307,15 @@ pub struct MissingIfBranch {
 )]
 pub struct ThenOutsideIfWhile;
 
+/// Cannot use `of` keyword outside of a `sum` or `product` expression.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "cannot use `of` keyword here",
+    labels = [""],
+    help = "`of` can only be used directly after the range in a `sum` or `product` expression",
+)]
+pub struct OfOutsideSumProduct;
+
 /// Cannot use `break` outside of a loop.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

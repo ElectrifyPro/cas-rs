@@ -434,10 +434,6 @@ pub fn exec_unary_instruction(op: UnaryOpKind, value_stack: &mut Vec<Value>) -> 
                     })?;
                 }
             },
-            Value::Unit => return Err(InvalidUnaryOperation {
-                op,
-                expr_type: typename,
-            })?,
             Value::List(list) => {
                 // apply unary operation element-wise
                 {
@@ -460,7 +456,9 @@ pub fn exec_unary_instruction(op: UnaryOpKind, value_stack: &mut Vec<Value>) -> 
                 }
                 Value::List(list)
             },
-            Value::Function(_) => return Err(InvalidUnaryOperation {
+            Value::Unit
+                | Value::Range(_, _, _)
+                | Value::Function(_) => return Err(InvalidUnaryOperation {
                 op,
                 expr_type: typename,
             })?,

@@ -130,6 +130,13 @@ impl<'a> Iterator for ExprIter<'a> {
                     }
                     self.stack.push(&assign.value);
                 },
+                Expr::Range(range) => {
+                    if self.is_last_visited(&range.end) {
+                        return self.visit();
+                    }
+                    self.stack.push(&range.end);
+                    self.stack.push(&range.start);
+                },
             }
         }
     }

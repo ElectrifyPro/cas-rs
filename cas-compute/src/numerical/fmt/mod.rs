@@ -2,6 +2,7 @@ mod complex;
 mod float;
 mod integer;
 
+use cas_parser::parser::ast::range::RangeKind;
 use crate::primitive::float;
 use std::fmt::{Display, Formatter};
 use super::{func::Function, value::Value};
@@ -255,6 +256,20 @@ impl Display for ValueFormatter<'_> {
                 } else {
                     write!(f, "]")
                 }
+            },
+            Value::Range(lhs, kind, rhs) => {
+                write!(f, "{}", ValueFormatter {
+                    value: &lhs,
+                    options: self.options,
+                })?;
+                match kind {
+                    RangeKind::HalfOpen => write!(f, " .. ")?,
+                    RangeKind::Closed => write!(f, " ..= ")?,
+                }
+                write!(f, "{}", ValueFormatter {
+                    value: &rhs,
+                    options: self.options,
+                })
             },
             Value::Function(kind) => match kind {
                 Function::User(_) => write!(f, "<function>"),

@@ -1,3 +1,4 @@
+use cas_parser::parser::ast::range::RangeKind;
 use crate::consts::PI;
 use crate::primitive::{complex, float};
 use rug::{Complex, Float, Integer};
@@ -43,6 +44,9 @@ pub enum Value {
     /// explicitly clone the list instead of copying the reference.
     List(Rc<RefCell<Vec<Value>>>),
 
+    /// A range representing a sequence of values, either half-open or closed.
+    Range(Box<Value>, RangeKind, Box<Value>),
+
     /// A function.
     ///
     /// Functions are treated as values just like any other value in `cas-rs`; they can be stored
@@ -60,6 +64,7 @@ impl Value {
             Value::Boolean(_) => "Boolean",
             Value::Unit => "Unit",
             Value::List(_) => "List",
+            Value::Range(_, _, _) => "Range",
             Value::Function(_) => "Function",
         }
     }
@@ -217,6 +222,7 @@ impl Value {
     /// - `Bool`: `true`
     /// - `Unit`: never true; always false
     /// - `List`: lists with at least one element; element(s) does not have to be truthy
+    /// - `Range`: ranges with at least one element; element(s) does not have to be truthy
     /// - `Function`: always true
     pub fn is_truthy(&self) -> bool {
         match self {
@@ -226,6 +232,12 @@ impl Value {
             Value::Boolean(b) => *b,
             Value::Unit => false,
             Value::List(l) => !l.borrow().is_empty(),
+            Value::Range(lhs, kind, rhs) => {
+                match kind {
+                    RangeKind::HalfOpen => lhs != rhs,
+                    RangeKind::Closed => true,
+                }
+            },
             Value::Function(_) => true,
         }
     }

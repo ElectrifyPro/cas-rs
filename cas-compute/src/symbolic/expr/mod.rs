@@ -563,6 +563,7 @@ impl From<AstExpr> for Expr {
                 }
             },
             AstExpr::Assign(_) => todo!(),
+            AstExpr::Range(_) => todo!(),
         }
     }
 }

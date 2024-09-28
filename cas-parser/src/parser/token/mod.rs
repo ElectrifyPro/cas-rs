@@ -107,5 +107,7 @@ token_kinds!(
     Float
     Boolean
     Dot
+    RangeHalfOpen
+    RangeClosed
     Symbol
 );

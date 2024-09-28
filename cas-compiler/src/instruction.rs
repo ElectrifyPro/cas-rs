@@ -1,5 +1,5 @@
 use cas_compute::numerical::value::Value;
-use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
+use cas_parser::parser::{ast::range::RangeKind, token::op::{BinOpKind, UnaryOpKind}};
 use crate::{item::Symbol, Label};
 use std::ops::Range;
 
@@ -28,6 +28,9 @@ pub enum InstructionKind {
     /// The value to repeat and the count are specified by the second-to-top and the top values on
     /// the stack, respectively.
     CreateListRepeat,
+
+    /// Create a new range with the start and end values on the stack.
+    CreateRange(RangeKind),
 
     /// Load a value stored in a variable onto the stack.
     LoadVar(Symbol),

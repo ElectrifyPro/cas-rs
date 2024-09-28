@@ -21,6 +21,7 @@ impl Compile for Expr {
             Expr::Unary(unary) => unary.compile(compiler),
             Expr::Binary(binary) => binary.compile(compiler),
             Expr::Assign(assign) => assign.compile(compiler),
+            Expr::Range(range) => range.compile(compiler),
         }
     }
 }

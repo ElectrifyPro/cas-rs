@@ -3,11 +3,23 @@ use crate::parser::{
     ast::{
         assign::{Assign as AssignExpr, AssignTarget},
         expr::Expr,
+        range::{Range as RangeExpr, RangeKind},
         unary::Unary,
     },
     error::NonFatal,
     fmt::{Latex, fmt_pow},
-    token::{op::{AssignOp, Associativity, BinOp, BinOpKind, Precedence}, Assign},
+    token::{
+        op::{
+            AssignOp,
+            Associativity,
+            BinOp,
+            BinOpKind,
+            Precedence,
+        },
+        Assign,
+        RangeClosed,
+        RangeHalfOpen,
+    },
     Parse,
     Parser,
     ParseResult,
@@ -30,6 +42,9 @@ enum BinOpExt {
 
     /// An assignment operator, such as `+=` or `/=`.
     Assign(AssignOp),
+
+    /// A range operator, such as `..` or `..=`.
+    Range(RangeKind)
 }
 
 impl BinOpExt {
@@ -39,6 +54,7 @@ impl BinOpExt {
             BinOpExt::Op(op) => op.precedence(),
             BinOpExt::ImplicitMultiplication => Precedence::Factor,
             BinOpExt::Assign(_) => Precedence::Assign,
+            BinOpExt::Range(_) => Precedence::Range,
         }
     }
 }
@@ -214,6 +230,12 @@ impl Binary {
                 value: Box::new(rhs),
                 span: start_span..end_span,
             })),
+            BinOpExt::Range(kind) => Ok(Expr::Range(RangeExpr {
+                start: Box::new(lhs),
+                end: Box::new(rhs),
+                kind,
+                span: start_span..end_span,
+            })),
         }
     }
 
@@ -254,6 +276,28 @@ impl Binary {
                 input.set_cursor(&input_ahead);
                 let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
                 lhs = Self::complete_rhs(input, recoverable_errors, lhs, assign.into(), rhs)?;
+            } else if input_ahead.try_parse_then::<RangeHalfOpen, _>(|_, input| {
+                if Precedence::Range >= precedence {
+                    ParseResult::Ok(())
+                } else {
+                    ParseResult::Unrecoverable(vec![input.error(NonFatal)])
+                }
+            }).is_ok() {
+                // range expressions are also binary expressions, but they require special handling
+                // because they are not valid in all contexts
+                input.set_cursor(&input_ahead);
+                let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
+                lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::Range(RangeKind::HalfOpen), rhs)?;
+            } else if input_ahead.try_parse_then::<RangeClosed, _>(|_, input| {
+                if Precedence::Range >= precedence {
+                    ParseResult::Ok(())
+                } else {
+                    ParseResult::Unrecoverable(vec![input.error(NonFatal)])
+                }
+            }).is_ok() {
+                input.set_cursor(&input_ahead);
+                let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
+                lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::Range(RangeKind::Closed), rhs)?;
             } else if BinOpKind::Mul.precedence() >= precedence {
                 // implicit multiplication test
 

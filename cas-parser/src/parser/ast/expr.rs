@@ -12,6 +12,7 @@ use crate::{
             literal::Literal,
             loop_expr::{Break, Continue, Loop},
             paren::Paren,
+            range::Range as RangeExpr,
             return_expr::Return,
             unary::Unary,
             while_expr::While,
@@ -85,6 +86,9 @@ pub enum Expr {
 
     /// An assignment of a variable or function, such as `x = 1` or `f(x) = x^2`.
     Assign(Assign),
+
+    /// A range expression, such as `1..10`.
+    Range(RangeExpr),
 }
 
 impl Expr {
@@ -106,6 +110,7 @@ impl Expr {
             Expr::Unary(unary) => unary.span(),
             Expr::Binary(binary) => binary.span(),
             Expr::Assign(assign) => assign.span(),
+            Expr::Range(range) => range.span(),
         }
     }
 
@@ -201,6 +206,7 @@ impl std::fmt::Display for Expr {
             Expr::Unary(unary) => unary.fmt(f),
             Expr::Binary(binary) => binary.fmt(f),
             Expr::Assign(assign) => assign.fmt(f),
+            Expr::Range(range) => range.fmt(f),
         }
     }
 }
@@ -223,6 +229,7 @@ impl Latex for Expr {
             Expr::Unary(unary) => unary.fmt_latex(f),
             Expr::Binary(binary) => binary.fmt_latex(f),
             Expr::Assign(assign) => assign.fmt_latex(f),
+            Expr::Range(range) => range.fmt_latex(f),
         }
     }
 }

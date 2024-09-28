@@ -39,6 +39,9 @@ pub enum Precedence {
     /// `|=`, `>>=`, and `<<=`).
     Assign,
 
+    /// Precedence of range (`..` and `..=`).
+    Range,
+
     /// Precedence of logical or (`or`).
     Or,
 

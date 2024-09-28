@@ -295,6 +295,21 @@ impl Vm {
                 let list = vec![value; extract_length(count, instruction.spans.clone())?];
                 value_stack.push(Value::List(Rc::new(RefCell::new(list))));
             },
+            InstructionKind::CreateRange(kind) => {
+                let end = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing end of range",
+                ))?;
+                let start = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing start of range",
+                ))?;
+                value_stack.push(Value::Range(
+                    Box::new(start),
+                    *kind,
+                    Box::new(end),
+                ));
+            },
             InstructionKind::LoadVar(symbol) => match symbol {
                 Symbol::User(id) => {
                     let value = call_stack

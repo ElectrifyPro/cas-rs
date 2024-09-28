@@ -104,7 +104,6 @@ token_kinds!(
     Quote
     Semicolon
     Int
-    Float
     Boolean
     Dot
     RangeHalfOpen

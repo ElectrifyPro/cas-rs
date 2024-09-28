@@ -166,9 +166,6 @@ pub enum TokenKind {
     #[regex(r"\d+")]
     Int,
 
-    #[regex(r"\d+\.\d*|\.\d+")]
-    Float,
-
     #[regex(r"(true|false)")]
     Boolean,
 

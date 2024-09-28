@@ -2,12 +2,11 @@ use cas_error::Error;
 use crate::{
     parser::{
         ast::{expr::Expr, helper::{SquareDelimited, Surrounded}},
-        error::{EmptyRadixLiteral, InvalidRadixBase, InvalidRadixDigit},
+        error::{EmptyRadixLiteral, InvalidRadixBase, InvalidRadixDigit, UnexpectedToken},
         fmt::Latex,
         token::{
             Boolean,
             CloseParen,
-            Float,
             Name,
             Int,
             OpenParen,
@@ -38,21 +37,6 @@ pub struct LitInt {
     pub span: Range<usize>,
 }
 
-impl<'source> Parse<'source> for LitInt {
-    fn std_parse(
-        input: &mut Parser<'source>,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
-        input
-            .try_parse::<Int>()
-            .map(|int| Self {
-                value: int.lexeme.to_owned(),
-                span: int.span,
-            })
-            .forward_errors(recoverable_errors)
-    }
-}
-
 impl std::fmt::Display for LitInt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value)
@@ -76,21 +60,6 @@ pub struct LitFloat {
     pub span: Range<usize>,
 }
 
-impl<'source> Parse<'source> for LitFloat {
-    fn std_parse(
-        input: &mut Parser<'source>,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
-        input
-            .try_parse::<Float>()
-            .map(|float| Self {
-                value: float.lexeme.to_owned(),
-                span: float.span,
-            })
-            .forward_errors(recoverable_errors)
-    }
-}
-
 impl std::fmt::Display for LitFloat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value)
@@ -100,6 +69,96 @@ impl std::fmt::Display for LitFloat {
 impl Latex for LitFloat {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value)
+    }
+}
+
+/// Parse either an integer or a floating-point number.
+fn parse_ascii_number(input: &mut Parser) -> Result<Literal, Vec<Error>> {
+    struct Num {
+        value: String,
+        span: Range<usize>,
+        has_digits: bool,
+        has_decimal: bool,
+    }
+
+    let mut result: Option<Num> = None;
+    input.advance_past_whitespace();
+
+    while let Ok(token) = input.next_token_raw() {
+        match token.kind {
+            TokenKind::Int => {
+                let mut has_decimal = false;
+                result = result.map_or_else(|| {
+                    Some(Num {
+                        value: token.lexeme.to_owned(),
+                        span: token.span.clone(),
+                        has_digits: true,
+                        has_decimal: false,
+                    })
+                }, |mut num| {
+                    num.value.push_str(token.lexeme);
+                    num.span.end = token.span.end;
+                    num.has_digits = true;
+                    has_decimal = num.has_decimal;
+                    Some(num)
+                });
+
+                if has_decimal {
+                    break;
+                }
+            },
+            TokenKind::Dot => {
+                result = result.map_or_else(|| {
+                    Some(Num {
+                        value: ".".to_owned(),
+                        span: token.span.clone(),
+                        has_digits: false,
+                        has_decimal: true,
+                    })
+                }, |mut num| {
+                    num.value.push('.');
+                    num.span.end = token.span.end;
+                    num.has_decimal = true;
+                    Some(num)
+                });
+            },
+            _ => {
+                input.prev();
+                break;
+            },
+        }
+    }
+
+    let num = result.ok_or_else(|| {
+        // clone to emulate peeking
+        let mut input_ahead = input.clone();
+        match input_ahead.next_token() {
+            Ok(token) => vec![Error::new(vec![token.span], UnexpectedToken {
+                expected: &[TokenKind::Int],
+                found: token.kind,
+            })],
+            Err(e) => vec![e],
+        }
+    })?;
+
+    if !num.has_digits {
+        // could have only encountered a single dot for `num` to be `Some`, yet have no digits
+        return Err(vec![Error::new(vec![num.span.clone()], UnexpectedToken {
+            expected: &[TokenKind::Int],
+            found: TokenKind::Dot,
+        })]);
+    }
+
+    if num.has_decimal {
+        Ok(Literal::Float(LitFloat {
+            value: num.value,
+            span: num.span,
+        }))
+    } else {
+        Ok(Literal::Integer(LitInt {
+            value: num.value,
+            span: num.span,
+        }))
     }
 }
 
@@ -557,8 +616,7 @@ impl<'source> Parse<'source> for Literal {
     ) -> Result<Self, Vec<Error>> {
         let _ = return_if_ok!(input.try_parse().map(Literal::Boolean).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::Radix).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Literal::Integer).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Literal::Float).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_ascii_number(input));
         let _ = return_if_ok!(input.try_parse().map(Literal::Symbol).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::Unit).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::List).forward_errors(recoverable_errors));

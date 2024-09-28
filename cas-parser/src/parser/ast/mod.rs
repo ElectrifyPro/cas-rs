@@ -27,7 +27,7 @@ pub use index::Index;
 pub use literal::{Literal, LitFloat, LitInt, LitList, LitListRepeat, LitRadix, LitSym, LitUnit};
 pub use loop_expr::Loop;
 pub use paren::Paren;
-pub use range::Range;
+pub use range::{Range, RangeKind};
 pub use return_expr::Return;
 pub use stmt::Stmt;
 pub use unary::Unary;

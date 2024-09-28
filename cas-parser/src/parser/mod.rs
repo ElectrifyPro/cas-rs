@@ -583,6 +583,18 @@ mod tests {
     }
 
     #[test]
+    fn wrong_float() {
+        let mut parser = Parser::new("1 .");
+        parser.try_parse_full::<Expr>().unwrap_err();
+    }
+
+    #[test]
+    fn wrong_float_2() {
+        let mut parser = Parser::new("1..");
+        parser.try_parse_full::<Expr>().unwrap_err();
+    }
+
+    #[test]
     fn literal_radix_base_2() {
         let mut parser = Parser::new("2'10000110000");
         let expr = parser.try_parse_full::<Expr>().unwrap();
@@ -2239,6 +2251,80 @@ mod tests {
                 span: 9..17,
             })),
             span: 0..17,
+        }));
+    }
+
+    #[test]
+    fn range_no_float() {
+        let mut parser = Parser::new("1..2");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Range(ast::Range {
+            start: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "1".to_string(),
+                span: 0..1,
+            }))),
+            end: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "2".to_string(),
+                span: 3..4,
+            }))),
+            kind: RangeKind::HalfOpen,
+            span: 0..4,
+        }));
+    }
+
+    #[test]
+    fn range_precedence() {
+        let mut parser = Parser::new("3 * 4 + 1 ..= 26 + 2");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Range(ast::Range {
+            start: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                        value: "3".to_string(),
+                        span: 0..1,
+                    }))),
+                    op: BinOp {
+                        kind: BinOpKind::Mul,
+                        implicit: false,
+                        span: 2..3,
+                    },
+                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                        value: "4".to_string(),
+                        span: 4..5,
+                    }))),
+                    span: 0..5,
+                })),
+                op: BinOp {
+                    kind: BinOpKind::Add,
+                    implicit: false,
+                    span: 6..7,
+                },
+                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "1".to_string(),
+                    span: 8..9,
+                }))),
+                span: 0..9,
+            })),
+            end: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "26".to_string(),
+                    span: 14..16,
+                }))),
+                op: BinOp {
+                    kind: BinOpKind::Add,
+                    implicit: false,
+                    span: 17..18,
+                },
+                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "2".to_string(),
+                    span: 19..20,
+                }))),
+                span: 14..20,
+            })),
+            kind: RangeKind::Closed,
+            span: 0..20,
         }));
     }
 

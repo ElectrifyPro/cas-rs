@@ -42,6 +42,7 @@ use error::{
     IndexOutOfBounds,
     IndexOutOfRange,
     InternalError,
+    InvalidIndexTarget,
     InvalidIndexType,
     InvalidLengthType,
     LengthOutOfRange,
@@ -377,7 +378,9 @@ impl Vm {
                     "missing value to store",
                 ))?;
                 let Value::List(list) = list else {
-                    return Err(internal_err(&instruction, "cannot index into non-list"));
+                    return Err(Error::new(instruction.spans.clone(), InvalidIndexTarget {
+                        expr_type: list.typename(),
+                    }));
                 };
 
                 let index = extract_index(index, instruction.spans.clone())?;
@@ -398,7 +401,9 @@ impl Vm {
                     "missing list to load value from",
                 ))?;
                 let Value::List(list) = list else {
-                    return Err(internal_err(&instruction, "cannot index into non-list"));
+                    return Err(Error::new(instruction.spans.clone(), InvalidIndexTarget {
+                        expr_type: list.typename(),
+                    }));
                 };
 
                 let index = extract_index(index, instruction.spans.clone())?;
@@ -843,12 +848,12 @@ partial_factorial(10, 7)").unwrap();
     fn exec_sum_even() {
         let result = run_program("n = 200
 c = 0
-sum = 0
+total = 0
 while c < n {
     c += 1
     if c & 1 == 1 continue
-    sum += c
-}; sum").unwrap();
+    total += c
+}; total").unwrap();
         assert_eq!(result, Value::Integer(int(10100)));
     }
 
@@ -921,6 +926,20 @@ f()").unwrap();
     }
 
     #[test]
+    fn exec_arithmetic_sequence_summation() {
+        let result = run_program("f(a, d, n) = n / 2 * (2a + (n - 1)d)
+g(a, d, n) = sum i in 0..n of a + i d
+f(1, 2, 10) == g(1, 2, 10)").unwrap();
+        assert_eq!(result, Value::Boolean(true));
+    }
+
+    #[test]
+    fn exec_product_factorial() {
+        let result = run_program("iter_fac(n) = product i in 1..=n of i; iter_fac(5)").unwrap();
+        assert_eq!(result, Value::Integer(int(120)));
+    }
+
+    #[test]
     fn example_bad_lcm() {
         let source = include_str!("../../examples/bad_lcm.calc");
         let result = run_program(source).unwrap();
@@ -979,6 +998,24 @@ f()").unwrap();
         let source = include_str!("../../examples/manual_abs.calc");
         let result = run_program(source).unwrap();
         assert_eq!(result, 4.into());
+    }
+
+    #[test]
+    fn example_map_list() {
+        let source = include_str!("../../examples/map_list.calc");
+        let result = run_program(source).unwrap();
+        assert_eq!(result, vec![
+            complex(0).into(),
+            complex(1).into(),
+            complex(2).into(),
+            complex(3).into(),
+            complex(4).into(),
+            complex(5).into(),
+            complex(6).into(),
+            complex(7).into(),
+            complex(8).into(),
+            complex(9).into(),
+        ].into());
     }
 
     #[test]

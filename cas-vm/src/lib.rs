@@ -30,7 +30,8 @@ use cas_compute::{
 use cas_compiler::{
     expr::compile_stmts,
     instruction::{Instruction, InstructionKind},
-    item::{Item, Symbol},
+    item::Symbol,
+    sym_table::SymbolTable,
     Chunk,
     Compile,
     Compiler,
@@ -90,7 +91,7 @@ pub struct Vm {
     ///
     /// This is used to store information about variables and functions that are defined in the
     /// program.
-    pub symbols: HashMap<String, Item>,
+    pub sym_table: SymbolTable,
 
     /// Variables in the global scope.
     pub variables: HashMap<usize, Value>,
@@ -102,7 +103,7 @@ impl Default for Vm {
             trig_mode: TrigMode::default(),
             chunks: vec![Chunk::default()], // add main chunk
             labels: HashMap::new(),
-            symbols: HashMap::new(),
+            sym_table: SymbolTable::default(),
             variables: HashMap::new(),
         }
     }
@@ -117,7 +118,7 @@ impl From<Compiler> for Vm {
                 .into_iter()
                 .map(|(label, location)| (label, location.unwrap()))
                 .collect(),
-            symbols: compiler.symbols,
+            sym_table: compiler.sym_table,
             variables: HashMap::new(),
         }
     }
@@ -140,7 +141,7 @@ impl Vm {
                 .into_iter()
                 .map(|(label, location)| (label, location.unwrap()))
                 .collect(),
-            symbols: compiler.symbols,
+            sym_table: compiler.sym_table,
             variables: HashMap::new(),
         })
     }
@@ -155,7 +156,7 @@ impl Vm {
                 .into_iter()
                 .map(|(label, location)| (label, location.unwrap()))
                 .collect(),
-            symbols: compiler.symbols,
+            sym_table: compiler.sym_table,
             variables: HashMap::new(),
         })
     }
@@ -622,7 +623,7 @@ impl ReplVm {
             .into_iter()
             .map(|(label, location)| (label, Some(location)))
             .collect();
-        self.compiler.symbols = std::mem::take(&mut self.vm.symbols);
+        self.compiler.sym_table = std::mem::take(&mut self.vm.sym_table);
 
         compile_stmts(&stmts, &mut self.compiler).inspect_err(|_| {
             // restore the previous state of the VM to ensure compilation errors don't affect the
@@ -636,7 +637,7 @@ impl ReplVm {
             .into_iter()
             .map(|(label, location)| (label, location.unwrap()))
             .collect();
-        self.vm.symbols = std::mem::take(&mut self.compiler.symbols);
+        self.vm.sym_table = std::mem::take(&mut self.compiler.sym_table);
 
         self.vm.run()
     }

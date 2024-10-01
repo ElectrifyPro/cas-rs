@@ -1,8 +1,8 @@
 use cas_compute::numerical::builtin::{Builtin, ParamKind};
 use cas_error::Error;
 use cas_parser::parser::ast::{Call, Param as ParserParam};
-use crate::error::{MissingArgument, TooManyArguments};
-use std::{cmp::Ordering, collections::{HashMap, HashSet}};
+use crate::{error::{MissingArgument, TooManyArguments}, sym_table::ScopeId};
+use std::cmp::Ordering;
 
 enum Signature<'a> {
     Builtin(&'static dyn Builtin),
@@ -117,7 +117,7 @@ impl Item {
 }
 
 /// A symbol declaration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct SymbolDecl {
     /// The unique identifier for the symbol.
     pub id: usize,
@@ -129,32 +129,30 @@ pub struct FuncDecl {
     /// The unique identifier for the function.
     pub id: usize,
 
+    /// The identifier of the scope containing the function's symbol table.
+    pub scope_id: ScopeId,
+
     /// The index of the chunk containing the function body.
     pub chunk: usize,
 
     /// The function signature.
     pub signature: Vec<ParserParam>,
-
-    /// Table containing items captured from the environment of this function.
-    ///
-    /// Captured items are items used inside the function, but are not declared inside the
-    /// function itself. During runtime, at the site of the function declaration, the values
-    /// of captured items are saved for every invocation of the function.
-    pub captures: HashSet<Symbol>,
-
-    /// Symbol table for items declared inside this function.
-    pub symbols: HashMap<String, Item>,
 }
 
 impl FuncDecl {
-    /// Returns a function declaration with the initial given chunk and signature.
-    pub fn new(id: usize, chunk: usize, signature: Vec<ParserParam>) -> Self {
+    /// Returns a function declaration with the initial given id, scope id, chunk index, and
+    /// signature.
+    pub fn new(
+        id: usize,
+        scope_id: ScopeId,
+        chunk: usize,
+        signature: Vec<ParserParam>,
+    ) -> Self {
         Self {
             id,
+            scope_id,
             chunk,
             signature,
-            captures: HashSet::new(),
-            symbols: HashMap::new(),
         }
     }
 

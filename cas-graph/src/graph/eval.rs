@@ -67,7 +67,7 @@ pub(crate) fn evaluate_expr(
     let mut last_slope: Option<f64> = None;
 
     while current_trace <= bounds.1 {
-        let Item::Symbol(symbol) = vm.symbols.get_mut(analyzed.independent.as_str()).unwrap() else {
+        let Some(symbol) = vm.sym_table.resolve_symbol(analyzed.independent.as_str()) else {
             unreachable!("symbol must exist");
         };
         vm.variables.insert(symbol.id, current_trace.into());

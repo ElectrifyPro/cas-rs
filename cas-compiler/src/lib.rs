@@ -2,6 +2,7 @@ pub mod expr;
 pub mod error;
 pub mod instruction;
 pub mod item;
+pub mod sym_table;
 
 use cas_compute::{consts::all as all_consts, funcs::all as all_funcs};
 use cas_error::Error;
@@ -16,6 +17,7 @@ use expr::compile_stmts;
 pub use instruction::{Instruction, InstructionKind};
 use item::{FuncDecl, Item, Symbol, SymbolDecl};
 use std::ops::Range;
+use sym_table::SymbolTable;
 
 /// A label that can be used to reference a specific instruction in the bytecode.
 ///
@@ -55,12 +57,6 @@ pub struct CompilerState {
     /// the compiler will generate a [`Instruction::AssignVar`] instruction for `x` and a
     /// [`Instruction::StoreVar`] instruction for `y`.
     pub top_level_assign: bool,
-
-    /// Path representing the current scope.
-    ///
-    /// A new scope is introduced inside each function definition (TODO: block scopes). When this
-    /// is empty, we are currently in the global scope.
-    pub path: Vec<String>,
 }
 
 /// A chunk containing a function definition.
@@ -110,6 +106,18 @@ fn check_override_builtin(symbol: &LitSym) -> Result<(), Error> {
     Ok(())
 }
 
+/// Returns the builtin constant or function with the given name, if it exists.
+fn resolve_builtin(symbol: &LitSym) -> Option<Symbol> {
+    all_consts()
+        .get(&*symbol.name)
+        .map(|name| Symbol::Builtin(name))
+        .or_else(|| {
+            all_funcs()
+                .get(&*symbol.name)
+                .map(|func| Symbol::Builtin(func.name()))
+        })
+}
+
 /// A compiler that provides tools to generate bytecode instructions for a virtual machine (see
 /// [`Vm`]).
 #[derive(Clone, Debug)]
@@ -130,7 +138,7 @@ pub struct Compiler {
     ///
     /// This is used to store information about variables and functions that are defined in the
     /// program.
-    pub symbols: HashMap<String, Item>,
+    pub sym_table: SymbolTable,
 
     /// Index of the current chunk.
     ///
@@ -149,7 +157,7 @@ impl Default for Compiler {
         Self {
             chunks: vec![Chunk::default()], // add main chunk
             labels: Default::default(),
-            symbols: Default::default(),
+            sym_table: Default::default(),
             chunk: 0,
             next_item_id: 0,
             state: Default::default(),
@@ -219,24 +227,27 @@ impl Compiler {
         // the builtin constants and functions afterward
 
         // TODO: shadowing should probably be explicit (i.e. with `let` keyword)
-        if self.state.path.is_empty() {
+        if self.sym_table.is_global_scope() {
             // existence of higher order functions means that a symbol could potentially override
             // a builtin symbol or function, even if it is not explicitly declared as a function or
             // symbol (see no_override_builtin test at bottom of file)
             check_override_builtin(symbol)?;
         }
 
-        let mut table = &mut self.symbols;
-        for component in self.state.path.iter() {
-            let Item::Func(func) = table.get_mut(component).unwrap() else {
-                unreachable!();
-            };
-            table = &mut func.symbols;
-        }
-
         // add to this final table
-        table.insert(symbol.name.to_string(), item);
+        self.sym_table.insert(symbol.name.to_string(), item);
         Ok(())
+    }
+
+    /// Creates a new scope in the symbol table. Within the provided function, all `compiler`
+    /// methods that add or mutate symbols will do so in the new scope.
+    pub fn new_scope<F, T>(&mut self, f: F) -> Result<T, Error>
+        where F: FnOnce(&mut Compiler) -> Result<T, Error>
+    {
+        self.sym_table.enter_scope();
+        let t = f(self)?;
+        self.sym_table.exit_scope();
+        Ok(t)
     }
 
     /// Creates a new chunk and a scope for compilation. Within the provided function, all
@@ -255,15 +266,20 @@ impl Compiler {
         let id = self.next_item_id;
         self.add_item(
             &header.name,
-            Item::Func(FuncDecl::new(id, new_chunk_idx, header.params.clone())),
+            Item::Func(FuncDecl::new(
+                id,
+                self.sym_table.next_id(),
+                new_chunk_idx,
+                header.params.clone(),
+            )),
         )?;
         self.next_item_id += 1;
 
         self.chunk = new_chunk_idx;
-        self.state.path.push(header.name.name.to_string());
-        f(self)?;
-        let captures = self.captured_symbols();
-        self.state.path.pop().unwrap();
+        let captures = self.new_scope(|compiler| {
+            f(compiler)?;
+            Ok(compiler.captured_symbols())
+        })?;
         self.chunk = old_chunk_idx;
 
         Ok(NewChunk {
@@ -298,49 +314,12 @@ impl Compiler {
     /// Returns the unique identifier for the symbol, which can be used to reference the symbol in
     /// the bytecode.
     pub fn resolve_user_symbol_or_insert(&mut self, symbol: &LitSym) -> Result<usize, Error> {
-        if self.state.path.is_empty() {
-            check_override_builtin(symbol)?;
-        }
-
-        // check for builtin constants
-        let mut result = None;
-
-        // then check the symbol table (including possibly variables that shadow the constant)
-        let mut table = &mut self.symbols;
-
-        if self.state.path.len() > 0 {
-            // is the symbol / function in the global scope?
-            if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
-                result = Some(id);
-            }
-
-            // work our way up to the current scope
-            for component in self.state.path.iter() {
-                // is the symbol in this scope?
-                if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
-                    result = Some(id);
-                }
-
-                // let's check the next scope
-                let Item::Func(func) = table.get_mut(component).unwrap() else {
-                    unreachable!();
-                };
-                table = &mut func.symbols;
-            }
-        }
-
-        if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
-            // is the symbol / function in the current scope?
-            Ok(id)
-        } else if let Some(symbol) = result {
-            // use the last one we found
-            Ok(symbol)
+        if let Some(item) = self.sym_table.resolve_item(&symbol.name) {
+            // symbol was found in the current or a parent scope
+            Ok(item.id())
         } else {
             // if not, insert it
-            let id = self.next_item_id;
-            table.insert(symbol.name.to_string(), Item::Symbol(SymbolDecl { id }));
-            self.next_item_id += 1;
-            Ok(id)
+            self.add_symbol(symbol)
         }
     }
 
@@ -351,117 +330,39 @@ impl Compiler {
     /// Returns the unique identifier for the symbol, or an error if the symbol is not found within
     /// the current scope.
     pub fn resolve_symbol(&mut self, symbol: &LitSym) -> Result<Symbol, Error> {
-        // check for builtin constants and functions
-        let mut result = all_consts()
-            .get(&*symbol.name)
-            .map(|name| Symbol::Builtin(name))
-            .or_else(|| all_funcs().get(&*symbol.name).map(|func| Symbol::Builtin(func.name())));
-
-        // then check the symbol table (including possibly variables that shadow the constant)
-        let mut table = &self.symbols;
-
-        if let Some((last, head)) = self.state.path.split_last() {
-            // is the symbol in the global scope?
-            if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
-                result = Some(Symbol::User(id));
-            }
-
-            // work our way up to the current scope; do not check the current scope (it will be
-            // checked at the end so that we can check if the symbol is captured from a parent scope)
-            for component in head {
-                // let's check the next scope
-                let Item::Func(func) = table.get(component).unwrap() else {
-                    unreachable!();
-                };
-                table = &func.symbols;
-
-                // is the symbol in this scope?
-                if let Some(Item::Symbol(symbol)) = table.get(&symbol.name) {
-                    result = Some(Symbol::User(symbol.id));
-                }
-            }
-
-            // prep the table for the current scope
-            let Item::Func(func) = table.get(last).unwrap() else {
-                unreachable!();
-            };
-            table = &func.symbols;
-        }
-
-        if let Some(id) = table.get(&symbol.name).map(|item| item.id()) {
-            // is the symbol in the current scope?
-            Ok(Symbol::User(id))
-        } else if let Some(symbol) = result {
-            // use the last one we found
-            self.mark_captured(symbol);
+        if let Some(symbol) = self.sym_table.resolve_item_mark_capture(&symbol.name) {
+            // symbol was found in the current or a parent scope
             Ok(symbol)
         } else {
-            // not found
-            Err(Error::new(vec![symbol.span.clone()], UnknownVariable {
-                name: symbol.name.clone(),
-            }))
+            // maybe it refers to a builtin constant or function
+            if let Some(symbol) = resolve_builtin(symbol) {
+                Ok(symbol)
+            } else {
+                // no matching symbol found
+                Err(Error::new(vec![symbol.span.clone()], UnknownVariable {
+                    name: symbol.name.clone(),
+                }))
+            }
         }
-    }
-
-    /// Marks the given variable as being captured from a parent scope.
-    fn mark_captured(&mut self, symbol: Symbol) {
-        // builtin symbols can never be captured
-        if let Symbol::Builtin(_) = symbol {
-            return;
-        }
-
-        let Some((first, rest)) = self.state.path.split_first() else {
-            unreachable!();
-        };
-
-        // let Item::Func(mut func) = self.symbols.get_mut(first).unwrap() else {
-        //     unreachable!();
-        // };
-        // NOTE: when writing `let Item::Func(mut func)` above, the compiler complains that
-        // `func` has the type `FuncDecl` instead of `&mut FuncDecl`. i assume this is because
-        // the `mut` keyword is part of the pattern, but i'm not sure? below is the equivalent
-        // using `match` instead.
-        let mut func = match self.symbols.get_mut(first).unwrap() {
-            Item::Func(func) => func,
-            _ => unreachable!(),
-        };
-
-        for component in rest {
-            let Item::Func(next_func) = func.symbols.get_mut(component).unwrap() else {
-                unreachable!();
-            };
-            func = next_func;
-        }
-
-        func.captures.insert(symbol);
     }
 
     /// Returns the captured user symbols for the current function. Returns [`None`] if the current
     /// scope is the global scope.
     fn captured_symbols(&self) -> Option<HashSet<usize>> {
-        let Some((first, rest)) = self.state.path.split_first() else {
-            return None;
-        };
-
-        let mut func = match self.symbols.get(first).unwrap() {
-            Item::Func(func) => func,
-            _ => unreachable!(),
-        };
-
-        for component in rest {
-            let Item::Func(next_func) = func.symbols.get(component).unwrap() else {
-                unreachable!();
-            };
-            func = next_func;
+        if self.sym_table.is_global_scope() {
+            None
+        } else {
+            let captures = self.sym_table
+                .active_scope()
+                .captures()
+                .iter()
+                .map(|symbol| match symbol {
+                    Symbol::User(id) => *id,
+                    _ => unreachable!(),
+                })
+                .collect();
+            Some(captures)
         }
-
-        let captures = func.captures.iter()
-            .map(|symbol| match symbol {
-                Symbol::User(id) => *id,
-                _ => unreachable!(),
-            })
-            .collect();
-        Some(captures)
     }
 
     /// Adds an instruction to the current chunk with no associated source code span.
@@ -609,7 +510,14 @@ g(2, 3)").unwrap();
     #[test]
     fn derivative() {
         compile("f(x) = x^2; f'(2)").unwrap();
-        compile("ncr''(5, 3)").unwrap_err();
+        // TODO: it is not possible to derivate `ncr` (due to 2 parameters), so this should be an
+        // error
+        // however, ever since higher order functions were supported, functions couldn't be checked
+        // if they were valid for derivation until runtime
+        // however again, it is possible to determine if a function reference is referring to a
+        // builtin function, so technically we have enough information to determine if this is
+        // derivable at compile time. maybe we should do that
+        compile("ncr''(5, 3)").unwrap();
     }
 
     #[test]

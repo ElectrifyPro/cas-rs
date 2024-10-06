@@ -1,14 +1,13 @@
 use cas_error::Error;
 use cas_parser::parser::ast::expr::Expr;
 use crate::{Compile, Compiler};
-use super::stmt::compile_stmts;
 
 impl Compile for Expr {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
         match self {
             Expr::Literal(literal) => literal.compile(compiler),
             Expr::Paren(paren) => paren.expr.compile(compiler),
-            Expr::Block(block) => compile_stmts(&block.stmts, compiler),
+            Expr::Block(block) => block.compile(compiler),
             Expr::Sum(sum) => sum.compile(compiler),
             Expr::Product(product) => product.compile(compiler),
             Expr::If(if_expr) => if_expr.compile(compiler),

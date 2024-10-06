@@ -14,7 +14,7 @@ impl Compile for Loop {
             state.loop_start = Some(loop_start);
             state.loop_end = Some(loop_end);
         }, |compiler| {
-            self.body.compile(compiler)?;
+            compiler.new_scope(|compiler| self.body.compile(compiler))?;
             compiler.add_instr(InstructionKind::Drop);
             Ok(())
         })?;
@@ -43,7 +43,7 @@ impl Compile for While {
             state.loop_start = Some(condition_start);
             state.loop_end = Some(loop_end);
         }, |compiler| {
-            self.body.compile(compiler)?;
+            compiler.new_scope(|compiler| self.body.compile(compiler))?;
             compiler.add_instr(InstructionKind::Drop);
             Ok(())
         })?;

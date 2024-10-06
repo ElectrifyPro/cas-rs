@@ -6,7 +6,9 @@ use std::collections::{HashMap, HashSet};
 /// A new [`ScopeId`] is created for each new scope that is entered. A new scope is created in one
 /// of the following situations:
 ///
+/// - A curly brace `{}` block is entered.
 /// - A function definition `f(x) = ...` is entered.
+/// - A `loop`, `while`, `sum`, or `product` loop is entered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ScopeId(usize);
 
@@ -119,9 +121,24 @@ impl SymbolTable {
     }
 
     /// Exits the current scope and makes the parent scope the active scope.
+    ///
+    /// If the current scope has no symbols declared in it when it is exited, it will not be added
+    /// to the symbol table.
     pub fn exit_scope(&mut self) {
         let scope = self.active_scopes.pop().expect("no scope to exit");
-        self.symbols.insert(scope.id(), scope);
+        if !scope.symbols.is_empty() {
+            self.symbols.insert(scope.id(), scope);
+        }
+    }
+
+    /// Exits the current scope, makes the parent scope the active scope, then returns a reference
+    /// to the current scope that was exited. This is useful for finding the scope's captured
+    /// symbols.
+    ///
+    /// The scope is always added to the symbol table, even if it has no symbols declared in it.
+    pub(crate) fn exit_scope_get(&mut self) -> &Scope {
+        let scope = self.active_scopes.pop().expect("no scope to exit");
+        self.symbols.entry(scope.id()).or_insert(scope)
     }
 
     /// Returns a reference to the active scope.

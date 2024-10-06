@@ -17,7 +17,7 @@ use expr::compile_stmts;
 pub use instruction::{Instruction, InstructionKind};
 use item::{FuncDecl, Item, Symbol, SymbolDecl};
 use std::ops::Range;
-use sym_table::SymbolTable;
+use sym_table::{Scope, SymbolTable};
 
 /// A label that can be used to reference a specific instruction in the bytecode.
 ///
@@ -39,7 +39,7 @@ pub struct CompilerState {
     /// that its return value is the return value of the block / program.
     pub last_stmt: bool,
 
-    /// Whether the expression being parsed is a top-level assignment expression, indicating that
+    /// Whether the expression being compiled is a top-level assignment expression, indicating that
     /// its return value is not used.
     ///
     /// This is used to determine whether to use the [`Instruction::StoreVar`] or
@@ -47,7 +47,7 @@ pub struct CompilerState {
     ///
     /// For example, in the following code:
     ///
-    /// ```calc
+    /// ```calcscript
     /// x = y = 2
     /// ```
     ///
@@ -241,13 +241,29 @@ impl Compiler {
 
     /// Creates a new scope in the symbol table. Within the provided function, all `compiler`
     /// methods that add or mutate symbols will do so in the new scope.
-    pub fn new_scope<F, T>(&mut self, f: F) -> Result<T, Error>
-        where F: FnOnce(&mut Compiler) -> Result<T, Error>
+    ///
+    /// The scope is popped off the symbol table stack when the function returns. If no symbols
+    /// were added to the scope, it will not be added to the symbol table.
+    pub fn new_scope<F>(&mut self, f: F) -> Result<(), Error>
+        where F: FnOnce(&mut Compiler) -> Result<(), Error>
     {
         self.sym_table.enter_scope();
-        let t = f(self)?;
+        f(self)?;
         self.sym_table.exit_scope();
-        Ok(t)
+        Ok(())
+    }
+
+    /// Creates a new scope in the symbol table. Within the provided function, all `compiler`
+    /// methods that add or mutate symbols will do so in the new scope.
+    ///
+    /// The scope is popped when the function returns, and a reference to the scope is returned. It
+    /// will always be added to the symbol table, even if no symbols were added to it.
+    pub(crate) fn new_scope_get<F>(&mut self, f: F) -> Result<&Scope, Error>
+        where F: FnOnce(&mut Compiler) -> Result<(), Error>
+    {
+        self.sym_table.enter_scope();
+        f(self)?;
+        Ok(self.sym_table.exit_scope_get())
     }
 
     /// Creates a new chunk and a scope for compilation. Within the provided function, all
@@ -276,16 +292,20 @@ impl Compiler {
         self.next_item_id += 1;
 
         self.chunk = new_chunk_idx;
-        let captures = self.new_scope(|compiler| {
-            f(compiler)?;
-            Ok(compiler.captured_symbols())
-        })?;
+        let scope = self.new_scope_get(f)?;
+        let captures = scope.captures()
+            .iter()
+            .map(|symbol| match symbol {
+                Symbol::User(id) => *id,
+                _ => unreachable!(),
+            })
+            .collect();
         self.chunk = old_chunk_idx;
 
         Ok(NewChunk {
             id,
             chunk: new_chunk_idx,
-            captures: captures.unwrap(),
+            captures,
         })
     }
 
@@ -343,25 +363,6 @@ impl Compiler {
                     name: symbol.name.clone(),
                 }))
             }
-        }
-    }
-
-    /// Returns the captured user symbols for the current function. Returns [`None`] if the current
-    /// scope is the global scope.
-    fn captured_symbols(&self) -> Option<HashSet<usize>> {
-        if self.sym_table.is_global_scope() {
-            None
-        } else {
-            let captures = self.sym_table
-                .active_scope()
-                .captures()
-                .iter()
-                .map(|symbol| match symbol {
-                    Symbol::User(id) => *id,
-                    _ => unreachable!(),
-                })
-                .collect();
-            Some(captures)
         }
     }
 
@@ -477,6 +478,40 @@ g()").unwrap_err();
         // variable `j` is defined in `g`, so `f` can only access it if `x` is passed as an
         // argument, or `j` is in a higher scope
         assert_eq!(err.spans[0], 6..7);
+    }
+
+    #[test]
+    fn advanced_scoping() {
+        // `{}` curly braces, `f(x) = ...` function declarations, `loop`, `while`, `sum`, and
+        // `product` introduce new scopes
+        compile("{ x = 25 }; x").unwrap_err();
+
+        // but if a variable is already defined in a parent scope, it can be accessed in a child
+        // scope
+        compile("x = 25; { x *= 2 }; x").unwrap();
+
+        // this wouldn't make sense if a scope was not created
+        //
+        // functions aren't called at declaration, so `y` wouldn't be initialized when `y` is
+        // accessed
+        compile("f(x) = y = 25; y").unwrap_err();
+
+        compile("f(x) = { y = 25 }; y").unwrap_err();
+        compile("loop { t = rand(); if t < 0.2 break t }; t").unwrap_err();
+
+        // `loop` and `while` _do_ introduce new scopes, specifically to avoid the first test
+        // below: if scopes were not introduced, `t` would be uninitialized after the loop
+        // immediately breaks, causing an error when `t` is accessed outside the loop
+        //
+        // despite that real issue, in general, scopes aren't all that useful in loops, since the
+        // loop body will usually need to have multiple statements. the user would have to use
+        // curly braces `{}` to write multiple statements, and thus, introduce a new scope
+        //
+        // otherwise, the loop body would just be a single statement, and the scope would be
+        compile("loop t = break 2; t").unwrap_err();
+        compile("while true break t = 2; t").unwrap_err();
+
+        compile("(sum n in 1..5 of n) > n").unwrap_err();
     }
 
     #[test]

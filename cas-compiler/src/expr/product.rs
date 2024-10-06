@@ -21,40 +21,43 @@ impl Compile for Product {
         // out
         // ```
 
-        // initialize the product to 1
-        compiler.add_instr(InstructionKind::LoadConst(Value::Integer(int(1))));
+        compiler.new_scope(|compiler| {
+            // initialize the product to 1
+            compiler.add_instr(InstructionKind::LoadConst(Value::Integer(int(1))));
 
-        // assign: initialize index in range
-        self.range.start.compile(compiler)?;
-        let symbol_id = compiler.resolve_user_symbol_or_insert(&self.variable)?;
-        compiler.add_instr(InstructionKind::AssignVar(symbol_id));
+            // assign: initialize index in range
+            self.range.start.compile(compiler)?;
+            let symbol_id = compiler.resolve_user_symbol_or_insert(&self.variable)?;
+            compiler.add_instr(InstructionKind::AssignVar(symbol_id));
 
-        // condition: continue summing while the variable is in the range:
-        // `symbol_id < self.range.end`
-        let condition_start = compiler.new_end_label();
-        compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
-        self.range.end.compile(compiler)?;
-        match self.range.kind {
-            RangeKind::HalfOpen => compiler.add_instr(InstructionKind::Binary(BinOpKind::Less)),
-            RangeKind::Closed => compiler.add_instr(InstructionKind::Binary(BinOpKind::LessEq)),
-        }
+            // condition: continue summing while the variable is in the range:
+            // `symbol_id < self.range.end`
+            let condition_start = compiler.new_end_label();
+            compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
+            self.range.end.compile(compiler)?;
+            match self.range.kind {
+                RangeKind::HalfOpen => compiler.add_instr(InstructionKind::Binary(BinOpKind::Less)),
+                RangeKind::Closed => compiler.add_instr(InstructionKind::Binary(BinOpKind::LessEq)),
+            }
 
-        let loop_end = compiler.new_unassociated_label();
-        compiler.add_instr(InstructionKind::JumpIfFalse(loop_end));
+            let loop_end = compiler.new_unassociated_label();
+            compiler.add_instr(InstructionKind::JumpIfFalse(loop_end));
 
-        // body: compute body, multiply it to cummulative product
-        self.body.compile(compiler)?;
-        compiler.add_instr(InstructionKind::Binary(BinOpKind::Mul));
+            // body: compute body, multiply it to cummulative product
+            self.body.compile(compiler)?;
+            compiler.add_instr(InstructionKind::Binary(BinOpKind::Mul));
 
-        // increment index
-        compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
-        compiler.add_instr(InstructionKind::LoadConst(Value::Integer(int(1))));
-        compiler.add_instr(InstructionKind::Binary(BinOpKind::Add));
-        compiler.add_instr(InstructionKind::AssignVar(symbol_id));
+            // increment index
+            compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
+            compiler.add_instr(InstructionKind::LoadConst(Value::Integer(int(1))));
+            compiler.add_instr(InstructionKind::Binary(BinOpKind::Add));
+            compiler.add_instr(InstructionKind::AssignVar(symbol_id));
 
-        compiler.add_instr(InstructionKind::Jump(condition_start));
+            compiler.add_instr(InstructionKind::Jump(condition_start));
 
-        compiler.set_end_label(loop_end);
+            compiler.set_end_label(loop_end);
+            Ok(())
+        })?;
         Ok(())
     }
 }

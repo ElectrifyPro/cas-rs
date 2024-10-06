@@ -161,7 +161,8 @@ impl SymbolTable {
             return Some(Symbol::User(item.id()));
         }
 
-        rest.iter_mut().find_map(|scope| {
+        // go in reverse order to find the nearest parent scope that contains the item
+        rest.iter_mut().rev().find_map(|scope| {
             scope.resolve_item(name).map(|item| {
                 last.add_capture(Symbol::User(item.id()));
                 Symbol::User(item.id())

@@ -65,6 +65,12 @@ impl Compile for Assign {
                         self.value.compile(compiler)?;
                     },
                     compound => {
+                        // load the (hopefully) list value
+                        index.target.compile(compiler)?;
+
+                        // load value to index by
+                        index.index.compile(compiler)?;
+
                         // compute the new value to assign
                         compiler.add_instr_with_spans(
                             InstructionKind::LoadIndexed,

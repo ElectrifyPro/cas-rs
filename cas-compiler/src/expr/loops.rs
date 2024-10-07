@@ -97,25 +97,9 @@ impl Compile for For {
             let symbol_id = compiler.add_symbol(&self.variable)?;
             compiler.add_instr(InstructionKind::AssignVar(symbol_id));
 
-            let condition_start = compiler.new_unassociated_label();
-            compiler.add_instr(InstructionKind::Jump(condition_start));
-
-            // increment index at the top
-            //
-            // this is necessary for `continue` expressions to work correctly without having to
-            // resort to duplicating the increment instruction or compiler state
-            //
-            // all we have to do is skip this the first time the index is assigned, then jump back
-            // here at the end of the loop body, or if we encounter a `continue` expression
-            let index_start = compiler.new_end_label();
-            compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
-            compiler.add_instr(InstructionKind::LoadConst(Value::Integer(int(1))));
-            compiler.add_instr(InstructionKind::Binary(BinOpKind::Add));
-            compiler.add_instr(InstructionKind::AssignVar(symbol_id));
-
             // condition: continue summing while the variable is in the range:
             // `symbol_id < self.range.end`
-            compiler.set_end_label(condition_start);
+            let condition_start = compiler.new_end_label();
             compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
             compiler.add_chunk_instrs(chunk);
             match self.range.kind {
@@ -128,6 +112,7 @@ impl Compile for For {
             compiler.add_instr(InstructionKind::JumpIfFalse(end_with_no_break));
 
             // body: run body
+            let index_start = compiler.new_unassociated_label();
             compiler.with_state(|state| {
                 // in case `continue` and `break` expressions are inside, we need the loop start and
                 // end labels for their jumps
@@ -139,8 +124,15 @@ impl Compile for For {
                 Ok(())
             })?;
 
-            // jump back to index increment
-            compiler.add_instr(InstructionKind::Jump(index_start));
+            // increment index
+            compiler.set_end_label(index_start);
+            compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
+            compiler.add_instr(InstructionKind::LoadConst(Value::Integer(int(1))));
+            compiler.add_instr(InstructionKind::Binary(BinOpKind::Add));
+            compiler.add_instr(InstructionKind::AssignVar(symbol_id));
+
+            // jump back to condition
+            compiler.add_instr(InstructionKind::Jump(condition_start));
 
             // if the loop doesn't terminate through a `break` expression, we need to load
             // something to the stack so that the automatically generated `Drop` instruction has

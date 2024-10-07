@@ -92,6 +92,12 @@ impl<'a> Iterator for ExprIter<'a> {
                     self.stack.push(&while_expr.body);
                     self.stack.push(&while_expr.condition);
                 },
+                Expr::For(for_expr) => {
+                    if self.is_last_visited(&for_expr.body) {
+                        return self.visit();
+                    }
+                    self.stack.push(&for_expr.body);
+                },
                 Expr::Then(then) => {
                     if self.is_last_visited(&then.expr) {
                         return self.visit();

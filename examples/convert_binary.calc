@@ -18,15 +18,7 @@ to_bin(n) = {
 }
 
 // Converts a 32-bit binary representation into an integer.
-from_bin(b) = {
-    out = 0
-    i = 0
-    while i < 32 {
-        out = out * 2 + b[i]
-        i += 1
-    }
-    out
-}
+from_bin(b) = sum i in 0..32 of b[i] * 2^(31 - i)
 
 tests = [
     2'0,             // 0
@@ -40,10 +32,8 @@ tests = [
 
 results = [false; 7]
 
-t = 0
-while t < 7 {
-    results[t] = from_bin(to_bin(tests[t])) == tests[t]
-    t += 1
+for i in 0..7 {
+    results[i] = from_bin(to_bin(tests[i])) == tests[i]
 }
 
 results

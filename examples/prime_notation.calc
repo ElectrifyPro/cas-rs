@@ -15,10 +15,8 @@ tests = [
 
 result = [false; 15]
 
-t = 0
-while t < 7 {
+for t in 0..7 {
     result[t] = g(tests[t]) ~== f'(tests[t]) // use ~== since prime notation is an approximation
-    t += 1
 }
 
 // This also works for higher order derivatives and builtin functions. Here are

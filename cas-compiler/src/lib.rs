@@ -482,8 +482,8 @@ g()").unwrap_err();
 
     #[test]
     fn advanced_scoping() {
-        // `{}` curly braces, `f(x) = ...` function declarations, `loop`, `while`, `sum`, and
-        // `product` introduce new scopes
+        // `{}` curly braces, `f(x) = ...` function declarations, `loop`, `while`, `for`, `sum`,
+        // and `product` introduce new scopes
         compile("{ x = 25 }; x").unwrap_err();
 
         // but if a variable is already defined in a parent scope, it can be accessed in a child
@@ -498,6 +498,7 @@ g()").unwrap_err();
 
         compile("f(x) = { y = 25 }; y").unwrap_err();
         compile("loop { t = rand(); if t < 0.2 break t }; t").unwrap_err();
+        compile("a = for i in 1..5 { t = i }; t").unwrap_err();
 
         // `loop` and `while` _do_ introduce new scopes, specifically to avoid the first test
         // below: if scopes were not introduced, `t` would be uninitialized after the loop

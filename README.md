@@ -201,8 +201,9 @@ A scope is a region of of the program where a variable can be accessed. In CalcS
 
 - Curly braces `{}`
 - Function definitions `f(x) = ...`
-- [`loop` expression](#loop--while-loops)
-- [`while` expression](#loop--while-loops)
+- [`loop` expression](#loop--while--for-loops)
+- [`while` expression](#loop--while--for-loops)
+- [`for` expression](#loop--while--for-loops)
 - [`sum` expression](#sum--product-expressions)
 - [`product` expression](#sum--product-expressions)
 
@@ -385,7 +386,7 @@ distance
 
 ## Programming constructs
 
-`cas-rs` supports usual programming constructs, such as `if` / `else` expressions, `loop`s, and `while` loops.
+`cas-rs` supports usual programming constructs, such as `if` / `else` expressions, `loop`s, `while`, and `for` loops.
 
 ### `if` / `else` expressions
 
@@ -403,16 +404,14 @@ quadratic_formula(a, b, c, plus = true) = {
 }
 ```
 
-### `loop` / `while` loops
+### `loop` / `while` / `for` loops
 
-`loop`s and `while` loops are also supported. A `loop` expression will execute its body forever, while a `while` expression will run its body for as long as the given condition is true. Within the scope of a `loop` / `while` expression, the `break` and `continue` keywords can be used to break out of the loop or skip to the next iteration, respectively:
+`loop`s, `while`, and `for` loops are also supported. A `loop` expression will execute its body forever, a `while` expression will run its body for as long as the given condition is true, and a `for` expression will execute its body for each integer in a range. Within the scope of a `loop` / `while` / `for` expression, the `break` and `continue` keywords can be used to break out of the loop or skip to the next iteration, respectively:
 
 ```
 my_factorial(n) = {
-    i = 1
     result = 1
-    while i < n {
-        i += 1
+    for i in 1..=n {
         result *= i
     }
     result
@@ -435,7 +434,7 @@ lcm(a, b) = {
 
 #### `then` keyword
 
-The `then` keyword is used within the context of `if` / `else` expressions to separate the condition from the code to execute if the condition is true, and within `while` loops to separate the condition from the loop body. It is typically used when the `if` or loop body is "short enough", and can be omitted if the body is "clearly" the next expression, which is true for block, return, break, and continue expressions.
+The `then` keyword is used within the context of `if` / `else` expressions to separate the condition from the code to execute if the condition is true, and within `while` / `for` loops to separate the condition / range from the loop body. It is typically used when the `if` or loop body is "short enough", and can be omitted if the body is "clearly" the next expression, which is true for block, return, break, and continue expressions.
 
 ```
 my_abs(x) = if x < 0 then -x else x

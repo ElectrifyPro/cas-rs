@@ -12,14 +12,16 @@ impl Compile for Product {
         // equivalent to:
         //
         // ```
-        // out = 1
-        // n = 1
-        // while n < 10 {
-        //     out *= n
-        //     n += 1
+        // {
+        //     out = 1
+        //     for n in 1..10 {
+        //         out *= n
+        //     }
+        //     out
         // }
-        // out
         // ```
+        //
+        // but there is **no** control flow
 
         compiler.new_scope(|compiler| {
             // initialize the product to 1

@@ -63,6 +63,7 @@ keywords!(
     (If, if)
     (Then, then)
     (Else, else)
+    (For, for)
     (Sum, sum)
     (Product, product)
     (In, in)

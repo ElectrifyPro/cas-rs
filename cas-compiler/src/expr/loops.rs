@@ -1,7 +1,10 @@
-use cas_compute::numerical::value::Value;
+use cas_compute::{numerical::value::Value, primitive::int};
 use cas_error::Error;
-use cas_parser::parser::ast::{loop_expr::Loop, while_expr::While};
-use crate::{Compile, Compiler, InstructionKind};
+use cas_parser::parser::{
+    ast::{for_expr::For, loop_expr::Loop, while_expr::While, RangeKind},
+    token::op::BinOpKind,
+};
+use crate::{item::Symbol, Compile, Compiler, InstructionKind};
 
 impl Compile for Loop {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
@@ -52,10 +55,98 @@ impl Compile for While {
 
         // if the loop doesn't terminate through a `break` expression, we need to load something to
         // the stack so that the automatically generated `Drop` instruction has something to drop
+        //
+        // TODO: this can be optimized out at some point
         compiler.set_end_label(end_with_no_break);
         compiler.add_instr(InstructionKind::LoadConst(Value::Unit));
 
         compiler.set_end_label(loop_end);
+        Ok(())
+    }
+}
+
+impl Compile for For {
+    fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
+        // ```
+        // for i in 0..10 then print(i)
+        // ```
+        //
+        // equivalent to:
+        //
+        // ```
+        // i = 0
+        // while i < 10 {
+        //     print(i)
+        //     i += 1
+        // }
+        // ```
+        //
+        // but with control flow; specifically, `continue` also increments `i`
+        //
+        // TODO: this will one day be generalized to work on any iterator
+
+        compiler.new_scope(|compiler| {
+            // assign: initialize index in range, jump past initial increment
+            self.range.start.compile(compiler)?;
+            let symbol_id = compiler.resolve_user_symbol_or_insert(&self.variable)?;
+            compiler.add_instr(InstructionKind::AssignVar(symbol_id));
+
+            let condition_start = compiler.new_unassociated_label();
+            compiler.add_instr(InstructionKind::Jump(condition_start));
+
+            // increment index at the top
+            //
+            // this is necessary for `continue` expressions to work correctly without having to
+            // resort to duplicating the increment instruction or compiler state
+            //
+            // all we have to do is skip this the first time the index is assigned, then jump back
+            // here at the end of the loop body, or if we encounter a `continue` expression
+            let index_start = compiler.new_end_label();
+            compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
+            compiler.add_instr(InstructionKind::LoadConst(Value::Integer(int(1))));
+            compiler.add_instr(InstructionKind::Binary(BinOpKind::Add));
+            compiler.add_instr(InstructionKind::AssignVar(symbol_id));
+
+            // condition: continue summing while the variable is in the range:
+            // `symbol_id < self.range.end`
+            compiler.set_end_label(condition_start);
+            compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
+            self.range.end.compile(compiler)?;
+            match self.range.kind {
+                RangeKind::HalfOpen => compiler.add_instr(InstructionKind::Binary(BinOpKind::Less)),
+                RangeKind::Closed => compiler.add_instr(InstructionKind::Binary(BinOpKind::LessEq)),
+            }
+
+            let end_with_no_break = compiler.new_unassociated_label();
+            let loop_end = compiler.new_unassociated_label();
+            compiler.add_instr(InstructionKind::JumpIfFalse(end_with_no_break));
+
+            // body: run body
+            compiler.with_state(|state| {
+                // in case `continue` and `break` expressions are inside, we need the loop start and
+                // end labels for their jumps
+                state.loop_start = Some(index_start);
+                state.loop_end = Some(loop_end);
+            }, |compiler| {
+                self.body.compile(compiler)?;
+                compiler.add_instr(InstructionKind::Drop);
+                Ok(())
+            })?;
+
+            // jump back to index increment
+            compiler.add_instr(InstructionKind::Jump(index_start));
+
+            // if the loop doesn't terminate through a `break` expression, we need to load
+            // something to the stack so that the automatically generated `Drop` instruction has
+            // something to drop
+            //
+            // TODO: same potential optimization as in `while` loops
+            compiler.set_end_label(end_with_no_break);
+            compiler.add_instr(InstructionKind::LoadConst(Value::Unit));
+
+            compiler.set_end_label(loop_end);
+            Ok(())
+        })?;
         Ok(())
     }
 }

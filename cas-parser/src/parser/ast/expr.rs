@@ -7,6 +7,7 @@ use crate::{
             block::Block,
             branch::{Of, Then},
             call::Call,
+            for_expr::For,
             if_expr::If,
             index::Index,
             literal::Literal,
@@ -68,6 +69,9 @@ pub enum Expr {
     /// A while loop expression, as in `while x > 0 then { ... }`.
     While(While),
 
+    /// A for loop expression, as in `for i in 0..10 then print(i)`.
+    For(For),
+
     /// A then expression, as in `then x += 1`.
     Then(Then),
 
@@ -114,6 +118,7 @@ impl Expr {
             Expr::If(if_expr) => if_expr.span(),
             Expr::Loop(loop_expr) => loop_expr.span(),
             Expr::While(while_expr) => while_expr.span(),
+            Expr::For(for_expr) => for_expr.span(),
             Expr::Then(then) => then.span(),
             Expr::Of(of) => of.span(),
             Expr::Break(break_expr) => break_expr.span(),
@@ -214,6 +219,7 @@ impl std::fmt::Display for Expr {
             Expr::If(if_expr) => if_expr.fmt(f),
             Expr::Loop(loop_expr) => loop_expr.fmt(f),
             Expr::While(while_expr) => while_expr.fmt(f),
+            Expr::For(for_expr) => for_expr.fmt(f),
             Expr::Then(then) => then.fmt(f),
             Expr::Of(of) => of.fmt(f),
             Expr::Break(break_expr) => break_expr.fmt(f),
@@ -240,6 +246,7 @@ impl Latex for Expr {
             Expr::If(if_expr) => if_expr.fmt_latex(f),
             Expr::Loop(loop_expr) => loop_expr.fmt_latex(f),
             Expr::While(while_expr) => while_expr.fmt_latex(f),
+            Expr::For(for_expr) => for_expr.fmt_latex(f),
             Expr::Then(then) => then.fmt_latex(f),
             Expr::Of(of) => of.fmt_latex(f),
             Expr::Break(break_expr) => break_expr.fmt_latex(f),
@@ -291,6 +298,9 @@ pub enum Primary {
     /// A while loop expression, as in `while x > 0 then { ... }`.
     While(While),
 
+    /// A for loop expression, as in `for i in 0..10 then print(i)`.
+    For(For),
+
     /// A then expression, as in `then x += 1`.
     Then(Then),
 
@@ -325,6 +335,7 @@ impl Primary {
             Primary::If(if_expr) => if_expr.span(),
             Primary::Loop(loop_expr) => loop_expr.span(),
             Primary::While(while_expr) => while_expr.span(),
+            Primary::For(for_expr) => for_expr.span(),
             Primary::Then(then) => then.span(),
             Primary::Of(of) => of.span(),
             Primary::Break(break_expr) => break_expr.span(),
@@ -377,6 +388,7 @@ impl From<Primary> for Expr {
             Primary::If(if_expr) => Self::If(if_expr),
             Primary::Loop(loop_expr) => Self::Loop(loop_expr),
             Primary::While(while_expr) => Self::While(while_expr),
+            Primary::For(for_expr) => Self::For(for_expr),
             Primary::Then(then) => Self::Then(then),
             Primary::Of(of) => Self::Of(of),
             Primary::Break(break_expr) => Self::Break(break_expr),
@@ -429,6 +441,9 @@ pub enum Atom {
     /// A while loop expression, as in `while x > 0 then { ... }`.
     While(While),
 
+    /// A for loop expression, as in `for i in 0..10 then print(i)`.
+    For(For),
+
     /// A then expression, as in `then x += 1`.
     Then(Then),
 
@@ -469,6 +484,7 @@ impl<'source> Parse<'source> for Atom {
         let _ = return_if_ok!(parse_no_branch(input).map(Self::If).forward_errors(recoverable_errors));
         let _ = return_if_ok!(parse_no_branch(input).map(Self::Loop).forward_errors(recoverable_errors));
         let _ = return_if_ok!(parse_no_branch(input).map(Self::While).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_no_branch(input).map(Self::For).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse_with_state::<_, _>(|state| {
             state.allow_of = false;
         }).map(Self::Then).forward_errors(recoverable_errors));
@@ -492,6 +508,7 @@ impl From<Atom> for Primary {
             Atom::If(if_expr) => Self::If(if_expr),
             Atom::Loop(loop_expr) => Self::Loop(loop_expr),
             Atom::While(while_expr) => Self::While(while_expr),
+            Atom::For(for_expr) => Self::For(for_expr),
             Atom::Then(then) => Self::Then(then),
             Atom::Of(of) => Self::Of(of),
             Atom::Break(break_expr) => Self::Break(break_expr),
@@ -512,6 +529,7 @@ impl From<Atom> for Expr {
             Atom::If(if_expr) => Self::If(if_expr),
             Atom::Loop(loop_expr) => Self::Loop(loop_expr),
             Atom::While(while_expr) => Self::While(while_expr),
+            Atom::For(for_expr) => Self::For(for_expr),
             Atom::Then(then) => Self::Then(then),
             Atom::Of(of) => Self::Of(of),
             Atom::Break(break_expr) => Self::Break(break_expr),

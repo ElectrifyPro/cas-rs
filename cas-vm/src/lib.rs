@@ -941,6 +941,33 @@ f(1, 2, 10) == g(1, 2, 10)").unwrap();
     }
 
     #[test]
+    fn exec_for_loop_with_control() {
+        let result = run_program("list = [20, 30, 40, 50, 60]
+for i in 0..5 {
+    list[i] += 5
+    if i == 2 break
+}; list").unwrap();
+        assert_eq!(result, vec![
+            25.into(),
+            35.into(),
+            45.into(),
+            50.into(),
+            60.into()
+        ].into());
+    }
+
+    #[test]
+    fn exec_sum_even_indices() {
+        let result = run_program("list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+total = 0
+for i in 0..10 {
+    if i & 1 == 1 continue
+    total += list[i]
+}; total").unwrap();
+        assert_eq!(result, Value::Integer(int(25)));
+    }
+
+    #[test]
     fn exec_incr_list() {
         let result = run_program("arr = [1, 2, 3]
 arr[0] += 5

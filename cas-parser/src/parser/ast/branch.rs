@@ -1,7 +1,7 @@
 use cas_error::Error;
 use crate::parser::{
     ast::expr::Expr,
-    error::{OfOutsideSumProduct, ThenOutsideIfWhile},
+    error::{OfOutsideSumProduct, ThenOutsideIfWhileFor},
     fmt::Latex,
     keyword::{Of as OfToken, Then as ThenToken},
     Parse,
@@ -47,7 +47,7 @@ impl<'source> Parse<'source> for Then {
         if !input.state.allow_then {
             recoverable_errors.push(Error::new(
                 vec![then_token.span.clone()],
-                ThenOutsideIfWhile,
+                ThenOutsideIfWhileFor,
             ));
         }
 

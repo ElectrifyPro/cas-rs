@@ -19,7 +19,8 @@ use std::{ops::Range, sync::Arc};
 pub struct ParserState {
     /// Whether a `then` expression is allowed in the current context.
     ///
-    /// `then` expressions are only allowed after the conditions of `if` and `while` expressions.
+    /// `then` expressions are only allowed after the conditions of `if`, `while` and `loop`
+    /// expressions.
     pub allow_then: bool,
 
     /// Whether an `of` expression is allowed in the current context.
@@ -30,7 +31,7 @@ pub struct ParserState {
     /// Whether loop control expressions are allowed in the current context.
     ///
     /// Loop control expressions are `break` and `continue` expressions. They are only allowed
-    /// inside loop expressions, such as `while` and `loop`.
+    /// inside loop expressions, such as `while`, `loop`, and `for`.
     pub allow_loop_control: bool,
 
     /// Whether a `return` expression is allowed in the current context.

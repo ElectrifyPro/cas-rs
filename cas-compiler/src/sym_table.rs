@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 ///
 /// - A curly brace `{}` block is entered.
 /// - A function definition `f(x) = ...` is entered.
-/// - A `loop`, `while`, `sum`, or `product` loop is entered.
+/// - A `loop`, `while`, `for`, `sum`, or `product` loop is entered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ScopeId(usize);
 

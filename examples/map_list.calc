@@ -1,7 +1,5 @@
 map(list, f) = {
-    // `sum` acts like a for loop, but it returns the sum of the values, which
-    // we just ignore here.
-    sum n in 0..10 of list[n] = f(list[n])
+    for n in 0..10 then list[n] = f(list[n])
     list
 }
 

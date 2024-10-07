@@ -298,14 +298,14 @@ pub struct MissingIfBranch {
     pub keyword: &'static str,
 }
 
-/// Cannot use `then` keyword outside of an `if` or `while` expression.
+/// Cannot use `then` keyword outside of an `if`, `while` or `for` expression.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(
     message = "cannot use `then` keyword here",
     labels = [""],
-    help = "`then` can only be used directly after the condition in an `if` or `while` expression",
+    help = "`then` can only be used directly after the condition in an `if` or `while` expression, or after the range in a `for` expression",
 )]
-pub struct ThenOutsideIfWhile;
+pub struct ThenOutsideIfWhileFor;
 
 /// Cannot use `of` keyword outside of a `sum` or `product` expression.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
@@ -321,7 +321,7 @@ pub struct OfOutsideSumProduct;
 #[error(
     message = "cannot use `break` keyword here",
     labels = [""],
-    help = "`break` or `continue` can only be used within a `loop` block",
+    help = "`break` or `continue` can only be used within a `loop`, `while`, or `for` expression",
 )]
 pub struct BreakOutsideLoop;
 
@@ -330,6 +330,6 @@ pub struct BreakOutsideLoop;
 #[error(
     message = "cannot use `continue` keyword here",
     labels = [""],
-    help = "`break` or `continue` can only be used within a `loop` block",
+    help = "`break` or `continue` can only be used within a `loop`, `while`, or `for` expression",
 )]
 pub struct ContinueOutsideLoop;

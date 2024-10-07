@@ -1,11 +1,6 @@
 my_ncr(n, k) = {
     partial_factorial(n, k) = {
-        result = 1
-        while n > k {
-            result *= n
-            n -= 1
-        }
-        result
+        product a in k + 1..=n of a
     }
 
     if k > n return

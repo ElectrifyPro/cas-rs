@@ -173,9 +173,9 @@ Admittedly, these are rather handpicked examples. However, it is a design goal t
 
 # Code examples
 
-`cas-rs` utilizes a custom scripting language called "CalcScript" to enable interaction with all of its features. CalcScript is a mostly imperative, expression-oriented language, and attempts to keep syntax and visual noise minimal, while still readable. See the [`examples/`](examples) directory for examples of basic programs written in CalcScript.
+`cas-rs` utilizes a custom scripting language called "CalcScript" to enable interaction with all of its features. CalcScript is a compiled, mostly imperative, expression-oriented language, and attempts to keep syntax and visual noise minimal, while still readable. See the [`examples/`](examples) directory for examples of basic programs written in CalcScript.
 
-Below are some code examples of CalcScript in action:
+# CalcScript features
 
 ## Expression-oriented
 
@@ -193,6 +193,95 @@ t = {
     y = 3
     x + y
 }
+```
+
+## Scope
+
+A scope is a region of of the program where a variable can be accessed. In CalcScript, scopes are created by the following constructs:
+
+- Curly braces `{}`
+- Function definitions `f(x) = ...`
+- [`loop` expression](#loop--while-loops)
+- [`while` expression](#loop--while-loops)
+- [`sum` expression](#sum--product-expressions)
+- [`product` expression](#sum--product-expressions)
+
+Variables defined within a scope are **only accessible inside of that scope**. For example, in the below program, the variables `x` and `y` are only accessible within the block expression:
+
+```
+t = {
+    x = 2
+    y = 3
+    x + y
+}
+
+// print(x) // ERROR: unknown variable `x`
+// print(y) // ERROR: unknown variable `y`
+```
+
+There are nice reasons to have scopes. First, they provide a tool for organization. For instance, a calculation that uses a lot of temporary variables could declare them within a scope to avoid cluttering the global scope:
+
+```
+{
+    a = 2
+    b = 3
+    c = 4
+    d = 5
+    e = 6
+    f = 7
+    g = 8
+    h = 9
+    i = 10
+
+    print(a + b + c + d + e + f + g + h + i)
+}
+
+// print(a) // ERROR: unknown variable `a`
+// print(b) // ERROR: unknown variable `b`
+// ...
+```
+
+Second, scopes can increase flexibility in CalcScript. For example, builtin variables and functions cannot be overriden at the global scope:
+
+```
+// ERROR: cannot override builtin constant: `pi`
+// pi = 3
+
+// ERROR: cannot override builtin function: `hypot`
+// hypot(a, b) = a * (5b^4 + 20a^2b^2 + 16a^4) / (b^4 + 12a^2b^2 + 16a^4)
+```
+
+There could be valid reasons to override these variables and functions, for instance, if you wanted to use a an approximation of `pi` for certain problems or to try another user implementation of `hypot`. This can be done by defining these variables and functions within a scope, while still keeping the global scope clean:
+
+```
+{
+    pi = 3
+    L = 5
+    g = 9.8
+    period = 2pi sqrt(L / g)
+    print(period) // 4.2857...
+
+    hypot(a, b) = a * (5b^4 + 20a^2b^2 + 16a^4) / (b^4 + 12a^2b^2 + 16a^4)
+    hypotenuse = hypot(3, 4)
+    print(hypotenuse) // 4.99...
+}
+
+print(pi) // 3.1415...
+print(hypot) // <builtin function: hypot>
+```
+
+## Function environment capture
+
+Functions in CalcScript capture their "environment" by value when they are defined. This means that any variables used by the function that were declared outside the function are copied "into" the function, and reused whenever the function is called. This behavior is useful for creating functions that depend on certain variables, but are not necessarily called in the same scope as those variables.
+
+```
+x = 2
+y = 3
+f() = x + y // `x` and `y` are captured by value
+
+x = 4
+y = 5
+f() // 2 + 3 = 5
 ```
 
 ## Radix notation
@@ -248,7 +337,7 @@ Implicit multiplication is restricted to individual lines, meaning that newlines
 // PREVIOUSLY, THIS CODE PRODUCED NO OUTPUT
 
 fact(n) = {
-    out = n;
+    out = n; // semicolons were required to avoid weird implicit multiplication
     while n > 1 then {
         n -= 1;
         out *= n;
@@ -296,9 +385,11 @@ distance
 
 ## Programming constructs
 
-`cas-rs` supports usual programming constructs, such as `if` / `else` statements, `loop`s, and `while` loops.
+`cas-rs` supports usual programming constructs, such as `if` / `else` expressions, `loop`s, and `while` loops.
 
-In the case of `if` / `else` statements, you often will not need to enclose conditions or branches with any special syntax (you can do so with curly braces or parentheses if needed):
+### `if` / `else` expressions
+
+In the case of `if` / `else` expressions, you often will not need to enclose conditions or branches with any special syntax (you can do so with curly braces or parentheses if needed):
 
 ```
 my_abs(x) = if x < 0 then -x else x
@@ -311,6 +402,8 @@ quadratic_formula(a, b, c, plus = true) = {
     }
 }
 ```
+
+### `loop` / `while` loops
 
 `loop`s and `while` loops are also supported. A `loop` expression will execute its body forever, while a `while` expression will run its body for as long as the given condition is true. Within the scope of a `loop` / `while` expression, the `break` and `continue` keywords can be used to break out of the loop or skip to the next iteration, respectively:
 
@@ -340,9 +433,9 @@ lcm(a, b) = {
 }
 ```
 
-### `then` keyword
+#### `then` keyword
 
-The `then` keyword is used within the context of `if` / `else` statements to separate the condition from the code to execute if the condition is true, and within `while` loops to separate the condition from the loop body. It is typically used when the `if` or loop body is "short enough", and can be omitted if the body is "clearly" the next expression, which is true for block, return, break, and continue expressions.
+The `then` keyword is used within the context of `if` / `else` expressions to separate the condition from the code to execute if the condition is true, and within `while` loops to separate the condition from the loop body. It is typically used when the `if` or loop body is "short enough", and can be omitted if the body is "clearly" the next expression, which is true for block, return, break, and continue expressions.
 
 ```
 my_abs(x) = if x < 0 then -x else x
@@ -361,6 +454,36 @@ wait(n) = {
     while i < n {
         i += 1
     }
+}
+```
+
+### `sum` / `product` expressions
+
+`sum` and `product` expressions can be used to sum or multiply a sequence of values, represented by a **range expression**. The range expression is a sequence of values separated by `..` or `..=`. The `sum` and `product` expressions are followed by a variable name, which is used to represent the current value in the sequence. The value of the `sum` or `product` expression is the sum or product of the values in the sequence.
+
+```
+n = 100
+sum i in 1..=n of i // 1 + 2 + 3 + ... + 100 = 5050
+```
+
+```
+catalan(n) = product k in 2..=n of (n + k) / k
+catalan(10) // (10 + 2) / 2 * (10 + 3) / 3 * ... * (10 + 10) / 10 = 16796
+```
+
+These expressions compile down to the equivalent of a `while` loop expression.
+
+#### `of` keyword
+
+The `of` keyword is similar to the `then` keyword in that it merely separates the range expression from the body of the `sum` or `product` expression. It can similarly be omitted if the body is "clearly" the next expression, which is true for block, return, break, and continue expressions.
+
+```
+catalan(n) = product k in 2..=n {
+    (n + k) / k
+}
+
+geometric_series(a, r, n) = sum i in 0..n {
+    a * r^i
 }
 ```
 

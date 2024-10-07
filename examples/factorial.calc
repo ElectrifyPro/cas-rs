@@ -1,11 +1,2 @@
-fact(n) = {
-    out = n
-    loop {
-        n -= 1
-        out *= n
-        if n <= 1 break
-    }
-    out
-}
-
+fact(n) = product a in 1..=n of a
 fact(14) == 14!

@@ -88,7 +88,7 @@ impl Compile for For {
         compiler.new_scope(|compiler| {
             // assign: initialize index in range, jump past initial increment
             self.range.start.compile(compiler)?;
-            let symbol_id = compiler.resolve_user_symbol_or_insert(&self.variable)?;
+            let symbol_id = compiler.add_symbol(&self.variable)?;
             compiler.add_instr(InstructionKind::AssignVar(symbol_id));
 
             let condition_start = compiler.new_unassociated_label();

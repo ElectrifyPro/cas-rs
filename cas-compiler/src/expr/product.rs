@@ -29,7 +29,7 @@ impl Compile for Product {
 
             // assign: initialize index in range
             self.range.start.compile(compiler)?;
-            let symbol_id = compiler.resolve_user_symbol_or_insert(&self.variable)?;
+            let symbol_id = compiler.add_symbol(&self.variable)?;
             compiler.add_instr(InstructionKind::AssignVar(symbol_id));
 
             // condition: continue summing while the variable is in the range:

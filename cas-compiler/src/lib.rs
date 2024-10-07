@@ -309,6 +309,26 @@ impl Compiler {
         })
     }
 
+    /// Creates a new temporary chunk for compilation. Within the provided function, all `compiler`
+    /// methods that add or edit instructions will do so to the new chunk.
+    ///
+    /// The chunk is returned at the end of this function, without being added to the list of
+    /// chunks.
+    pub(crate) fn new_chunk_get<F>(&mut self, f: F) -> Result<Chunk, Error>
+        where F: FnOnce(&mut Compiler) -> Result<(), Error>
+    {
+        let old_chunk_idx = self.chunk;
+        self.chunks.push(Chunk::default());
+        let new_chunk_idx = self.chunks.len() - 1;
+
+        self.chunk = new_chunk_idx;
+        f(self)?;
+        let chunk = self.chunks.pop().unwrap();
+        self.chunk = old_chunk_idx;
+
+        Ok(chunk)
+    }
+
     /// Adds a symbol to the symbol table at the current scope.
     ///
     /// This is a shortcut for [`Compiler::add_item`] that creates a new [`Item::Symbol`] from the
@@ -382,6 +402,12 @@ impl Compiler {
         instruction.spans = spans;
         let chunk = self.chunk_mut();
         chunk.instructions.push(instruction);
+    }
+
+    /// Adds a sequence of instructions from a chunk to the current chunk.
+    pub(crate) fn add_chunk_instrs(&mut self, new_chunk: Chunk) {
+        let chunk = self.chunk_mut();
+        chunk.instructions.extend(new_chunk.instructions);
     }
 
     /// Replaces an instruction at the given index in the current chunk with a new instruction.
@@ -513,6 +539,13 @@ g()").unwrap_err();
         compile("while true break t = 2; t").unwrap_err();
 
         compile("(sum n in 1..5 of n) > n").unwrap_err();
+    }
+
+    #[test]
+    fn scoping_with_compiler_declared_variables() {
+        compile("for n in 1..n then print(n)").unwrap_err();
+        compile("n = 50; for n in 0..n then print(n)").unwrap();
+        compile("for n in n..50 then print(n)").unwrap_err();
     }
 
     #[test]

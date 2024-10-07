@@ -27,6 +27,12 @@ impl Compile for Product {
             // initialize the product to 1
             compiler.add_instr(InstructionKind::LoadConst(Value::Integer(int(1))));
 
+            // compile range end up here so that the index variable isn't in scope, then insert it
+            // down at the condition
+            let chunk = compiler.new_chunk_get(|compiler| {
+                self.range.end.compile(compiler)
+            })?;
+
             // assign: initialize index in range
             self.range.start.compile(compiler)?;
             let symbol_id = compiler.add_symbol(&self.variable)?;
@@ -36,7 +42,7 @@ impl Compile for Product {
             // `symbol_id < self.range.end`
             let condition_start = compiler.new_end_label();
             compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
-            self.range.end.compile(compiler)?;
+            compiler.add_chunk_instrs(chunk);
             match self.range.kind {
                 RangeKind::HalfOpen => compiler.add_instr(InstructionKind::Binary(BinOpKind::Less)),
                 RangeKind::Closed => compiler.add_instr(InstructionKind::Binary(BinOpKind::LessEq)),

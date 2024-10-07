@@ -86,6 +86,12 @@ impl Compile for For {
         // TODO: this will one day be generalized to work on any iterator
 
         compiler.new_scope(|compiler| {
+            // compile range end up here so that the index variable isn't in scope, then insert it
+            // down at the condition
+            let chunk = compiler.new_chunk_get(|compiler| {
+                self.range.end.compile(compiler)
+            })?;
+
             // assign: initialize index in range, jump past initial increment
             self.range.start.compile(compiler)?;
             let symbol_id = compiler.add_symbol(&self.variable)?;
@@ -111,7 +117,7 @@ impl Compile for For {
             // `symbol_id < self.range.end`
             compiler.set_end_label(condition_start);
             compiler.add_instr(InstructionKind::LoadVar(Symbol::User(symbol_id)));
-            self.range.end.compile(compiler)?;
+            compiler.add_chunk_instrs(chunk);
             match self.range.kind {
                 RangeKind::HalfOpen => compiler.add_instr(InstructionKind::Binary(BinOpKind::Less)),
                 RangeKind::Closed => compiler.add_instr(InstructionKind::Binary(BinOpKind::LessEq)),

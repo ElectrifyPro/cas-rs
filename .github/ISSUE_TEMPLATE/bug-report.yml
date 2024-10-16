@@ -1,0 +1,44 @@
+name: Bug report
+description: Report an issue or bug with cas-rs.
+title: '[Bug report title]'
+labels:
+  - bug
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: >-
+        Describe the issue in detail. Did something break? Is something wrong or
+        confusing?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: >-
+        Describe what you expected to happen. What should the correct behavior
+        be?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        Show us what steps you took to encounter the issue. Be as specific as
+        possible.
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error logs
+      description: If your issue caused a crash, provide a copy of the error logs.
+      render: rs
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional information
+      description: Include any additional information or context you'd like here.

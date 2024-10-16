@@ -1,0 +1,25 @@
+name: Feature request
+description: Propose a new feature or enhancement for cas-rs.
+title: '[Feature request]'
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: >-
+        Describe the problem you want `cas-rs` to solve and the motivation for
+        solving it.
+    validations:
+      required: true
+  - type: textarea
+    id: potential-solution
+    attributes:
+      label: Describe your solution
+      description: If you have a solution in mind, please describe it.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: Have you considered any other methods of solving the problem?

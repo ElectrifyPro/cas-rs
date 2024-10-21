@@ -671,4 +671,10 @@ mod tests {
             )),
         ]));
     }
+
+    #[test]
+    fn expand_and_reduce() {
+        let simplified_expr = simplify_str("(x + 1) * (x - 2) - (x - 1) * x");
+        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(-2))));
+    }
 }

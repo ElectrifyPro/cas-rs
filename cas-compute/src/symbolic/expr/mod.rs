@@ -434,9 +434,32 @@ impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Primary(lhs), Self::Primary(rhs)) => lhs == rhs,
-            (Self::Add(lhs), Self::Add(rhs)) | (Self::Mul(lhs), Self::Mul(rhs)) => {
-                lhs.len() == rhs.len()
-                    && lhs.iter().all(|lhs| rhs.contains(lhs))
+            (Self::Add(_), Self::Add(_)) | (Self::Mul(_), Self::Mul(_)) => {
+                // it is only important that if lhs = rhs, then hash(lhs) = hash(rhs) holds; no
+                // guarantees on hash inequality if lhs != rhs
+                //
+                // we uphold this by ensuring that hash(add | mul) implements strict equality
+                // correctly, then having hash(lhs) == hash(rhs) => lhs == rhs
+                //
+                // in this case, it is not possible for lhs = rhs and hash(lhs) != hash(rhs); if
+                // lhs = rhs, then the same sub-expressions are hashed and summed together
+                let lhs_hash = {
+                    let mut hasher = DefaultHasher::new();
+                    // NOTE: use `self` and not `Self::Add(lhs)` to utilize commutative hashing,
+                    // instead of native Vec<T> hashing
+                    self.hash(&mut hasher);
+                    hasher.finish()
+                };
+
+                let rhs_hash = {
+                    let mut hasher = DefaultHasher::new();
+                    // NOTE: use `other` and not `Self::Add(rhs)` to utilize commutative hashing,
+                    // instead of native Vec<T> hashing
+                    other.hash(&mut hasher);
+                    hasher.finish()
+                };
+
+                lhs_hash == rhs_hash
             },
             (Self::Exp(lhs_base, lhs_exp), Self::Exp(rhs_base, rhs_exp)) => {
                 lhs_base == rhs_base && lhs_exp == rhs_exp
@@ -1005,6 +1028,22 @@ mod tests {
                 Expr::Primary(Primary::Integer(int(-1))),
             ]),
         ]));
+    }
+
+    #[test]
+    fn same_symbols_not_eq() {
+        // these used to mistakenly compare equal due to a buggy partialeq impl
+        let expr_a = parse_expr("x * x");
+        let expr_b = parse_expr("-x");
+
+        assert_ne!(expr_a, expr_b);
+        assert_ne!(expr_b, expr_a);
+
+        let expr_c = parse_expr("x * x");
+        let expr_d = parse_expr("x");
+
+        assert_ne!(expr_c, expr_d);
+        assert_ne!(expr_d, expr_c);
     }
 
     #[test]

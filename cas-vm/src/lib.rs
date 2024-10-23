@@ -40,6 +40,7 @@ use cas_compiler::{
 use cas_error::Error;
 use cas_parser::parser::ast::Stmt;
 use error::{
+    ConditionalNotBoolean,
     IndexOutOfBounds,
     IndexOutOfRange,
     InternalError,
@@ -545,11 +546,12 @@ impl Vm {
                 return Ok(ControlFlow::Jump);
             },
             InstructionKind::JumpIfFalse(label) => {
-                let Value::Boolean(b) = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
-                    "missing value to check",
-                ))? else {
-                    return Err(internal_err(&instruction, "expected boolean value"));
+                let b = match value_stack.pop() {
+                    Some(Value::Boolean(b)) => b,
+                    Some(other) => return Err(Error::new(instruction.spans.clone(), ConditionalNotBoolean {
+                        expr_type: other.typename(),
+                    })),
+                    None => return Err(internal_err(&instruction, "missing value to check")),
                 };
 
                 if !b {

@@ -8,7 +8,11 @@ impl Compile for If {
         self.condition.compile(compiler)?;
 
         let else_start = compiler.new_unassociated_label();
-        compiler.add_instr(InstructionKind::JumpIfFalse(else_start));
+        compiler.add_instr_with_spans(
+            InstructionKind::JumpIfFalse(else_start),
+            // for error if condition doesn't evaluate to boolean
+            vec![self.condition.span(), self.then_expr.span()],
+        );
 
         self.then_expr.compile(compiler)?;
 

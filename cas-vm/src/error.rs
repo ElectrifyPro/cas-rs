@@ -292,6 +292,21 @@ pub struct InvalidLengthType {
 )]
 pub struct LengthOutOfRange;
 
+/// Conditional expression in an `if` or `while` must evaluate to a boolean.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = "conditional expression must evaluate to a boolean...",
+    labels = [
+        "...used to determine whether to run this code".to_string(),
+        format!("this expression evaluated to `{}`", self.expr_type),
+    ],
+    help = "consider using the `bool()` function to convert the expression to a boolean based on \"truthiness\"",
+)]
+pub struct ConditionalNotBoolean {
+    /// The type of the expression that was used as the condition.
+    pub expr_type: &'static str,
+}
+
 /// An internal error that can't be resolved by the user.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

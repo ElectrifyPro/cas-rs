@@ -12,6 +12,9 @@ use crate::parser::{
 };
 use std::{fmt, ops::Range};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A sum expression, such as `sum n in 1..10 of n`.
 ///
 /// A sum expression is a shortcut for a loop that represents a summation. The final expression is

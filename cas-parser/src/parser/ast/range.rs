@@ -1,6 +1,9 @@
 use crate::parser::{ast::expr::Expr, fmt::Latex};
 use std::fmt;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Whether a range is inclusive or exclusive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

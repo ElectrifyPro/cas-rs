@@ -1,11 +1,35 @@
 use std::collections::{HashMap, HashSet};
 use super::{builtin::Builtin, value::Value};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+#[cfg(feature = "serde")]
+fn serialize_builtin<S>(builtin: &dyn Builtin, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(builtin.name())
+}
+
+#[cfg(feature = "serde")]
+fn deserialize_builtin<'de, 'a, D>(deserializer: D) -> Result<&'a dyn Builtin, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let name = String::deserialize(deserializer)?;
+    let functions = crate::funcs::all();
+    functions.get(name.as_str())
+        .map(|f| &**f)
+        .ok_or_else(|| serde::de::Error::custom("unknown function"))
+}
+
 /// A function.
 ///
 /// Functions are treated as values just like any other value in `cas-rs`; they can be stored
 /// in variables, passed as arguments to other functions, and returned from functions.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Function {
     /// A user-defined function.
     ///
@@ -13,11 +37,16 @@ pub enum Function {
     User(User),
 
     /// A built-in function.
+    #[cfg_attr(feature = "serde", serde(
+        serialize_with = "serialize_builtin",
+        deserialize_with = "deserialize_builtin"
+    ))]
     Builtin(&'static dyn Builtin),
 }
 
 /// A user-defined function.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct User {
     /// The index of the function's chunk.
     ///

@@ -12,6 +12,9 @@ use crate::parser::{
 };
 use std::{fmt, ops::Range};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A `for` loop expression, such as `for i in 0..10 then print(i)`. The loop body is executed for
 /// each value in the specified range, with the variable taking on the current value.
 #[derive(Debug, Clone, PartialEq, Eq)]

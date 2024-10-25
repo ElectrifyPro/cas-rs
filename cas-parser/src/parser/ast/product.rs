@@ -12,6 +12,9 @@ use crate::parser::{
 };
 use std::{fmt, ops::Range};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A product expression, such as `product n in 1..10 of n`.
 ///
 /// A product expression is a shortcut for a loop that represents an accumulative product. The

@@ -2,9 +2,6 @@
 use mysql_common::prelude::FromValue;
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "serde")]
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 /// The trigonometric mode of a context. This will affect the evaluation of input to trigonometric

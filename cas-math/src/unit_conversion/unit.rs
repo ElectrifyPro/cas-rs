@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::{self, Display, Formatter}};
+use std::{error::Error, fmt::{self, Display, Formatter}, str::FromStr};
 use super::convert::Convert;
 
 /// A unit of measurement.
@@ -19,6 +19,46 @@ impl Display for Unit {
             write!(f, "^{}", self.power)?;
         }
         Ok(())
+    }
+}
+
+/// Try a to convert a string to a [`Unit`].
+///
+/// The string should be in the format `<quantity>[^<power>]`, where `<quantity>` is the
+/// abbreviation of the quantity (see [`Quantity`]), and `<power>` is the power of the unit. If
+/// `<power>` is not specified, it is assumed to be 1.
+impl FromStr for Unit {
+    type Err = InvalidUnit;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let mut iter = value.split('^');
+        let (a, b) = (iter.next(), iter.next());
+        if iter.next().is_some() {
+            return Err(InvalidUnit { unit: value.to_owned() });
+        }
+
+        match (a, b) {
+            (Some(a), Some(b)) => {
+                let quantity = Quantity::try_from(a)?;
+                let power = b.parse().map_err(|_| InvalidUnit { unit: value.to_owned() })?;
+                Ok(Unit::with_power(quantity, power))
+            },
+            (Some(a), None) => Ok(Quantity::try_from(a)?.into()),
+            _ => Err(InvalidUnit { unit: value.to_owned() }),
+        }
+    }
+}
+
+/// Try a to convert a string to a [`Unit`].
+///
+/// The string should be in the format `<quantity>[^<power>]`, where `<quantity>` is the
+/// abbreviation of the quantity (see [`Quantity`]), and `<power>` is the power of the unit. If
+/// `<power>` is not specified, it is assumed to be 1.
+impl TryFrom<&str> for Unit {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }
 
@@ -116,13 +156,29 @@ impl Display for Quantity {
     }
 }
 
+/// Try a to convert a string to a quantity.
+///
+/// Note that [`Quantity`] does not encode the power of the unit, so this function will return an
+/// error if the string contains a power. Use [`Unit::try_from`] to convert a string to a unit.
+impl FromStr for Quantity {
+    type Err = InvalidUnit;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Length::try_from(value).map(Quantity::Length)
+            .or_else(|_| Area::try_from(value).map(Quantity::Area))
+            .or_else(|_| Time::try_from(value).map(Quantity::Time))
+    }
+}
+
+/// Try a to convert a string to a quantity.
+///
+/// Note that [`Quantity`] does not encode the power of the unit, so this function will return an
+/// error if the string contains a power. Use [`Unit::try_from`] to convert a string to a unit.
 impl TryFrom<&str> for Quantity {
     type Error = InvalidUnit;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Length::try_from(value).map(Quantity::Length)
-            .or_else(|_| Area::try_from(value).map(Quantity::Area))
-            .or_else(|_| Time::try_from(value).map(Quantity::Time))
+        value.parse()
     }
 }
 
@@ -179,10 +235,10 @@ impl From<Length> for Quantity {
     }
 }
 
-impl TryFrom<&str> for Length {
-    type Error = InvalidUnit;
+impl FromStr for Length {
+    type Err = InvalidUnit;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "pc" => Ok(Length::Parsec),
             "ly" => Ok(Length::LightYear),
@@ -204,6 +260,14 @@ impl TryFrom<&str> for Length {
             "in" => Ok(Length::Inch),
             _ => Err(InvalidUnit { unit: value.to_owned() }),
         }
+    }
+}
+
+impl TryFrom<&str> for Length {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }
 
@@ -289,10 +353,10 @@ impl From<Area> for Quantity {
     }
 }
 
-impl TryFrom<&str> for Area {
-    type Error = InvalidUnit;
+impl FromStr for Area {
+    type Err = InvalidUnit;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "ha" => Ok(Area::Hectare),
             "daa" => Ok(Area::Decare),
@@ -304,6 +368,14 @@ impl TryFrom<&str> for Area {
             "ac" => Ok(Area::Acre),
             _ => Err(InvalidUnit { unit: value.to_owned() }),
         }
+    }
+}
+
+impl TryFrom<&str> for Area {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }
 
@@ -389,10 +461,10 @@ impl From<Time> for Quantity {
     }
 }
 
-impl TryFrom<&str> for Time {
-    type Error = InvalidUnit;
+impl FromStr for Time {
+    type Err = InvalidUnit;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "cen" => Ok(Time::Century),
             "dec" => Ok(Time::Decade),
@@ -410,6 +482,14 @@ impl TryFrom<&str> for Time {
             "ps" => Ok(Time::Picosecond),
             _ => Err(InvalidUnit { unit: value.to_owned() }),
         }
+    }
+}
+
+impl TryFrom<&str> for Time {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }
 

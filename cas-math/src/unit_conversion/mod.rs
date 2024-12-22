@@ -82,6 +82,12 @@ mod tests {
     use unit::{Area, Length, Time};
 
     #[test]
+    fn parse_unit() {
+        let unit: Unit = "µm^3".parse().unwrap();
+        assert_eq!(unit, Unit::with_power(Length::Micrometer, 3));
+    }
+
+    #[test]
     fn identity_length() {
         let m = Measurement::new(2.0, Length::Yard);
         let m2 = m.convert(Length::Yard).unwrap();

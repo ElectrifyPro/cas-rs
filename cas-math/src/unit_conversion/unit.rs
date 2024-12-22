@@ -88,9 +88,17 @@ impl Unit {
                 Ok(l1.conversion_factor().powi(power)
                     / l2.conversion_factor().powi(power))
             },
+            (Quantity::Mass(m1), Quantity::Mass(m2)) => {
+                Ok(m1.conversion_factor().powi(power)
+                    / m2.conversion_factor().powi(power))
+            },
             (Quantity::Area(a1), Quantity::Area(a2)) => {
                 Ok(a1.conversion_factor().powi(power)
                     / a2.conversion_factor().powi(power))
+            },
+            (Quantity::Volume(v1), Quantity::Volume(v2)) => {
+                Ok(v1.conversion_factor().powi(power)
+                    / v2.conversion_factor().powi(power))
             },
             (Quantity::Time(t1), Quantity::Time(t2)) => {
                 Ok(t1.conversion_factor().powi(power)
@@ -144,7 +152,9 @@ impl Error for InvalidUnit {}
 #[non_exhaustive]
 pub enum Quantity {
     Length(Length),
+    Mass(Mass),
     Area(Area),
+    Volume(Volume),
     Time(Time),
 }
 
@@ -152,7 +162,9 @@ impl Display for Quantity {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Quantity::Length(l) => write!(f, "{}", l),
+            Quantity::Mass(m) => write!(f, "{}", m),
             Quantity::Area(a) => write!(f, "{}", a),
+            Quantity::Volume(v) => write!(f, "{}", v),
             Quantity::Time(t) => write!(f, "{}", t),
         }
     }
@@ -167,7 +179,9 @@ impl FromStr for Quantity {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         Length::try_from(value).map(Quantity::Length)
+            .or_else(|_| Mass::try_from(value).map(Quantity::Mass))
             .or_else(|_| Area::try_from(value).map(Quantity::Area))
+            .or_else(|_| Volume::try_from(value).map(Quantity::Volume))
             .or_else(|_| Time::try_from(value).map(Quantity::Time))
     }
 }
@@ -195,7 +209,9 @@ impl Quantity {
         let target = target.into();
         match self {
             Quantity::Length(l) => l.conversion_factor_to(target),
+            Quantity::Mass(m) => m.conversion_factor_to(target),
             Quantity::Area(a) => a.conversion_factor_to(target),
+            Quantity::Volume(v) => v.conversion_factor_to(target),
             Quantity::Time(t) => t.conversion_factor_to(target),
         }
     }
@@ -374,6 +390,142 @@ impl Convert for Length {
     }
 }
 
+/// A unit of mass.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Mass {
+    /// A US (short) ton (2000 pounds).
+    ///
+    /// - Abbreviation: `tn`
+    /// - `1 tn = 907.18474 kg`
+    ShortTon,
+
+    /// An imperial (long) ton (2240 pounds).
+    ///
+    /// - Abbreviation: `lt`
+    /// - `1 lt = 1016.0469088 kg`
+    LongTon,
+
+    /// - Abbreviation: `lb`
+    /// - `1 lb = 0.45359237 kg`
+    Pound,
+
+    /// - Abbreviation: `oz`
+    /// - `1 oz = 0.028349523125 kg`
+    Ounce,
+
+    /// A metric tonne (1000 kilograms).
+    ///
+    /// - Abbreviation: `t`
+    /// - `1 t = 1000 kg`
+    Tonne,
+
+    /// - Abbreviation: `kg`
+    /// - `1 kg = 1 kg`
+    Kilogram,
+
+    /// - Abbreviation: `g`
+    /// - `1 g = 0.001 kg`
+    Gram,
+
+    /// - Abbreviation: `cg`
+    /// - `1 cg = 1e-5 kg`
+    Centigram,
+
+    /// - Abbreviation: `mg`
+    /// - `1 mg = 1e-6 kg`
+    Milligram,
+
+    /// - Abbreviation: `µg`, `ug`
+    /// - `1 µg = 1e-9 kg`
+    Microgram,
+
+    /// An atomic mass unit (1/12 of the mass of a carbon 12 atom).
+    ///
+    /// - Abbreviation: `amu`
+    /// - `1 amu = 1.66053906892e-27 kg`
+    AtomicMassUnit,
+}
+
+impl From<Mass> for Unit {
+    fn from(m: Mass) -> Self {
+        Self::new(Quantity::Mass(m))
+    }
+}
+
+impl From<Mass> for Quantity {
+    fn from(m: Mass) -> Self {
+        Self::Mass(m)
+    }
+}
+
+impl FromStr for Mass {
+    type Err = InvalidUnit;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "tn" => Ok(Mass::ShortTon),
+            "lt" => Ok(Mass::LongTon),
+            "lb" => Ok(Mass::Pound),
+            "oz" => Ok(Mass::Ounce),
+            "t" => Ok(Mass::Tonne),
+            "kg" => Ok(Mass::Kilogram),
+            "g" => Ok(Mass::Gram),
+            "cg" => Ok(Mass::Centigram),
+            "mg" => Ok(Mass::Milligram),
+            "µg" | "ug" => Ok(Mass::Microgram),
+            "amu" => Ok(Mass::AtomicMassUnit),
+            _ => Err(InvalidUnit { unit: value.to_owned() }),
+        }
+    }
+}
+
+impl TryFrom<&str> for Mass {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl Display for Mass {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Mass::ShortTon => write!(f, "tn"),
+            Mass::LongTon => write!(f, "lt"),
+            Mass::Pound => write!(f, "lb"),
+            Mass::Ounce => write!(f, "oz"),
+            Mass::Tonne => write!(f, "t"),
+            Mass::Kilogram => write!(f, "kg"),
+            Mass::Gram => write!(f, "g"),
+            Mass::Centigram => write!(f, "cg"),
+            Mass::Milligram => write!(f, "mg"),
+            Mass::Microgram => write!(f, "µg"),
+            Mass::AtomicMassUnit => write!(f, "u"),
+        }
+    }
+}
+
+impl Convert for Mass {
+    const BASE: Self = Mass::Kilogram;
+
+    fn conversion_factor(&self) -> f64 {
+        match self {
+            Mass::ShortTon => 907.18474,
+            Mass::LongTon => 1016.0469088,
+            Mass::Pound => 0.45359237,
+            Mass::Ounce => 0.028349523125,
+            Mass::Tonne => 1000.0,
+            Mass::Kilogram => 1.0,
+            Mass::Gram => 0.001,
+            Mass::Centigram => 1e-5,
+            Mass::Milligram => 1e-6,
+            Mass::Microgram => 1e-9,
+            Mass::AtomicMassUnit => 1.66053906892e-27,
+        }
+    }
+}
+
 /// A unit of area.
 ///
 /// Measurements of area are of the same kind as measurements of length with power 2. Thus, and
@@ -489,6 +641,181 @@ impl Convert for Area {
 
                 // convert from base length unit squared to target
                 * Unit::with_power(Length::BASE, 2).conversion_factor(target).unwrap()
+            )
+        } else {
+            None
+        }
+    }
+}
+
+/// A unit of volume.
+///
+/// Measurements of volume are of the same kind as measurements of length with power 3. Thus, and
+/// measurement created with a volume unit can be converted to a a length unit cubed, and vice
+/// versa.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Volume {
+    /// A US bushel (2150.42 cubic inches).
+    ///
+    /// - Abbreviation: `bu`
+    /// - `1 bu = 35.2390704 L`
+    Bushel,
+
+    /// A US gallon (231 cubic inches).
+    ///
+    /// - Abbreviation: `gal`
+    /// - `1 gal = 3.785411784 L`
+    Gallon,
+
+    /// A US quart (57.75 cubic inches).
+    ///
+    /// - Abbreviation: `qt`
+    /// - `1 qt = 0.946352946 L`
+    Quart,
+
+    /// A US pint (28.875 cubic inches).
+    ///
+    /// - Abbreviation: `pt`
+    /// - `1 pt = 0.473176473 L`
+    Pint,
+
+    /// - Abbreviation: `c`
+    /// - `1 c = 0.2365882365 L`
+    Cup,
+
+    /// A US fluid ounce (1.8046875 cubic inches).
+    ///
+    /// - Abbreviation: `floz`
+    /// - `1 floz = 0.0295735295625 L`
+    FluidOunce,
+
+    /// A US tablespoon (0.90234375 cubic inches).
+    ///
+    /// - Abbreviation: `tbsp`
+    /// - `1 tbsp = 0.01478676478125 L`
+    Tablespoon,
+
+    /// A US teaspoon (0.30078125 cubic inches).
+    ///
+    /// - Abbreviation: `tsp`
+    /// - `1 tsp = 0.00492892159375 L`
+    Teaspoon,
+
+    /// - Abbreviation: `kL`
+    /// - `1 kL = 1000 L`
+    Kiloliter,
+
+    /// - Abbreviation: `L`
+    /// - `1 L = 1 L`
+    Liter,
+
+    /// - Abbreviation: `cL`
+    /// - `1 cL = 0.01 L`
+    Centiliter,
+
+    /// - Abbreviation: `mL`
+    /// - `1 mL = 0.001 L`
+    Milliliter,
+
+    /// - Abbreviation: `µL`, `uL`
+    /// - `1 µL = 1e-6 L`
+    Microliter,
+}
+
+impl From<Volume> for Unit {
+    fn from(v: Volume) -> Self {
+        Self::new(Quantity::Volume(v))
+    }
+}
+
+impl From<Volume> for Quantity {
+    fn from(v: Volume) -> Self {
+        Self::Volume(v)
+    }
+}
+
+impl FromStr for Volume {
+    type Err = InvalidUnit;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "bu" => Ok(Volume::Bushel),
+            "gal" => Ok(Volume::Gallon),
+            "qt" => Ok(Volume::Quart),
+            "pt" => Ok(Volume::Pint),
+            "c" => Ok(Volume::Cup),
+            "floz" => Ok(Volume::FluidOunce),
+            "tbsp" => Ok(Volume::Tablespoon),
+            "tsp" => Ok(Volume::Teaspoon),
+            "kL" => Ok(Volume::Kiloliter),
+            "L" => Ok(Volume::Liter),
+            "cL" => Ok(Volume::Centiliter),
+            "mL" => Ok(Volume::Milliliter),
+            "µL" | "uL" => Ok(Volume::Microliter),
+            _ => Err(InvalidUnit { unit: value.to_owned() }),
+        }
+    }
+}
+
+impl TryFrom<&str> for Volume {
+    type Error = InvalidUnit;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl Display for Volume {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Volume::Bushel => write!(f, "bu"),
+            Volume::Gallon => write!(f, "gal"),
+            Volume::Quart => write!(f, "qt"),
+            Volume::Pint => write!(f, "pt"),
+            Volume::Cup => write!(f, "c"),
+            Volume::FluidOunce => write!(f, "floz"),
+            Volume::Tablespoon => write!(f, "tbsp"),
+            Volume::Teaspoon => write!(f, "tsp"),
+            Volume::Kiloliter => write!(f, "kL"),
+            Volume::Liter => write!(f, "L"),
+            Volume::Centiliter => write!(f, "cL"),
+            Volume::Milliliter => write!(f, "mL"),
+            Volume::Microliter => write!(f, "µL"),
+        }
+    }
+}
+
+impl Convert for Volume {
+    const BASE: Self = Volume::Liter;
+
+    fn conversion_factor(&self) -> f64 {
+        match self {
+            Volume::Bushel => 35.2390704,
+            Volume::Gallon => 3.785411784,
+            Volume::Quart => 0.946352946,
+            Volume::Pint => 0.473176473,
+            Volume::Cup => 0.2365882365,
+            Volume::FluidOunce => 0.0295735295625,
+            Volume::Tablespoon => 0.01478676478125,
+            Volume::Teaspoon => 0.00492892159375,
+            Volume::Kiloliter => 1000.0,
+            Volume::Liter => 1.0,
+            Volume::Centiliter => 0.01,
+            Volume::Milliliter => 0.001,
+            Volume::Microliter => 1e-6,
+        }
+    }
+
+    fn conversion_factor_to(&self, target: impl Into<Unit>) -> Option<f64> {
+        let target = target.into();
+        if matches!(target.quantity, Quantity::Length(_)) && target.power == 3 {
+            Some(
+                // convert from self to base length unit cubed
+                self.conversion_factor() * 0.001
+
+                // convert from base length unit cubed to target
+                * Unit::with_power(Length::BASE, 3).conversion_factor(target).unwrap()
             )
         } else {
             None

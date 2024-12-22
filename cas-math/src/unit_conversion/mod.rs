@@ -79,7 +79,7 @@ mod tests {
         assert_float_relative_eq,
     };
     use super::*;
-    use unit::{Area, Length, Time};
+    use unit::{Area, Length, Mass, Time, Volume};
 
     #[test]
     fn parse_unit() {
@@ -99,6 +99,20 @@ mod tests {
         let m = Measurement::new(2.0, Length::Mile);
         let m2 = m.convert(Length::Decimeter).unwrap();
         assert_float_relative_eq!(*m2.value(), 32186.88);
+    }
+
+    #[test]
+    fn identity_mass() {
+        let m = Measurement::new(1690.0, Mass::Kilogram);
+        let m2 = m.convert(Mass::Kilogram).unwrap();
+        assert_float_relative_eq!(*m2.value(), 1690.0);
+    }
+
+    #[test]
+    fn convert_mass() {
+        let m = Measurement::new(37.0, Mass::Kilogram);
+        let m2 = m.convert(Mass::Pound).unwrap();
+        assert_float_relative_eq!(*m2.value(), 81.571);
     }
 
     #[test]
@@ -127,6 +141,20 @@ mod tests {
         let m = Measurement::new(11.45, Area::Acre);
         let m2 = m.convert(Unit::with_power(Length::NauticalMile, 2)).unwrap();
         assert_float_relative_eq!(*m2.value(), 1.3509563543609384e-2);
+    }
+
+    #[test]
+    fn identity_volume() {
+        let m = Measurement::new(25.25, Volume::Bushel);
+        let m2 = m.convert(Volume::Bushel).unwrap();
+        assert_float_relative_eq!(*m2.value(), 25.25);
+    }
+
+    #[test]
+    fn convert_volume() {
+        let m = Measurement::new(25.25, Volume::Bushel);
+        let m2 = m.convert(Volume::Liter).unwrap();
+        assert_float_relative_eq!(*m2.value(), 889.7865276);
     }
 
     #[test]

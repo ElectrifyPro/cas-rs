@@ -1,0 +1,8 @@
+[package]
+name = "convert-unit-repl"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cas-math = { path = "../cas-math" }
+rustyline = "13.0.0"

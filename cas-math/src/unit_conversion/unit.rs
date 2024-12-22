@@ -138,6 +138,8 @@ impl Display for InvalidUnit {
 impl Error for InvalidUnit {}
 
 /// A type of quantity, such as length, mass, volume, etc.
+///
+/// See the corresponding enum variants for the available units and their abbreviations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Quantity {
@@ -203,23 +205,72 @@ impl Quantity {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Length {
+    /// - Abbreviation: `pc`
+    /// - `1 pc = 3.085677581e16 m`
     Parsec,
+
+    /// - Abbreviation: `ly`
+    /// - `1 ly = 9.4607304725808e15 m`
     LightYear,
+
+    /// - Abbreviation: `au`
+    /// - `1 au = 1.495978707e11 m`
     AstronomicalUnit,
+
+    /// - Abbreviation: `nmi`
+    /// - `1 nmi = 1852 m`
     NauticalMile,
+
+    /// - Abbreviation: `km`
+    /// - `1 km = 1000 m`
     Kilometer,
+
+    /// - Abbreviation: `m`
+    /// - `1 m = 1 m`
     Meter,
+
+    /// - Abbreviation: `dm`
+    /// - `1 dm = 0.1 m`
     Decimeter,
+
+    /// - Abbreviation: `cm`
+    /// - `1 cm = 0.01 m`
     Centimeter,
+
+    /// - Abbreviation: `mm`
+    /// - `1 mm = 0.001 m`
     Millimeter,
+
+    /// - Abbreviation: `µm`, `um`
+    /// - `1 µm = 1e-6 m`
     Micrometer,
+
+    /// - Abbreviation: `nm`
+    /// - `1 nm = 1e-9 m`
     Nanometer,
+
+    /// - Abbreviation: `Å`, `A`
+    /// - `1 Å = 1e-10 m`
     Angstrom,
+
+    /// - Abbreviation: `pm`
+    /// - `1 pm = 1e-12 m`
     Picometer,
 
+    /// - Abbreviation: `mi`
+    /// - `1 mi = 1609.344 m`
     Mile,
+
+    /// - Abbreviation: `yd`
+    /// - `1 yd = 0.9144 m`
     Yard,
+
+    /// - Abbreviation: `ft`
+    /// - `1 ft = 0.3048 m`
     Foot,
+
+    /// - Abbreviation: `in`
+    /// - `1 in = 0.0254 m`
     Inch,
 }
 
@@ -331,13 +382,32 @@ impl Convert for Length {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Area {
+    /// - Abbreviation: `ha`
+    /// - `1 ha = 100 a`
     Hectare,
+
+    /// - Abbreviation: `daa`
+    /// - `1 daa = 10 a`
     Decare,
+
+    /// - Abbreviation: `a`
+    /// - `1 a = 1 a`
     Are,
+
+    /// - Abbreviation: `da`
+    /// - `1 da = 0.1 a`
     Deciare,
+
+    /// - Abbreviation: `ca`
+    /// - `1 ca = 0.01 a`
     Centiare,
+
+    /// - Abbreviation: `b`
+    /// - `1 b = 1e-30 a`
     Barn,
 
+    /// - Abbreviation: `ac`
+    /// - `1 ac = 40.468564224 a`
     Acre,
 }
 
@@ -430,22 +500,66 @@ impl Convert for Area {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Time {
+    /// 100 years, each of 365.25 days.
+    ///
+    /// - Abbreviation: `cen`
+    /// - `1 cen = 3.15576e9 s`
     Century,
+
+    /// 10 years, each of 365.25 days.
+    ///
+    /// - Abbreviation: `dec`
+    /// - `1 dec = 3.15576e8 s`
     Decade,
 
     /// A year of 365.25 days. Decades and centuries are defined in terms of this unit.
+    ///
+    /// - Abbreviation: `yr`
+    /// - `1 yr = 3.15576e7 s`
     Year,
 
+    /// - Abbreviation: `wk`
+    /// - `1 wk = 604800 s`
     Week,
+
+    /// - Abbreviation: `day`
+    /// - `1 day = 86400 s`
     Day,
+
+    /// - Abbreviation: `hr`
+    /// - `1 hr = 3600 s`
     Hour,
+
+    /// - Abbreviation: `min`
+    /// - `1 min = 60 s`
     Minute,
+
+    /// - Abbreviation: `sec`
+    /// - `1 sec = 1 s`
     Second,
+
+    /// - Abbreviation: `ds`
+    /// - `1 ds = 0.1 s`
     Decisecond,
+
+    /// - Abbreviation: `cs`
+    /// - `1 cs = 0.01 s`
     Centisecond,
+
+    /// - Abbreviation: `ms`
+    /// - `1 ms = 0.001 s`
     Millisecond,
+
+    /// - Abbreviation: `µs`, `us`
+    /// - `1 µs = 1e-6 s`
     Microsecond,
+
+    /// - Abbreviation: `ns`
+    /// - `1 ns = 1e-9 s`
     Nanosecond,
+
+    /// - Abbreviation: `ps`
+    /// - `1 ps = 1e-12 s`
     Picosecond,
 }
 

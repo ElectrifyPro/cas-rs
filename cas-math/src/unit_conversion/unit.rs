@@ -341,6 +341,21 @@ impl Quantity {
             Quantity::Time(t) => t.conversion_factor_to(target),
         }
     }
+
+    /// Creates a [`Unit`] with this quantity type and specified power.
+    pub fn pow(&self, power: u8) -> Unit {
+        Unit::with_power(*self, power)
+    }
+
+    /// Creates a [`Unit`] with this quantity type and power 2.
+    pub fn squared(&self) -> Unit {
+        self.pow(2)
+    }
+
+    /// Creates a [`Unit`] with this quantity type and power 3.
+    pub fn cubed(&self) -> Unit {
+        self.pow(3)
+    }
 }
 
 unit_impl!("A unit of length.",

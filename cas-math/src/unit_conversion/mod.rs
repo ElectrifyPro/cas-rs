@@ -15,7 +15,7 @@
 //! ```
 //!
 //! Note that the arguments to [`Measurement::new`] and [`Measurement::convert`] accept any type
-//! that implements [`Into<Unit>`], which is implemented for all specific units and quantities.
+//! that implements [`Into<Unit>`], which is implemented for all provided units and quantities.
 //! This allows you to write the above example more concisely:
 //!
 //! ```
@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn parse_unit() {
         let unit: Unit = "µm^3".parse().unwrap();
-        assert_eq!(unit, Unit::with_power(Length::Micrometer, 3));
+        assert_eq!(unit, Length::Micrometer.cubed());
     }
 
     #[test]
@@ -135,8 +135,8 @@ mod tests {
 
     #[test]
     fn convert_area_as_length() {
-        let m = Measurement::new(2.0, Unit::with_power(Length::Meter, 2));
-        let m2 = m.convert(Unit::with_power(Length::Yard, 2)).unwrap();
+        let m = Measurement::new(2.0, Length::Meter.squared());
+        let m2 = m.convert(Length::Yard.squared()).unwrap();
         assert_float_relative_eq!(*m2.value(), 2.39198);
     }
 
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn convert_len_sq_to_area() {
-        let m = Measurement::new(11.45, Unit::with_power(Length::Meter, 2));
+        let m = Measurement::new(11.45, Length::Meter.squared());
         let m2 = m.convert(Area::Hectare).unwrap();
         assert_float_relative_eq!(*m2.value(), 1.145e-3);
     }
@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn convert_area_to_len_sq() {
         let m = Measurement::new(11.45, Area::Acre);
-        let m2 = m.convert(Unit::with_power(Length::NauticalMile, 2)).unwrap();
+        let m2 = m.convert(Length::NauticalMile.squared()).unwrap();
         assert_float_relative_eq!(*m2.value(), 1.3509563543609384e-2);
     }
 
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn convert_len_cube_to_volume() {
-        let m = Measurement::new(56.0, Unit::with_power(Length::Inch, 3));
+        let m = Measurement::new(56.0, Length::Inch.cubed());
         let m2 = m.convert(Volume::Milliliter).unwrap();
         assert_float_relative_eq!(*m2.value(), 917.676);
     }
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn convert_volume_to_len_cube() {
         let m = Measurement::new(505.0, Volume::Kiloliter);
-        let m2 = m.convert(Unit::with_power(Length::Foot, 3)).unwrap();
+        let m2 = m.convert(Length::Foot.cubed()).unwrap();
         assert_float_relative_eq!(*m2.value(), 17833.9);
     }
 

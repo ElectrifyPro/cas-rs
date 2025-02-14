@@ -1,4 +1,4 @@
-use cas_math::unit_conversion::{unit::InvalidUnit, ConversionError};
+use cas_unit_convert::{unit::InvalidUnit, ConversionError};
 use std::num::ParseFloatError;
 
 /// Utility enum to package any error that can occur during unit conversion.

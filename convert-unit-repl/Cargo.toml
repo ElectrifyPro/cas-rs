@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cas-math = { path = "../cas-math" }
+cas-unit-convert = { path = "../cas-unit-convert" }
 rustyline = "13.0.0"

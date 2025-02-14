@@ -6,7 +6,7 @@
 
 mod error;
 
-use cas_math::unit_conversion::*;
+use cas_unit_convert::*;
 use error::Error;
 use rustyline::{error::ReadlineError, DefaultEditor};
 

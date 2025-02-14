@@ -1,6 +1,6 @@
-# cas-math
+# cas-unit-convert
 
-This subcrate provides useful mathematical utilities, such as unit conversion.
+This subcrate provides tools to convert between units and compound units.
 
 # Unit conversion
 

@@ -7,10 +7,10 @@
 //! miles to decimeters:
 //!
 //! ```
-//! use cas_math::unit_conversion::{Length, Measurement, Quantity, Unit};
+//! use cas_math::unit_conversion::{Base, Length, Measurement, Unit};
 //!
-//! let m = Measurement::new(2.0, Unit::new(Quantity::Length(Length::Mile)));
-//! let m2 = m.convert(Unit::new(Quantity::Length(Length::Decimeter))).unwrap();
+//! let m = Measurement::new(2.0, Unit::new(Base::Length(Length::Mile)));
+//! let m2 = m.convert(Unit::new(Base::Length(Length::Decimeter))).unwrap();
 //! assert_eq!(m2.value(), &32186.88);
 //! ```
 //!
@@ -26,6 +26,94 @@
 //! assert_eq!(m2.value(), &32186.88);
 //! ```
 //!
+//! ## Derived units
+//!
+//! There is rudimentary support for derived units, which are units that are defined in terms of
+//! other units. For example, area is defined in terms of length squared, and volume is defined in
+//! terms of length cubed, and you can convert between them. The `.squared()`, `.cubed()`, and
+//! `.pow()` methods on [`Unit`]s and [`Base`]s allow you to create derived units easily:
+//!
+//! ```
+//! use cas_math::unit_conversion::{Area, Length, Measurement};
+//!
+//! let m = Measurement::new(57600.0, Length::Foot.squared());
+//! let m2 = m.convert(Area::Acre).unwrap();
+//! assert_eq!(m2.value(), &1.322314049586777);
+//! ```
+//!
+//! Additionally, compound units are supported, such as `m/s` (meters per second) and `kg*m/s^2`
+//! (kilogram meters per second squared, aka Newtons):
+//!
+//! ```
+//! use cas_math::unit_conversion::{Measurement, Unit};
+//!
+//! // easiest way to create these is with string parsing
+//! let m = Measurement::new(30.0, "mi/hr".parse().unwrap());
+//! let m2 = m.convert("km/s".parse().unwrap()).unwrap();
+//! assert_eq!(m2.value(), &0.0134112);
+//!
+//! // it can also be done manually with `CompoundUnit`
+//! ```
+//!
+//! ## Note on derived units
+//!
+//! It is possible to declare a compound unit with two units of the same type, such as "mi*mi" or
+//! even "mi*km". This behavior is currently unsupported, and while it won't cause undefined
+//! behavior (no `unsafe` code), it can lead to strange results.
+//!
+//! # Rounding errors
+//!
+//! Floating point arithmetic is inherently imprecise; there are infinitely many real numbers, but
+//! only so many floating point numbers to represent them. As a result, small, but noticeable
+//! rounding errors can occur when converting between units.
+//!
+//! In general, you should not use `==` to compare floating point numbers. Instead, use a function
+//! that checks for approximate equality (through subtraction and comparison with a small epsilon).
+//! Crates that provide this functionality include [`assert_float_eq`] (with assertions) and
+//! [`approx`] (for general use).
+//!
+//! This example below will fail, even though the conversion is mathematically correct:
+//!
+//! ```should_panic
+//! use cas_math::unit_conversion::{Length, Measurement, Volume};
+//!
+//! let m = Measurement::new(1.0, Length::Centimeter.cubed());
+//! let m2 = m.convert(Volume::Milliliter).unwrap();
+//! assert_eq!(m2.value(), &1.0); // panics! (the result is 1.0000000000000002)
+//! ```
+//!
+//! Instead, here's a better way to write the test, using [`assert_float_eq`]:
+//!
+//! ```
+//! #[macro_use]
+//! extern crate assert_float_eq;
+//!
+//! use cas_math::unit_conversion::{Length, Measurement, Volume};
+//!
+//! # fn main() {
+//! let m = Measurement::new(1.0, Length::Centimeter.cubed());
+//! let m2 = m.convert(Volume::Milliliter).unwrap();
+//! assert_float_relative_eq!(*m2.value(), 1.0);
+//! # }
+//! ```
+//!
+//! If you need to compare floating point numbers outside of a test, you can use [`approx`]:
+//!
+//! ```
+//! use approx::abs_diff_eq;
+//! use cas_math::unit_conversion::{Length, Measurement, Volume};
+//!
+//! let m = Measurement::new(1.0, Length::Centimeter.cubed());
+//! let m2 = m.convert(Volume::Milliliter).unwrap();
+//! if !abs_diff_eq!(*m2.value(), 1.0) {
+//!     // this will not panic
+//!     panic!("1 centimeter cubed is not equal to 1 milliliter");
+//! }
+//! ```
+//!
+//! In practice, the precision errors are usually small enough that this is not a problem, but it's
+//! something you should be aware of.
+//!
 //! # Demo
 //!
 //! This repository includes a simple CLI tool to convert units using this library. To run it, run
@@ -35,30 +123,36 @@
 //! cargo run --package convert-unit-repl
 //! ```
 //!
-//! This will start a REPL where you can enter conversion commands. For example:
+//! This will start a REPL where you can enter conversion commands. Commands are given in the form
+//! `<value> <from unit> <to unit>`. For example:
 //!
 //! ```sh
 //! > 1.5 yd ft
 //! 1.5 yd = 4.5 ft
+//! > 500 mL cm^3
+//! 500 mL = 500 cm^3
+//! > 5.75 g/mL lb/gal
+//! 5.75 g/mL = 47.986... lb/gal
 //! ```
+//!
+//! [`assert_float_eq`]: https://crates.io/crates/assert_float_eq
+//! [`approx`]: https://crates.io/crates/approx
 
 pub mod convert;
 pub mod unit;
 
 use std::ops::Mul;
-pub use unit::{Area, ConversionError, Length, Quantity, Time, Unit};
+pub use unit::{Area, ConversionError, CompoundUnit, Length, Mass, Base, Time, Unit, Volume};
 
 /// A value and the unit it represents.
-///
-/// This value can be converted to other units within the same quantity kind.
 pub struct Measurement<T> {
     value: T,
-    unit: Unit,
+    unit: CompoundUnit,
 }
 
 impl<T> Measurement<T> {
     /// Create a new measurement.
-    pub fn new(value: T, unit: impl Into<Unit>) -> Self {
+    pub fn new(value: T, unit: impl Into<CompoundUnit>) -> Self {
         Self { value, unit: unit.into() }
     }
 
@@ -68,21 +162,18 @@ impl<T> Measurement<T> {
     }
 
     /// Get the unit of this measurement.
-    pub fn unit(&self) -> &Unit {
+    pub fn unit(&self) -> &CompoundUnit {
         &self.unit
     }
 
-    /// Convert this measurement to another unit.
-    ///
-    /// In general, target units must be the same kind as the source unit, and with the same
-    /// power. However, some conversions are allowed between different kinds of units, such as
-    /// between cubed length units and volume units.
-    pub fn convert(&self, target: impl Into<Unit>) -> Result<Self, ConversionError>
+    /// Convert this measurement to another unit. Returns [`Err`] if the conversion is not
+    /// possible.
+    pub fn convert(&self, target: impl Into<CompoundUnit>) -> Result<Self, ConversionError>
         where T: Copy + Mul<f64, Output = T>,
     {
         let target = target.into();
         Ok(Self {
-            value: self.value * self.unit.conversion_factor(target)?,
+            value: self.value * self.unit.conversion_factor(&target)?,
             unit: target,
         })
     }
@@ -103,6 +194,15 @@ mod tests {
     fn parse_unit() {
         let unit: Unit = "µm^3".parse().unwrap();
         assert_eq!(unit, Length::Micrometer.cubed());
+    }
+
+    #[test]
+    fn complex() {
+        let ml: Unit = "mL".parse().unwrap();
+        let cm_cubed: Unit = "cm^3".parse().unwrap();
+        let m: Measurement<f64> = Measurement::new(500.0, ml);
+        let m2 = m.convert(cm_cubed).unwrap();
+        assert_float_relative_eq!(*m2.value(), 500.0);
     }
 
     #[test]

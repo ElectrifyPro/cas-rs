@@ -18,11 +18,11 @@ fn convert(input: &str) -> Result<(), Error> {
     let [value, from, to] = parts;
 
     let value = value.parse::<f64>()?;
-    let from = Unit::try_from(from)?;
-    let to = Unit::try_from(to)?;
+    let from = CompoundUnit::try_from(from)?;
+    let to = CompoundUnit::try_from(to)?;
 
-    let m = Measurement::new(value, from);
-    let m2 = m.convert(to)?;
+    let m = Measurement::new(value, from.clone());
+    let m2 = m.convert(to.clone())?;
     println!("{} {} = {} {}", value, from, m2.value(), to);
 
     Ok(())

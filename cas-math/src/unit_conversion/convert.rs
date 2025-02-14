@@ -1,6 +1,8 @@
+//! Provides the [`Convert`] trait, which is implemented by all [`Unit`]s.
+
 use super::unit::Unit;
 
-/// A trait implemented by all units, providing the information needed to convert between them.
+/// A trait implemented by all [`Unit`], providing the information needed to convert between them.
 pub trait Convert {
     /// The base unit of this unit.
     ///
@@ -16,20 +18,26 @@ pub trait Convert {
     /// is where the precision loss can occur.
     const BASE: Self;
 
-    /// Returns the conversion factor from this unit to the base unit, i.e. the value to
-    /// multiply a quantity in this unit by, in order to get a quantity in the base unit. If
-    /// the base unit is the same as this unit, then this function should return `1.0`.
+    /// Returns the conversion factor from `&self` to [`Convert::BASE`], i.e. the value to multiply
+    /// a quantity in this unit by, in order to get a quantity in [`Convert::BASE`]. If the `self`
+    /// unit is the same as this unit, then this function should return `1.0`.
     ///
-    /// For example, if the base unit is the meter, the conversion factor for a centimeter
+    /// For example, if [`Convert::BASE`] is the meter, the conversion factor for a centimeter
     /// would be `0.01`.
     fn conversion_factor(&self) -> f64;
 
-    /// Defines the conversion factor from the base unit of this unit, to a specific unit in a
-    /// derived quantity kind.
+    /// Defines the conversion factor from [`Convert::BASE`], to a base unit that [`Convert::BASE`]
+    /// is derived from. Returns [`None`] if there is no conversion factor, meaning the two units
+    /// are unrelated.
     ///
-    /// For example, area is derived from length units squared, and volume is derived from
-    /// length units cubed. This function would define the conversion factor from the base area
-    /// / volume unit, to the given length unit squared / cubed.
+    /// For example, [`Volume`] is derived from [`Length`] units cubed. The base unit for
+    /// [`Length`] is defined to be [`Length::Meter`]. So, this function should be manually
+    /// implemented for [`Volume`], and it should return the value to multiply by to convert from
+    /// `Volume::?` to cubic meters.
+    ///
+    /// [`Volume`]: super::Volume
+    /// [`Length`]: super::Length
+    /// [`Length::Meter`]: super::Length::Meter
     fn conversion_factor_to(&self, _: impl Into<Unit>) -> Option<f64> {
         None
     }

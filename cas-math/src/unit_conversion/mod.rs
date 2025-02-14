@@ -176,6 +176,20 @@ mod tests {
     }
 
     #[test]
+    fn convert_len_cube_to_volume() {
+        let m = Measurement::new(56.0, Unit::with_power(Length::Inch, 3));
+        let m2 = m.convert(Volume::Milliliter).unwrap();
+        assert_float_relative_eq!(*m2.value(), 917.676);
+    }
+
+    #[test]
+    fn convert_volume_to_len_cube() {
+        let m = Measurement::new(505.0, Volume::Kiloliter);
+        let m2 = m.convert(Unit::with_power(Length::Foot, 3)).unwrap();
+        assert_float_relative_eq!(*m2.value(), 17833.9);
+    }
+
+    #[test]
     fn identity_time() {
         let m = Measurement::new(38.66, Time::Decade);
         let m2 = m.convert(Time::Decade).unwrap();

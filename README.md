@@ -19,9 +19,13 @@ See below for a guide on the REPL and some code examples.
 
 # REPL
 
-`cas-rs` comes with a builtin REPL to help you try out the library. Clone this repository and run `cargo run` within the `cas-rs` directory to start it. Here's a quick guide:
+`cas-rs` comes with a builtin REPL to help you try out the library. Clone this repository and run the following command to start it:
 
-(user-input is prefixed with `> `)
+```sh
+cargo run --example repl
+```
+
+Here's a quick guide: (user-input is prefixed with `> `)
 
 ## Operators
 

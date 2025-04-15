@@ -19,15 +19,15 @@ See below for a guide on the REPL and some code examples.
 
 # REPL
 
-`cas-rs` comes with a builtin REPL to help you try out the library. Clone this repository and run the following command to start it:
+`cas-rs` comes with a builtin scripting language called "CalcScript" along with a REPL to help you try out the library. CalcScript is a mostly imperative, expression-oriented language, and attempts to keep syntax and visual noise minimal, while still readable. See the [`examples/`](examples) directory for examples of basic programs written in CalcScript.
+
+To install the REPL, run the following command (Rust needs to be installed):
 
 ```sh
-cargo run --example repl
+cargo install cas-rs --locked
 ```
 
-`cas-rs` utilizes a custom scripting language called "CalcScript" to enable interaction with all of its features. CalcScript is a mostly imperative, expression-oriented language, and attempts to keep syntax and visual noise minimal, while still readable. See the [`examples/`](examples) directory for examples of basic programs written in CalcScript.
-
-To learn more about the language, see the [`cas-parser`](cas-parser/README.md) crate.
+To learn more about CalcScript and example REPL usage, see the [`cas-parser`](cas-parser/README.md) crate.
 
 # Acknowledgements
 

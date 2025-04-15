@@ -1,7 +1,12 @@
 [package]
 name = "cas-error"
+description = "Error type for generic errors in CalcScript"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/ElectrifyPro/cas-rs"
+keywords = ["calcscript", "error"]
+categories = ["mathematics"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

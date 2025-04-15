@@ -1,7 +1,12 @@
 [package]
 name = "cas-attrs"
+description = "Derive macros for cas-error's ErrorKind and cas-compute's Builtin traits"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/ElectrifyPro/cas-rs"
+keywords = ["derive", "proc-macro", "cas", "calcscript"]
+categories = ["mathematics"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

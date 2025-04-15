@@ -1,7 +1,12 @@
 [package]
 name = "cas-parser"
+description = "Parser for the CalcScript language"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/ElectrifyPro/cas-rs"
+keywords = ["calcscript", "parser", "lexer", "calculator"]
+categories = ["mathematics", "parser-implementations"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

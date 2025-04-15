@@ -1,0 +1,16 @@
+[package]
+name = "cas-rs"
+description = "A CalcScript executor and REPL."
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/ElectrifyPro/cas-rs"
+categories = ["mathematics", "compilers", "command-line-utilities"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ariadne = "0.2.0"
+cas-compute = { path = "../cas-compute", default-features = false, features = ["numerical"] }
+cas-parser = { path = "../cas-parser" }
+rustyline = "13.0.0"

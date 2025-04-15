@@ -5,6 +5,7 @@ members = [
 	"cas-error",
 	"cas-graph",
 	"cas-parser",
+	"cas-rs",
 	"cas-unit-convert",
 ]
 resolver = "2"

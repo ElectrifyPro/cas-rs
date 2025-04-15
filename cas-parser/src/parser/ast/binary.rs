@@ -220,7 +220,7 @@ impl Binary {
     /// there is a binary operator and a right-hand-side.
     ///
     /// See [`Self::complete_rhs`] for more information about the return value of this function.
-    pub fn parse_expr(
+    pub(crate) fn parse_expr(
         input: &mut Parser,
         recoverable_errors: &mut Vec<Error>,
         mut lhs: Expr,

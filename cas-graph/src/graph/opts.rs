@@ -32,8 +32,9 @@ pub struct GraphOptions {
     /// The default value is `(10.0, 10.0)`.
     pub scale: GraphPoint<f64>,
 
-    /// When calling [`Graph::center_on_points`], determines whether to scale the x- and y-axes
-    /// together (resulting in a square graph) or independently (resulting in a rectangular graph).
+    /// When calling [`Graph::center_on_points`](super::Graph::center_on_points), determines
+    /// whether to scale the x- and y-axes together (resulting in a square graph) or independently
+    /// (resulting in a rectangular graph).
     ///
     /// The default value is `false`.
     pub square_scale: bool,

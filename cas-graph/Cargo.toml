@@ -12,6 +12,6 @@ categories = ["mathematics", "visualization"]
 
 [dependencies]
 cairo-rs = { version = "0.18.2", features = ["png"] }
-cas-compute = { path = "../cas-compute" }
-cas-parser = { path = "../cas-parser" }
+cas-compute = { version = "0.1.0", path = "../cas-compute" }
+cas-parser = { version = "0.1.0", path = "../cas-parser" }
 rayon = "1.7.0"

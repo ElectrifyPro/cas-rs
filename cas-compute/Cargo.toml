@@ -33,9 +33,9 @@ optional = true
 
 [dependencies]
 ariadne = "0.2.0"
-cas-attrs = { path = "../cas-attrs" }
-cas-error = { path = "../cas-error" }
-cas-parser = { path = "../cas-parser" }
+cas-attrs = { version = "0.1.0", path = "../cas-attrs" }
+cas-error = { version = "0.1.0", path = "../cas-error" }
+cas-parser = { version = "0.1.0", path = "../cas-parser" }
 flate2 = { version = "1.0.27", optional = true }
 levenshtein = "1.0.5"
 once_cell = "1.18.0"

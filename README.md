@@ -1,6 +1,6 @@
 # cas-rs
 
-`cas-rs` is an opinionated computer algebra system written in Rust, made for use with [CalcBot](https://discord.com/application-directory/674457690646249472/). It is currently in a very early stage of development.
+`cas-rs` is an opinionated computer algebra system written in Rust, originally made for use with the Discord bot [CalcBot](https://discord.com/application-directory/674457690646249472/). It is currently in a very early stage of development.
 
 See below for a guide on the REPL and some code examples.
 

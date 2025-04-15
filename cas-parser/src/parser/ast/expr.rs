@@ -30,8 +30,6 @@ use serde::{Deserialize, Serialize};
 ///
 /// An expression is any valid piece of code that can be evaluated to produce a value. Expressions
 /// can be used as the right-hand side of an assignment, or as the argument to a function call.
-///
-/// In CalcBot, the `c-calculate` command accepts an expression as its argument.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Expr {

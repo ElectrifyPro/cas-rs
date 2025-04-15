@@ -215,7 +215,7 @@ pub struct InvalidDerivativeArguments {
         format!("this function call evaluated to `{}`", self.expr_type),
         "".to_string(),
     ],
-    help = "CalcBot evaluates derivatives numerically using the limit definition of a derivative"
+    help = "derivatives are evaluated numerically using the limit definition of a derivative"
 )]
 pub struct NonNumericDerivative {
     /// The type of the expression that was differentiated.

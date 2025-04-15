@@ -62,8 +62,10 @@ pub enum NumberFormat {
 
     /// Formats the number as a decimal.
     ///
-    /// NOTE: This option is not available in CalcBot, as it can easily result in errors or cause
-    /// the output to be too long to be displayed. The `Auto` option should be used instead.
+    /// The number is expressed in decimal notation with no regard to the magnitude of the number.
+    //
+    // NOTE: This option is not available in CalcBot, as it can easily result in errors or cause
+    // the output to be too long to be displayed. The `Auto` option should be used instead.
     Decimal,
 
     /// Formats the number in scientific notation.

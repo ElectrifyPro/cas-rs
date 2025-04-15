@@ -16,8 +16,8 @@
 //!
 //! A common problem that arises in symbolic computation is determining if two expressions are
 //! semantically / mathematically equal, in order to determine if terms / factors are similar
-//! enough to be combined, for example. However, this is extremely difficult to do, because there
-//! are an infinite number of ways to represent the same expression.
+//! enough to be combined, for example. However, this is extremely difficult (i.e. impossible) to
+//! do, because there are an infinite number of ways to represent the same expression.
 //!
 //! Consider pairs of expressions such as `x^2 + 2x + 1` and `(x + 1)^2`, or `cos(2x)` and
 //! `cos(x)^2 - sin(x)^2`. Both pairs are semantically equal, but this is not immediately obvious
@@ -31,7 +31,7 @@
 //! - They are the same type of expression (i.e. both [`Expr::Primary`], both [`Expr::Add`], etc.).
 //! - If both are [`Expr::Primary`], both expressions must have strictly equal values.
 //! - If both are [`Expr::Add`] or [`Expr::Mul`], both expressions must have strictly equal terms /
-//! factors, in any order.
+//! factors, **_in any order_**.
 //! - If both are [`Expr::Exp`], both expressions must have strictly equal base and exponent.
 //!
 //! Strict equality is not the same as semantic / mathematical equality. For the pairs of
@@ -426,7 +426,7 @@ impl Expr {
 /// - They are the same type of expression (i.e. both [`Expr::Primary`], both [`Expr::Add`], etc.).
 /// - If both are [`Expr::Primary`], both expressions must have strictly equal values.
 /// - If both are [`Expr::Add`] or [`Expr::Mul`], both expressions must have strictly equal terms /
-/// factors, in any order.
+/// factors, **_in any order_**.
 /// - If both are [`Expr::Exp`], both expressions must have strictly equal base and exponent.
 ///
 /// For more information about strict equality, see the [module-level documentation](self).

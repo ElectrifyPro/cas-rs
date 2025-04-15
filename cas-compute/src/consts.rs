@@ -1,5 +1,4 @@
-//! Additional constants used in the library. This module consists of static constants that return
-//! [`Float`]s with the given value.
+//! Builtin constants used throughout `cas-rs`.
 
 use once_cell::sync::Lazy;
 use rug::{Complex, Float};

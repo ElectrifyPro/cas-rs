@@ -76,8 +76,8 @@ pub enum NumberFormat {
 
     /// Formats the number as a fraction.
     ///
-    /// When using this option, formatting of the numerator and denominator is delegated to
-    /// [`format_float`] with [`NumberFormat::Auto`] set.
+    /// When using this option, the numerator and denominator are each formatted individually as if
+    /// [`NumberFormat::Auto`] was used.
     Fraction,
 
     /// Formats the number in word form (e.g. "one", "two", "three").

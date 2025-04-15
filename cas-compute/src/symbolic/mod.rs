@@ -72,7 +72,7 @@
 //! ]));
 //! ```
 //!
-//! For more information, see the [`simplify`] module.
+//! For more information, see the [`mod@simplify`] module.
 
 pub mod expr;
 pub mod simplify;

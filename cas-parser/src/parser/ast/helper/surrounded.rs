@@ -1,5 +1,5 @@
+use cas_error::Error;
 use crate::parser::{
-    error::Error,
     token::pair::Pair,
     Parse,
     Parser,

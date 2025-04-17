@@ -6,8 +6,8 @@ pub mod iter;
 pub mod keyword;
 pub mod token;
 
-use cas_error::ErrorKind;
-use error::{Error, kind};
+use cas_error::{ErrorKind, Error};
+use error::{ExpectedEof, UnexpectedEoExpr, UnexpectedEof};
 use super::tokenizer::{tokenize_complete, Token};
 use std::{ops::Range, sync::Arc};
 
@@ -17,9 +17,51 @@ use std::{ops::Range, sync::Arc};
 /// The state cannot be mutated directly; it can only be changed when parsing using the [`Parser::try_parse_with_state`] method.
 #[derive(Debug, Clone, Default)]
 pub struct ParserState {
-    /// Whether loop control expressions are allowed in the current context. This is used to
-    /// determine if a `break` or `continue` expression is valid.
+    /// Whether a `then` expression is allowed in the current context.
+    ///
+    /// `then` expressions are only allowed after the conditions of `if`, `while` and `loop`
+    /// expressions.
+    pub allow_then: bool,
+
+    /// Whether an `of` expression is allowed in the current context.
+    ///
+    /// `of` expressions are only allowed after the range of `sum` and `product` expressions.
+    pub allow_of: bool,
+
+    /// Whether loop control expressions are allowed in the current context.
+    ///
+    /// Loop control expressions are `break` and `continue` expressions. They are only allowed
+    /// inside loop expressions, such as `while`, `loop`, and `for`.
     pub allow_loop_control: bool,
+
+    /// Whether a `return` expression is allowed in the current context.
+    ///
+    /// `return` expressions are only allowed inside function assignments.
+    pub allow_return: bool,
+
+    /// Whether to require the current expression to end at the end of the line.
+    ///
+    /// This is enabled on when parsing the expression of a `return` or `break` expression. The
+    /// expression returned by the `return` / `break` expression must lie on the same line as the
+    /// `return` / `break` keyword to prevent confusion in cases like:
+    ///
+    /// ```text
+    /// if k > n return
+    ///
+    /// sub = n - k
+    /// ```
+    ///
+    /// Without this requirement, the `return` expression would eagerly consume the assignment
+    /// `sub = n - k`, resulting in the above code being treated as:
+    ///
+    /// ```text
+    /// if k > n {
+    ///    return sub = n - k
+    /// }
+    /// ```
+    ///
+    /// Which is almost certainly not what the user intended.
+    pub expr_end_at_eol: bool,
 }
 
 /// A high-level parser for the language. This is the type to use to parse an arbitrary piece of
@@ -130,7 +172,7 @@ impl<'source> Parser<'source> {
     /// ```text
     /// fact(n) = {
     ///     out = n;
-    ///     while n > 1 then {
+    ///     while n > 1 {
     ///         n -= 1;
     ///         out *= n;
     ///     };
@@ -145,13 +187,14 @@ impl<'source> Parser<'source> {
     /// 1. Define the `fact` function.
     /// 2. Call the `fact` function with the argument `14` and compare the result to `14!`.
     ///
-    /// It certainly seems that way. However, in this example, implicit multiplication is actually
-    /// inserted between the "end" of the function definition `}`, and `fact(14)`, resulting in:
+    /// It certainly seems that way. However, in the past, parsing this example would actually
+    /// insert timplicit multiplication between the "end" of the function definition `}`, and
+    /// `fact(14)`, resulting in:
     ///
     /// ```text
     /// fact(n) = {
     ///     out = n;
-    ///     while n > 1 then {
+    ///     while n > 1 {
     ///         n -= 1;
     ///         out *= n;
     ///     };
@@ -189,9 +232,25 @@ impl<'source> Parser<'source> {
     pub fn next_token_raw(&mut self) -> Result<Token<'source>, Error> {
         let result = self.current_token()
             .cloned() // cloning is cheap; only Range<_> is cloned
-            .ok_or_else(|| self.error(kind::UnexpectedEof));
+            .ok_or_else(|| self.error(UnexpectedEof));
         self.cursor += 1;
         result
+    }
+
+    /// Returns an [`UnexpectedEoExpr`] error if the state field `expr_end_at_eol` is set to `true`
+    /// and the cursor is on a newline token. This state would indicate that an expression has been
+    /// broken up to span multiple lines, which is not allowed in the context of `return` and
+    /// `break` expressions.
+    fn check_eol(&mut self) -> Result<(), Error> {
+        if self.state.expr_end_at_eol {
+            if let Some(token) = self.current_token() {
+                if token.is_significant_whitespace() {
+                    return Err(self.error(UnexpectedEoExpr));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Speculatively parses a value from the given stream of tokens. This function can be used
@@ -245,7 +304,12 @@ impl<'source> Parser<'source> {
         F: FnOnce(&mut Parser<'source>) -> ParseResult<T>,
     {
         let start = self.cursor;
-        f(self).inspect_unrecoverable(|_| self.cursor = start)
+        let out = if let Err(err) = self.check_eol() {
+            ParseResult::Unrecoverable(vec![err])
+        } else {
+            f(self)
+        };
+        out.inspect_unrecoverable(|_| self.cursor = start)
     }
 
     /// Speculatively parses a value from the given stream of tokens, with a validation predicate.
@@ -262,6 +326,7 @@ impl<'source> Parser<'source> {
         let mut errors = Vec::new();
 
         let inner = || {
+            self.check_eol().map_err(|err| vec![err])?;
             let value = T::parse(self).forward_errors(&mut errors)?;
             predicate(&value, self).forward_errors(&mut errors)?;
             Ok(value)
@@ -286,7 +351,7 @@ impl<'source> Parser<'source> {
         self.advance_past_whitespace();
 
         if self.cursor < self.tokens.len() {
-            errors.push(self.error(kind::ExpectedEof));
+            errors.push(self.error(ExpectedEof));
         }
 
         if errors.is_empty() {
@@ -313,7 +378,7 @@ impl<'source> Parser<'source> {
         self.advance_past_whitespace();
 
         if self.cursor < self.tokens.len() {
-            errors.push(self.error(kind::ExpectedEof));
+            errors.push(self.error(ExpectedEof));
         }
 
         if errors.is_empty() {
@@ -524,6 +589,18 @@ mod tests {
     }
 
     #[test]
+    fn wrong_float() {
+        let mut parser = Parser::new("1 .");
+        parser.try_parse_full::<Expr>().unwrap_err();
+    }
+
+    #[test]
+    fn wrong_float_2() {
+        let mut parser = Parser::new("1..");
+        parser.try_parse_full::<Expr>().unwrap_err();
+    }
+
+    #[test]
     fn literal_radix_base_2() {
         let mut parser = Parser::new("2'10000110000");
         let expr = parser.try_parse_full::<Expr>().unwrap();
@@ -604,6 +681,144 @@ mod tests {
             name: "pi".to_string(),
             span: 0..2,
         })));
+    }
+
+    #[test]
+    fn literal_list() {
+        let mut parser = Parser::new("[1, 2,i, 4, e]");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::List(LitList {
+            values: vec![
+                Expr::Literal(Literal::Integer(LitInt {
+                    value: "1".to_string(),
+                    span: 1..2,
+                })),
+                Expr::Literal(Literal::Integer(LitInt {
+                    value: "2".to_string(),
+                    span: 4..5,
+                })),
+                Expr::Literal(Literal::Symbol(LitSym {
+                    name: "i".to_string(),
+                    span: 6..7,
+                })),
+                Expr::Literal(Literal::Integer(LitInt {
+                    value: "4".to_string(),
+                    span: 9..10,
+                })),
+                Expr::Literal(Literal::Symbol(LitSym {
+                    name: "e".to_string(),
+                    span: 12..13,
+                })),
+            ],
+            span: 0..14,
+        })));
+    }
+
+    #[test]
+    fn literal_list_repeat() {
+        let mut parser = Parser::new("[1; 5]");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Literal(Literal::ListRepeat(LitListRepeat {
+            value: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "1".to_string(),
+                span: 1..2,
+            }))),
+            count: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "5".to_string(),
+                span: 4..5,
+            }))),
+            span: 0..6,
+        })));
+    }
+
+    #[test]
+    fn list_indexing() {
+        let mut parser = Parser::new("(list[x + 2] + list[x + 5])[1][2]");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Index(Index {
+            target: Box::new(Expr::Index(Index {
+                target: Box::new(Expr::Paren(Paren {
+                    expr: Box::new(Expr::Binary(Binary {
+                        lhs: Box::new(Expr::Index(Index {
+                            target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                name: "list".to_string(),
+                                span: 1..5,
+                            }))),
+                            index: Box::new(Expr::Binary(Binary {
+                                lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                    name: "x".to_string(),
+                                    span: 6..7,
+                                }))),
+                                op: BinOp {
+                                    kind: BinOpKind::Add,
+                                    implicit: false,
+                                    span: 8..9,
+                                },
+                                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                                    value: "2".to_string(),
+                                    span: 10..11,
+                                }))),
+                                span: 6..11,
+                            })),
+                            span: 1..12,
+                            bracket_span: 5..12,
+                        })),
+                        op: BinOp {
+                            kind: BinOpKind::Add,
+                            implicit: false,
+                            span: 13..14,
+                        },
+                        rhs: Box::new(Expr::Index(Index {
+                            target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                name: "list".to_string(),
+                                span: 15..19,
+                            }))),
+                            index: Box::new(Expr::Binary(Binary {
+                                lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                    name: "x".to_string(),
+                                    span: 20..21,
+                                }))),
+                                op: BinOp {
+                                    kind: BinOpKind::Add,
+                                    implicit: false,
+                                    span: 22..23,
+                                },
+                                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                                    value: "5".to_string(),
+                                    span: 24..25,
+                                }))),
+                                span: 20..25,
+                            })),
+                            span: 15..26,
+                            bracket_span: 19..26,
+                        })),
+                        span: 1..26,
+                    })),
+                    span: 0..27,
+                })),
+                index: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "1".to_string(),
+                    span: 28..29,
+                }))),
+                span: 0..30,
+                bracket_span: 27..30,
+            })),
+            index: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "2".to_string(),
+                span: 31..32,
+            }))),
+            span: 0..33,
+            bracket_span: 30..33,
+        }));
+    }
+
+    #[test]
+    fn not_indexing() {
+        let mut parser = Parser::new("abs(4) [8, 16]");
+        assert!(parser.try_parse_full::<Expr>().is_err());
     }
 
     #[test]
@@ -1179,6 +1394,54 @@ mod tests {
     }
 
     #[test]
+    fn implicit_multiplication_4() {
+        let mut parser = Parser::new("im(2sqrt(-1))");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Call(Call {
+            name: LitSym {
+                name: "im".to_string(),
+                span: 0..2,
+            },
+            derivatives: 0,
+            args: vec![Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "2".to_string(),
+                    span: 3..4,
+                }))),
+                op: BinOp {
+                    kind: BinOpKind::Mul,
+                    implicit: true,
+                    span: 4..4,
+                },
+                rhs: Box::new(Expr::Call(Call {
+                    name: LitSym {
+                        name: "sqrt".to_string(),
+                        span: 4..8,
+                    },
+                    derivatives: 0,
+                    args: vec![Expr::Unary(Unary {
+                        operand: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                            value: "1".to_string(),
+                            span: 10..11,
+                        }))),
+                        op: UnaryOp {
+                            kind: UnaryOpKind::Neg,
+                            span: 9..10,
+                        },
+                        span: 9..11,
+                    })],
+                    span: 4..12,
+                    paren_span: 8..12,
+                })),
+                span: 3..12,
+            })],
+            span: 0..13,
+            paren_span: 2..13,
+        }));
+    }
+
+    #[test]
     fn implicit_multiplication_extra() {
         let mut parser = Parser::new("4x^2 + 5x + 1");
         let expr = parser.try_parse_full::<Expr>().unwrap();
@@ -1656,7 +1919,7 @@ mod tests {
 
     #[test]
     fn if_block() {
-        let mut parser = Parser::new("if d then { abs''(d) } else { f = 1; f }");
+        let mut parser = Parser::new("if d { abs''(d) } else { f = 1; f }");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::If(If {
@@ -1670,23 +1933,23 @@ mod tests {
                         expr: Expr::Call(Call {
                             name: LitSym {
                                 name: "abs".to_string(),
-                                span: 12..15,
+                                span: 7..10,
                             },
                             derivatives: 2,
                             args: vec![
                                 Expr::Literal(Literal::Symbol(LitSym {
                                     name: "d".to_string(),
-                                    span: 18..19,
+                                    span: 13..14,
                                 })),
                             ],
-                            span: 12..20,
-                            paren_span: 17..20,
+                            span: 7..15,
+                            paren_span: 12..15,
                         }),
                         semicolon: None,
-                        span: 12..20,
+                        span: 7..15,
                     },
                 ],
-                span: 10..22,
+                span: 5..17,
             })),
             else_expr: Some(Box::new(Expr::Block(Block {
                 stmts: vec![
@@ -1694,36 +1957,35 @@ mod tests {
                         expr: Expr::Assign(Assign {
                             target: AssignTarget::Symbol(LitSym {
                                 name: "f".to_string(),
-                                span: 30..31,
+                                span: 25..26,
                             }),
                             op: AssignOp {
                                 kind: AssignOpKind::Assign,
-                                span: 32..33,
+                                span: 27..28,
                             },
                             value: Box::new(Expr::Literal(Literal::Integer(LitInt {
                                 value: "1".to_string(),
-                                span: 34..35,
+                                span: 29..30,
                             }))),
-                            span: 30..35,
+                            span: 25..30,
                         }),
-                        semicolon: Some(35..36),
-                        span: 30..36,
+                        semicolon: Some(30..31),
+                        span: 25..31,
                     },
                     Stmt {
                         expr: Expr::Literal(Literal::Symbol(LitSym {
                             name: "f".to_string(),
-                            span: 37..38,
+                            span: 32..33,
                         })),
                         semicolon: None,
-                        span: 37..38,
+                        span: 32..33,
                     },
                 ],
-                span: 28..40,
+                span: 23..35,
             }))),
-            span: 0..40,
+            span: 0..35,
             if_span: 0..2,
-            then_span: 5..9,
-            else_span: Some(23..27),
+            else_span: Some(18..22),
         }));
     }
 
@@ -1829,8 +2091,24 @@ mod tests {
     }
 
     #[test]
+    fn bad_assign_to_function() {
+        // cannot compound assign to function
+        let mut parser = Parser::new("g(x) += 2");
+        let expr = parser.try_parse_full::<Expr>();
+        assert!(expr.is_err());
+    }
+
+    #[test]
+    fn bad_assign_to_function_default_params() {
+        // default parameters must be at the end
+        let mut parser = Parser::new("g(x = 1, y) += 2");
+        let expr = parser.try_parse_full::<Expr>();
+        assert!(expr.is_err());
+    }
+
+    #[test]
     fn assign_to_complicated_function() {
-        let mut parser = Parser::new("discrim(a = 1, b = 5, c) = b^2 - 4a * c");
+        let mut parser = Parser::new("discrim(a = 1, b = 5, c = 6) = return b^2 - 4a * c");
         let expr = parser.try_parse_full::<Expr>().unwrap();
 
         assert_eq!(expr, Expr::Assign(Assign {
@@ -1860,72 +2138,199 @@ mod tests {
                             span: 19..20,
                         })),
                     ),
-                    Param::Symbol(
+                    Param::Default(
                         LitSym {
                             name: "c".to_string(),
                             span: 22..23,
                         },
+                        Expr::Literal(Literal::Integer(LitInt {
+                            value: "6".to_string(),
+                            span: 26..27,
+                        })),
                     ),
                 ],
-                span: 0..24,
+                span: 0..28,
             }),
             op: AssignOp {
                 kind: AssignOpKind::Assign,
-                span: 25..26,
+                span: 29..30,
             },
-            value: Box::new(Expr::Binary(Binary {
-                lhs: Box::new(Expr::Binary(Binary {
-                    lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
-                        name: "b".to_string(),
-                        span: 27..28,
-                    }))),
-                    op: BinOp {
-                        kind: BinOpKind::Exp,
-                        implicit: false,
-                        span: 28..29,
-                    },
-                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
-                        value: "2".to_string(),
-                        span: 29..30,
-                    }))),
-                    span: 27..30,
-                })),
-                op: BinOp {
-                    kind: BinOpKind::Sub,
-                    implicit: false,
-                    span: 31..32,
-                },
-                rhs: Box::new(Expr::Binary(Binary {
+            value: Box::new(Expr::Return(Return {
+                value: Some(Box::new(Expr::Binary(Binary {
                     lhs: Box::new(Expr::Binary(Binary {
-                        lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
-                            value: "4".to_string(),
-                            span: 33..34,
+                        lhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                            name: "b".to_string(),
+                            span: 38..39,
                         }))),
                         op: BinOp {
+                            kind: BinOpKind::Exp,
+                            implicit: false,
+                            span: 39..40,
+                        },
+                        rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                            value: "2".to_string(),
+                            span: 40..41,
+                        }))),
+                        span: 38..41,
+                    })),
+                    op: BinOp {
+                        kind: BinOpKind::Sub,
+                        implicit: false,
+                        span: 42..43,
+                    },
+                    rhs: Box::new(Expr::Binary(Binary {
+                        lhs: Box::new(Expr::Binary(Binary {
+                            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                                value: "4".to_string(),
+                                span: 44..45,
+                            }))),
+                            op: BinOp {
+                                kind: BinOpKind::Mul,
+                                implicit: true,
+                                span: 45..45,
+                            },
+                            rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                                name: "a".to_string(),
+                                span: 45..46,
+                            }))),
+                            span: 44..46,
+                        })),
+                        op: BinOp {
                             kind: BinOpKind::Mul,
-                            implicit: true,
-                            span: 34..34,
+                            implicit: false,
+                            span: 47..48,
                         },
                         rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
-                            name: "a".to_string(),
-                            span: 34..35,
+                            name: "c".to_string(),
+                            span: 49..50,
                         }))),
-                        span: 33..35,
+                        span: 44..50,
                     })),
+                    span: 38..50,
+                }))),
+                span: 31..50,
+                return_span: 31..37,
+            })),
+            span: 0..50,
+        }));
+    }
+
+    #[test]
+    fn assign_function_to_list() {
+        let mut parser = Parser::new("arr[0] = f() = pi");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Assign(Assign {
+            target: AssignTarget::Index(Index {
+                target: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                    name: "arr".to_string(),
+                    span: 0..3,
+                }))),
+                index: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "0".to_string(),
+                    span: 4..5,
+                }))),
+                span: 0..6,
+                bracket_span: 3..6,
+            }),
+            op: AssignOp {
+                kind: AssignOpKind::Assign,
+                span: 7..8,
+            },
+            value: Box::new(Expr::Assign(Assign {
+                target: AssignTarget::Func(FuncHeader {
+                    name: LitSym {
+                        name: "f".to_string(),
+                        span: 9..10,
+                    },
+                    params: vec![],
+                    span: 9..12,
+                }),
+                op: AssignOp {
+                    kind: AssignOpKind::Assign,
+                    span: 13..14,
+                },
+                value: Box::new(Expr::Literal(Literal::Symbol(LitSym {
+                    name: "pi".to_string(),
+                    span: 15..17,
+                }))),
+                span: 9..17,
+            })),
+            span: 0..17,
+        }));
+    }
+
+    #[test]
+    fn range_no_float() {
+        let mut parser = Parser::new("1..2");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Range(ast::Range {
+            start: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "1".to_string(),
+                span: 0..1,
+            }))),
+            end: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "2".to_string(),
+                span: 3..4,
+            }))),
+            kind: RangeKind::HalfOpen,
+            span: 0..4,
+        }));
+    }
+
+    #[test]
+    fn range_precedence() {
+        let mut parser = Parser::new("3 * 4 + 1 ..= 26 + 2");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Range(ast::Range {
+            start: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Binary(Binary {
+                    lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                        value: "3".to_string(),
+                        span: 0..1,
+                    }))),
                     op: BinOp {
                         kind: BinOpKind::Mul,
                         implicit: false,
-                        span: 36..37,
+                        span: 2..3,
                     },
-                    rhs: Box::new(Expr::Literal(Literal::Symbol(LitSym {
-                        name: "c".to_string(),
-                        span: 38..39,
+                    rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                        value: "4".to_string(),
+                        span: 4..5,
                     }))),
-                    span: 33..39,
+                    span: 0..5,
                 })),
-                span: 27..39,
+                op: BinOp {
+                    kind: BinOpKind::Add,
+                    implicit: false,
+                    span: 6..7,
+                },
+                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "1".to_string(),
+                    span: 8..9,
+                }))),
+                span: 0..9,
             })),
-            span: 0..39,
+            end: Box::new(Expr::Binary(Binary {
+                lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "26".to_string(),
+                    span: 14..16,
+                }))),
+                op: BinOp {
+                    kind: BinOpKind::Add,
+                    implicit: false,
+                    span: 17..18,
+                },
+                rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                    value: "2".to_string(),
+                    span: 19..20,
+                }))),
+                span: 14..20,
+            })),
+            kind: RangeKind::Closed,
+            span: 0..20,
         }));
     }
 
@@ -2006,7 +2411,9 @@ mod tests {
     #[test]
     fn catastrophic_backtracking() {
         // parsing nested function calls like this used to take exponential time! :sweat:
-        let mut parser = Parser::new("a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a(a()");
+        // a(a(a(a(a(a(...)
+        let source = format!("{})", "a(".repeat(6000));
+        let mut parser = Parser::new(&source);
         assert!(parser.try_parse_full::<Expr>().is_err());
     }
 
@@ -2032,24 +2439,52 @@ mod tests {
                 }))),
                 span: 6..11,
             })),
-            body: Box::new(Expr::Assign(Assign {
-                target: AssignTarget::Symbol(LitSym {
-                    name: "x".to_string(),
-                    span: 17..18,
-                }),
-                op: AssignOp {
-                    kind: AssignOpKind::Add,
-                    span: 19..21,
-                },
-                value: Box::new(Expr::Literal(Literal::Integer(LitInt {
-                    value: "1".to_string(),
-                    span: 22..23,
-                }))),
-                span: 17..23,
+            body: Box::new(Expr::Then(Then {
+                expr: Box::new(Expr::Assign(Assign {
+                    target: AssignTarget::Symbol(LitSym {
+                        name: "x".to_string(),
+                        span: 17..18,
+                    }),
+                    op: AssignOp {
+                        kind: AssignOpKind::Add,
+                        span: 19..21,
+                    },
+                    value: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                        value: "1".to_string(),
+                        span: 22..23,
+                    }))),
+                    span: 17..23,
+                })),
+                span: 12..23,
+                then_span: 12..16,
             })),
             span: 0..23,
             while_span: 0..5,
-            then_span: 12..16,
+        }));
+    }
+
+    #[test]
+    fn index_into_function() {
+        let mut parser = Parser::new("abs()[0]");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Index(Index {
+            target: Box::new(Expr::Call(Call {
+                name: LitSym {
+                    name: "abs".to_string(),
+                    span: 0..3,
+                },
+                derivatives: 0,
+                args: vec![],
+                span: 0..5,
+                paren_span: 3..5,
+            })),
+            index: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "0".to_string(),
+                span: 6..7,
+            }))),
+            span: 0..8,
+            bracket_span: 5..8,
         }));
     }
 
@@ -2057,9 +2492,9 @@ mod tests {
     fn source_code() {
         let mut parser = Parser::new("x = 5;
 iseven(n) = n % 2 == 0;
-if iseven(x) then {
+if iseven(x) {
     x^2 + 5x + 6
-} else if (bool(x) && false) then {
+} else if (bool(x) && false) {
     exp(x)
 } else {
     log(x, 2)

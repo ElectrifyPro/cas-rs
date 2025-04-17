@@ -518,18 +518,26 @@ impl From<AstExpr> for Expr {
                 Literal::Symbol(sym) => Self::Primary(Primary::Symbol(sym.name)),
                 Literal::Unit(_) => todo!(),
                 Literal::List(_) => todo!(),
+                Literal::ListRepeat(_) => todo!(),
             },
             AstExpr::Paren(paren) => Self::from(paren.into_innermost()),
             AstExpr::Block(_) => todo!(),
+            AstExpr::Sum(_) => todo!(),
+            AstExpr::Product(_) => todo!(),
             AstExpr::If(_) => todo!(),
             AstExpr::Loop(_) => todo!(),
             AstExpr::While(_) => todo!(),
+            AstExpr::For(_) => todo!(),
+            AstExpr::Then(_) => todo!(),
+            AstExpr::Of(_) => todo!(),
             AstExpr::Break(_) => todo!(),
             AstExpr::Continue(_) => todo!(),
+            AstExpr::Return(_) => todo!(),
             AstExpr::Call(call) => {
                 let args = call.args.into_iter().map(Self::from).collect();
                 Self::Primary(Primary::Call(call.name.name, args))
             },
+            AstExpr::Index(_) => todo!(),
             AstExpr::Unary(unary) => {
                 match unary.op.kind {
                     UnaryOpKind::Neg => {
@@ -630,6 +638,7 @@ impl From<AstExpr> for Expr {
                 }
             },
             AstExpr::Assign(_) => todo!(),
+            AstExpr::Range(_) => todo!(),
         }
     }
 }

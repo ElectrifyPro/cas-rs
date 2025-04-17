@@ -25,4 +25,4 @@ optional = true
 ariadne = "0.2.0"
 cas-attrs = { version = "0.1.0", path = "../cas-attrs" }
 cas-error = { version = "0.1.0", path = "../cas-error" }
-logos = "0.13.0"
+logos = "0.14"

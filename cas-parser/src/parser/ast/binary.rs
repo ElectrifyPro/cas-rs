@@ -1,12 +1,25 @@
+use cas_error::Error;
 use crate::parser::{
     ast::{
         assign::{Assign as AssignExpr, AssignTarget},
         expr::Expr,
+        range::{Range as RangeExpr, RangeKind},
         unary::Unary,
     },
-    error::{kind, Error},
+    error::NonFatal,
     fmt::{Latex, fmt_pow},
-    token::{op::{AssignOp, Associativity, BinOp, BinOpKind, Precedence}, Assign},
+    token::{
+        op::{
+            AssignOp,
+            Associativity,
+            BinOp,
+            BinOpKind,
+            Precedence,
+        },
+        Assign,
+        RangeClosed,
+        RangeHalfOpen,
+    },
     Parse,
     Parser,
     ParseResult,
@@ -17,7 +30,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// A binary operator, including assignment.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum BinOpExt {
     /// A binary operator, such as `+` or `*`.
     Op(BinOp),
@@ -29,6 +42,9 @@ enum BinOpExt {
 
     /// An assignment operator, such as `+=` or `/=`.
     Assign(AssignOp),
+
+    /// A range operator, such as `..` or `..=`.
+    Range(RangeKind)
 }
 
 impl BinOpExt {
@@ -38,6 +54,7 @@ impl BinOpExt {
             BinOpExt::Op(op) => op.precedence(),
             BinOpExt::ImplicitMultiplication => Precedence::Factor,
             BinOpExt::Assign(_) => Precedence::Assign,
+            BinOpExt::Range(_) => Precedence::Range,
         }
     }
 }
@@ -55,7 +72,7 @@ impl From<AssignOp> for BinOpExt {
 }
 
 /// A binary expression, such as `1 + 2`. Binary expressions can include nested expressions.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Binary {
     /// The left-hand side of the binary expression.
@@ -213,6 +230,12 @@ impl Binary {
                 value: Box::new(rhs),
                 span: start_span..end_span,
             })),
+            BinOpExt::Range(kind) => Ok(Expr::Range(RangeExpr {
+                start: Box::new(lhs),
+                end: Box::new(rhs),
+                kind,
+                span: start_span..end_span,
+            })),
         }
     }
 
@@ -233,7 +256,7 @@ impl Binary {
                 if bin_op.precedence() >= precedence {
                     ParseResult::Ok(())
                 } else {
-                    ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
+                    ParseResult::Unrecoverable(vec![input.error(NonFatal)])
                 }
             }).forward_errors(recoverable_errors) {
                 input.set_cursor(&input_ahead);
@@ -243,7 +266,7 @@ impl Binary {
                 if Precedence::Assign >= precedence {
                     ParseResult::Ok(())
                 } else {
-                    ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
+                    ParseResult::Unrecoverable(vec![input.error(NonFatal)])
                 }
             }).forward_errors(recoverable_errors) {
                 // assignment is also a binary expression, however it requires special handling
@@ -253,6 +276,28 @@ impl Binary {
                 input.set_cursor(&input_ahead);
                 let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
                 lhs = Self::complete_rhs(input, recoverable_errors, lhs, assign.into(), rhs)?;
+            } else if input_ahead.try_parse_then::<RangeHalfOpen, _>(|_, input| {
+                if Precedence::Range >= precedence {
+                    ParseResult::Ok(())
+                } else {
+                    ParseResult::Unrecoverable(vec![input.error(NonFatal)])
+                }
+            }).is_ok() {
+                // range expressions are also binary expressions, but they require special handling
+                // because they are not valid in all contexts
+                input.set_cursor(&input_ahead);
+                let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
+                lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::Range(RangeKind::HalfOpen), rhs)?;
+            } else if input_ahead.try_parse_then::<RangeClosed, _>(|_, input| {
+                if Precedence::Range >= precedence {
+                    ParseResult::Ok(())
+                } else {
+                    ParseResult::Unrecoverable(vec![input.error(NonFatal)])
+                }
+            }).is_ok() {
+                input.set_cursor(&input_ahead);
+                let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
+                lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::Range(RangeKind::Closed), rhs)?;
             } else if BinOpKind::Mul.precedence() >= precedence {
                 // implicit multiplication test
 
@@ -268,7 +313,7 @@ impl Binary {
                 // has lower precedence
                 if input_ahead.try_parse_then::<BinOp, _>(|op, input| {
                     if op.precedence() > BinOpKind::Mul.precedence() {
-                        ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
+                        ParseResult::Unrecoverable(vec![input.error(NonFatal)])
                     } else {
                         ParseResult::Ok(())
                     }
@@ -278,10 +323,23 @@ impl Binary {
 
                 // if there is no expression, there is no implicit multiplication and all our
                 // attempts to parse a binary expression fail
-                let Ok(rhs) = Unary::parse_or_lower(input, recoverable_errors) else {
+                let mut inner_recoverable_errors = Vec::new();
+                let Ok(rhs) = Unary::parse_or_lower(&mut input_ahead, &mut inner_recoverable_errors) else {
                     break;
                 };
-                lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::ImplicitMultiplication, rhs)?;
+
+                if rhs.is_implicit_mul_target() {
+                    // TODO: this can be refactored with input.try_parse_with_fn once Try trait is
+                    // stabilized, which would make ParseResult so much nicer to work with
+
+                    // add the recoverable errors from the inner parser to the outer parser, since
+                    // we know now implicit multiplication is the correct branch to take
+                    recoverable_errors.extend(inner_recoverable_errors);
+                    input.set_cursor(&input_ahead);
+                    lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::ImplicitMultiplication, rhs.into())?;
+                } else {
+                    break;
+                }
             } else {
                 break;
             }

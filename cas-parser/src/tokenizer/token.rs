@@ -130,10 +130,10 @@ pub enum TokenKind {
     #[token("0x")]
     Hex,
 
-    #[regex(r"([a-zA-Z_]+|atan2)")] // TODO: includes horrible hard-coded test for atan2
+    #[regex(r"[a-zA-Z_]+|atan2")] // TODO: includes horrible hard-coded test for atan2
     Name,
 
-    #[regex(r"(if|then|else|loop|while|break|continue)")]
+    #[regex(r"let|if|then|else|for|sum|product|in|of|loop|while|break|continue|return")]
     Keyword,
 
     #[token(",")]
@@ -163,17 +163,20 @@ pub enum TokenKind {
     #[token(";")]
     Semicolon,
 
-    #[regex(r"[0-9]+\.?")]
+    #[regex(r"\d+")]
     Int,
-
-    #[regex(r"([0-9]+\.[0-9]*|\.[0-9]+)")]
-    Float,
 
     #[regex(r"(true|false)")]
     Boolean,
 
     #[token(".")]
     Dot,
+
+    #[token("..")]
+    RangeHalfOpen,
+
+    #[token("..=")]
+    RangeClosed,
 
     #[regex(r".", priority = 0)]
     Symbol,

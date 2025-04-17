@@ -179,7 +179,7 @@ impl Graph {
     /// Tries to parse the given expression and add it to the graph.
     ///
     /// Returns a mutable reference to the graph to allow chaining.
-    pub fn try_add_expr(&mut self, expr: &str) -> Result<&mut Self, Vec<cas_parser::parser::error::Error>> {
+    pub fn try_add_expr(&mut self, expr: &str) -> Result<&mut Self, Vec<cas_error::Error>> {
         self.expressions.push(AnalyzedExpr::new(Parser::new(expr).try_parse_full()?));
         Ok(self)
     }

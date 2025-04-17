@@ -23,7 +23,7 @@ Below are some routine examples of how `cas-rs` can be used.
 
 ## REPL
 
-`cas-rs` comes with a builtin scripting language called "CalcScript" along with a REPL to help you try out the library. CalcScript is a mostly imperative, expression-oriented language, and attempts to keep syntax and visual noise minimal, while still readable. See the [`examples/`](examples) directory for examples of basic programs written in CalcScript.
+`cas-rs` comes with a builtin scripting language called "CalcScript" along with a REPL to help you try out the library. CalcScript is a compiled, mostly imperative, expression-oriented language, and attempts to keep syntax and visual noise minimal, while still readable. See the [`examples/`](examples) directory for examples of basic programs written in CalcScript.
 
 To install the REPL, run the following command (Rust needs to be installed):
 

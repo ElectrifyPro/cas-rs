@@ -48,7 +48,21 @@ impl<'a> Iterator for ExprIter<'a> {
                     }
                     self.stack.push(&paren.expr);
                 },
-                Expr::Block(_) => return self.visit(), // NOTE: inner statements are not visited
+                Expr::Block(_) => return self.visit(), // NOTE: inner statements are not visited; me in 2024-27-09: why?
+                Expr::Sum(sum) => {
+                    if self.is_last_visited(&sum.body) {
+                        return self.visit();
+                    }
+                    self.stack.push(&sum.body);
+                    // TODO: should the range and variable be visited?
+                },
+                Expr::Product(product) => {
+                    if self.is_last_visited(&product.body) {
+                        return self.visit();
+                    }
+                    self.stack.push(&product.body);
+                    // TODO: should the range and variable be visited?
+                },
                 Expr::If(if_expr) => {
                     if let Some(else_expr) = &if_expr.else_expr {
                         if self.is_last_visited(else_expr) {
@@ -78,6 +92,24 @@ impl<'a> Iterator for ExprIter<'a> {
                     self.stack.push(&while_expr.body);
                     self.stack.push(&while_expr.condition);
                 },
+                Expr::For(for_expr) => {
+                    if self.is_last_visited(&for_expr.body) {
+                        return self.visit();
+                    }
+                    self.stack.push(&for_expr.body);
+                },
+                Expr::Then(then) => {
+                    if self.is_last_visited(&then.expr) {
+                        return self.visit();
+                    }
+                    self.stack.push(&then.expr);
+                },
+                Expr::Of(of) => {
+                    if self.is_last_visited(&of.expr) {
+                        return self.visit();
+                    }
+                    self.stack.push(&of.expr);
+                },
                 Expr::Break(break_expr) => {
                     if let Some(value) = &break_expr.value {
                         if self.is_last_visited(value) {
@@ -89,6 +121,7 @@ impl<'a> Iterator for ExprIter<'a> {
                     }
                 },
                 Expr::Continue(_) => return self.visit(),
+                Expr::Return(_) => return self.visit(),
                 Expr::Call(call) => {
                     if call.args.is_empty() || self.is_last_visited(call.args.last().unwrap()) {
                         return self.visit();
@@ -96,6 +129,13 @@ impl<'a> Iterator for ExprIter<'a> {
                     for arg in call.args.iter().rev() {
                         self.stack.push(arg);
                     }
+                },
+                Expr::Index(index) => {
+                    if self.is_last_visited(&index.index) {
+                        return self.visit();
+                    }
+                    self.stack.push(&index.index);
+                    self.stack.push(&index.target);
                 },
                 Expr::Unary(unary) => {
                     if self.is_last_visited(&unary.operand) {
@@ -115,6 +155,13 @@ impl<'a> Iterator for ExprIter<'a> {
                         return self.visit();
                     }
                     self.stack.push(&assign.value);
+                },
+                Expr::Range(range) => {
+                    if self.is_last_visited(&range.end) {
+                        return self.visit();
+                    }
+                    self.stack.push(&range.end);
+                    self.stack.push(&range.start);
                 },
             }
         }

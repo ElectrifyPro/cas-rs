@@ -1,0 +1,7 @@
+cache = [-1; 64]
+my_fib(n) = if n <= 1 then n else {
+    if cache[n] != -1 return cache[n]
+    cache[n] = my_fib(n - 1) + my_fib(n - 2)
+}
+
+my_fib(63)

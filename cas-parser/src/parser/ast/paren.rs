@@ -1,6 +1,7 @@
+use cas_error::Error;
 use crate::parser::{
     ast::expr::Expr,
-    error::{kind, Error},
+    error::UnclosedParenthesis,
     fmt::Latex,
     garbage::Garbage,
     token::{CloseParen, OpenParen},
@@ -13,7 +14,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// A parenthesized expression. A [`Paren`] can only contain a single expression.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Paren {
     /// The inner expression.
@@ -60,7 +61,7 @@ impl<'source> Parse<'source> for Paren {
             .unwrap_or_else(|_| {
                 recoverable_errors.push(Error::new(
                     vec![open_paren.span.clone()],
-                    kind::UnclosedParenthesis { opening: true },
+                    UnclosedParenthesis { opening: true },
                 ));
 
                 // fake a close paren for recovery purposes

@@ -1,6 +1,7 @@
+use cas_error::Error;
 use crate::parser::{
     ast::expr::Expr,
-    error::{kind::{BreakOutsideLoop, ContinueOutsideLoop}, Error},
+    error::{BreakOutsideLoop, ContinueOutsideLoop},
     fmt::Latex,
     keyword::{Break as BreakToken, Continue as ContinueToken, Loop as LoopToken},
     Parse,
@@ -13,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 /// A `loop` expression, as in `loop { ... }`. The code inside the braces is
 /// evaluated repeatedly until a `break` expression is encountered.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Loop {
     /// The body of the loop.
@@ -68,7 +69,7 @@ impl Latex for Loop {
 }
 
 /// A `break` expression, used to exit a loop, optionally with a value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Break {
     /// The value to return from the loop.
@@ -94,7 +95,9 @@ impl<'source> Parse<'source> for Break {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let break_token = input.try_parse::<BreakToken>().forward_errors(recoverable_errors)?;
-        let value = if let Ok(value) = input.try_parse::<Expr>().forward_errors(recoverable_errors) {
+        let value = if let Ok(value) = input.try_parse_with_state::<_, Expr>(|state| {
+            state.expr_end_at_eol = true;
+        }).forward_errors(recoverable_errors) {
             Some(value)
         } else {
             None
@@ -142,7 +145,7 @@ impl Latex for Break {
 }
 
 /// A `continue` expression, used to skip the rest of a loop iteration.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Continue {
     /// The region of the source code that this expression was parsed from.

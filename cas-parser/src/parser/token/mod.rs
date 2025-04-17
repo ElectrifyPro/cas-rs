@@ -1,8 +1,9 @@
 pub mod op;
 pub mod pair;
 
+use cas_error::Error;
 use crate::{
-    parser::{error::{kind, Error}, garbage::Garbage, Parser, Parse},
+    parser::{error::UnexpectedToken, garbage::Garbage, Parser, Parse},
     tokenizer::TokenKind,
 };
 use std::ops::Range;
@@ -32,7 +33,7 @@ macro_rules! token_kinds {
                             span: token.span,
                         })
                     } else {
-                        Err(vec![Error::new(vec![token.span], kind::UnexpectedToken {
+                        Err(vec![Error::new(vec![token.span], UnexpectedToken {
                             expected: &[TokenKind::$name],
                             found: token.kind,
                         })])
@@ -103,8 +104,9 @@ token_kinds!(
     Quote
     Semicolon
     Int
-    Float
     Boolean
     Dot
+    RangeHalfOpen
+    RangeClosed
     Symbol
 );

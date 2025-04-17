@@ -1,5 +1,6 @@
+use cas_error::Error;
 use crate::{
-    parser::{error::{kind, Error}, garbage::Garbage, Parser, Parse},
+    parser::{error::UnexpectedToken, garbage::Garbage, Parser, Parse},
     tokenizer::TokenKind,
 };
 use std::ops::Range;
@@ -25,12 +26,12 @@ macro_rules! keywords {
 
                     if token.kind == TokenKind::Keyword {
                         if token.lexeme != stringify!($lexeme) {
-                            // return Err(vec![Error::new(vec![token.span], kind::UnexpectedToken {
+                            // return Err(vec![Error::new(vec![token.span], UnexpectedToken {
                             //     expected: &[stringify!($lexeme)],
                             //     found: token.kind,
                             // })]);
                             // TODO
-                            return Err(vec![Error::new(vec![token.span], kind::UnexpectedToken {
+                            return Err(vec![Error::new(vec![token.span], UnexpectedToken {
                                 expected: &[TokenKind::Keyword],
                                 found: token.kind,
                             })]);
@@ -40,7 +41,7 @@ macro_rules! keywords {
                             span: token.span,
                         })
                     } else {
-                        Err(vec![Error::new(vec![token.span], kind::UnexpectedToken {
+                        Err(vec![Error::new(vec![token.span], UnexpectedToken {
                             expected: &[TokenKind::Keyword],
                             found: token.kind,
                         })])
@@ -58,11 +59,18 @@ macro_rules! keywords {
 }
 
 keywords!(
+    (Let, let)
     (If, if)
     (Then, then)
     (Else, else)
+    (For, for)
+    (Sum, sum)
+    (Product, product)
+    (In, in)
+    (Of, of)
     (Loop, loop)
     (While, while)
     (Break, break)
     (Continue, continue)
+    (Return, return)
 );

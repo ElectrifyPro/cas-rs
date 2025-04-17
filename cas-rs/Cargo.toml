@@ -9,8 +9,12 @@ categories = ["mathematics", "compilers", "command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
+[dev-dependencies]
 ariadne = "0.2.0"
+
+[dependencies]
 cas-compute = { version = "0.1.0", path = "../cas-compute", default-features = false, features = ["numerical"] }
+cas-error = { version = "0.1.0", path = "../cas-error" }
 cas-parser = { version = "0.1.0", path = "../cas-parser" }
+cas-vm = { version = "0.1.0", path = "../cas-vm" }
 rustyline = "13.0.0"

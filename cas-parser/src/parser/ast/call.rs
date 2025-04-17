@@ -1,9 +1,9 @@
+use cas_error::Error;
 use crate::parser::{
-    ast::{expr::Expr, helper::ParenDelimited, literal::LitSym},
-    error::{kind::TooManyDerivatives, Error},
+    ast::{expr::{Expr, Primary}, helper::ParenDelimited, literal::{Literal, LitSym}},
+    error::TooManyDerivatives,
     fmt::{Latex, fmt_pow},
     token::Quote,
-    Parse,
     Parser,
 };
 use std::{fmt, ops::Range};
@@ -12,7 +12,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// A function call, such as `func(x, -40)`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Call {
     /// The name of the function to call.
@@ -37,6 +37,13 @@ impl Call {
         self.span.clone()
     }
 
+    /// Returns a span that spans the selected arguments, given by index.
+    pub fn arg_span(&self, args: Range<usize>) -> Range<usize> {
+        let first = self.args[args.start].span().start;
+        let last = self.args[args.end].span().end;
+        first..last
+    }
+
     /// Returns a set of two spans, where the first is the span of the function name (with the
     /// opening parenthesis) and the second is the span of the closing parenthesis.
     pub fn outer_span(&self) -> [Range<usize>; 2] {
@@ -45,14 +52,28 @@ impl Call {
             self.paren_span.end - 1..self.paren_span.end,
         ]
     }
-}
 
-impl<'source> Parse<'source> for Call {
-    fn std_parse(
-        input: &mut Parser<'source>,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
-        let name = input.try_parse::<LitSym>().forward_errors(recoverable_errors)?;
+    /// Attempts to parse a [`Call`], where the initial target has already been parsed.
+    ///
+    /// Besides the returned [`Primary`], the return value also includes a boolean that indicates
+    /// if the expression was changed due to successfully parsing a [`Call`]. This function can
+    /// return `Ok` even if no [`Call`], which occurs when we determine that we shouldn't have
+    /// taken the [`Call`] path. The boolean is used to let the caller know that this is was the
+    /// case.
+    ///
+    /// This is similar to what we had to do with [`Binary`].
+    ///
+    /// [`Binary`]: crate::parser::ast::binary::Binary
+    pub fn parse_or_lower(
+        input: &mut Parser,
+        recoverable_errors: &mut Vec<Error>,
+        target: Primary,
+    ) -> Result<(Primary, bool), Vec<Error>> {
+        let name = match target {
+            Primary::Literal(Literal::Symbol(name)) => name,
+            target => return Ok((Primary::from(target), false)),
+        };
+
         let mut derivatives = 0usize;
         let mut quote_span: Option<Range<_>> = None;
         let mut too_many_derivatives = false;
@@ -79,13 +100,13 @@ impl<'source> Parse<'source> for Call {
 
         // use `name` here before it is moved into the struct
         let span = name.span.start..surrounded.close.span.end;
-        Ok(Self {
+        Ok((Primary::Call(Self {
             name,
             derivatives: derivatives as u8,
             args: surrounded.value.values,
             span,
             paren_span: surrounded.open.span.start..surrounded.close.span.end,
-        })
+        }), true))
     }
 }
 

@@ -2,9 +2,10 @@ mod complex;
 mod float;
 mod integer;
 
+use cas_parser::parser::ast::range::RangeKind;
 use crate::primitive::float;
 use std::fmt::{Display, Formatter};
-use super::value::Value;
+use super::{func::Function, value::Value};
 
 /// Formatting options for values.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -38,6 +39,11 @@ pub struct FormatOptions {
 
     /// Whether to display separators for large numbers.
     pub separators: Separator,
+
+    /// Whether to print addresses of reference types, such as lists.
+    ///
+    /// This is useful for debugging, but can be confusing to an uninitiated user.
+    pub show_refs: ShowRefs,
 }
 
 impl FormatOptions {
@@ -151,6 +157,20 @@ impl Separator {
     }
 }
 
+/// Whether to print addresses of reference types, such as lists.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub enum ShowRefs {
+    /// Always print the address of reference types. This is useful for debugging, but can be
+    /// confusing to an uninitiated user.
+    ///
+    /// This is the default option.
+    #[default]
+    Always,
+
+    /// Never print the address of reference types.
+    Never,
+}
+
 /// Helper struct to build a [`FormatOptions`] struct.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct FormatOptionsBuilder(FormatOptions);
@@ -187,6 +207,13 @@ impl FormatOptionsBuilder {
         self
     }
 
+    /// Sets whether to print addresses of reference types, such as lists. See [`ShowRefs`] for
+    /// more information.
+    pub fn show_refs(mut self, show_refs: ShowRefs) -> Self {
+        self.0.show_refs = show_refs;
+        self
+    }
+
     /// Builds the [`FormatOptions`] struct.
     pub fn build(self) -> FormatOptions {
         self.0
@@ -212,8 +239,12 @@ impl Display for ValueFormatter<'_> {
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Unit => write!(f, "()"),
             Value::List(l) => {
-                write!(f, "[")?;
-                for (i, item) in l.iter().enumerate() {
+                if self.options.show_refs == ShowRefs::Always {
+                    write!(f, "({:p}: [", l.as_ptr())?;
+                } else {
+                    write!(f, "[")?;
+                }
+                for (i, item) in l.borrow().iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
                     }
@@ -222,7 +253,29 @@ impl Display for ValueFormatter<'_> {
                         options: self.options,
                     })?;
                 }
-                write!(f, "]")
+                if self.options.show_refs == ShowRefs::Always {
+                    write!(f, "])")
+                } else {
+                    write!(f, "]")
+                }
+            },
+            Value::Range(lhs, kind, rhs) => {
+                write!(f, "{}", ValueFormatter {
+                    value: &lhs,
+                    options: self.options,
+                })?;
+                match kind {
+                    RangeKind::HalfOpen => write!(f, " .. ")?,
+                    RangeKind::Closed => write!(f, " ..= ")?,
+                }
+                write!(f, "{}", ValueFormatter {
+                    value: &rhs,
+                    options: self.options,
+                })
+            },
+            Value::Function(kind) => match kind {
+                Function::User(_) => write!(f, "<function>"),
+                Function::Builtin(builtin) => write!(f, "<builtin function: {}>", builtin.name()),
             },
         }
     }
@@ -230,20 +283,14 @@ impl Display for ValueFormatter<'_> {
 
 #[cfg(test)]
 mod tests {
-    use cas_parser::parser::{ast::Expr, Parser};
-    use crate::numerical::eval::Eval;
+    use crate::primitive::{complex, float_from_str, int};
+    use rug::{ops::Pow, Integer};
 
     use super::*;
 
-    /// Evaluate the given expression and return the result.
-    fn eval(expr: &str) -> Value {
-        let expr = Parser::new(expr).try_parse_full::<Expr>().unwrap();
-        expr.eval(&mut Default::default()).unwrap()
-    }
-
     #[test]
     fn highly_precise_decimal() {
-        let float = eval("2.1 ^ 100");
+        let float = Value::Float(float_from_str("2.1").pow(100u16));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
             .precision(Some(150))
@@ -259,7 +306,7 @@ mod tests {
 
     #[test]
     fn highly_precise_decimal_2() {
-        let float = eval("2^457 / 10^50");
+        let float = Value::Float(float(2).pow(457u16) / float(10).pow(50u16));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
             .precision(Some(150))
@@ -275,7 +322,7 @@ mod tests {
 
     #[test]
     fn highly_precise_decimal_3() {
-        let float = eval("1/sqrt(2)");
+        let float = Value::Float(float(2).sqrt().recip());
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
             .build();
@@ -289,7 +336,7 @@ mod tests {
 
     #[test]
     fn scientific_e() {
-        let float = eval("1/256!");
+        let float = Value::Float(float(int(Integer::factorial(256))).recip());
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Scientific)
             .scientific(Scientific::E)
@@ -304,11 +351,11 @@ mod tests {
 
     #[test]
     fn highly_precise_scientific() {
-        let float = eval("124!");
+        let int = Value::Integer(int(Integer::factorial(124)));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Scientific)
             .build();
-        let formatted = format!("{}", float.fmt(opts));
+        let formatted = format!("{}", int.fmt(opts));
 
         assert_eq!(
             formatted,
@@ -318,7 +365,7 @@ mod tests {
 
     #[test]
     fn highly_precise_scientific_2() {
-        let float = eval("3^1100 / 12^740");
+        let float = Value::Float(float(3).pow(1100u16) / float(12).pow(740u16));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Scientific)
             .build();
@@ -332,7 +379,10 @@ mod tests {
 
     #[test]
     fn highly_precise_complex() {
-        let complex = eval("1/128! - 1/256! * i");
+        let complex = Value::Complex(complex((
+            float(int(Integer::factorial(128))).recip(),
+            -float(int(Integer::factorial(256))).recip(),
+        )));
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Scientific)
             .build();
@@ -346,7 +396,7 @@ mod tests {
 
     #[test]
     fn complex_imaginary_part() {
-        let complex = eval("sqrt(-4)");
+        let complex = Value::Complex(complex(-4).sqrt());
         let opts = FormatOptionsBuilder::new()
             .number(NumberFormat::Decimal)
             .build();
@@ -358,12 +408,12 @@ mod tests {
     #[test]
     fn complex_imaginary_edge() {
         let complexes = [
-            eval("1 + 0i"),
-            eval("3 - i"),
-            eval("1 - 2i"),
-            eval("i + i - i + 6"),
-            eval("i"),
-            eval("-i"),
+            Value::Complex(complex((1, 0))),
+            Value::Complex(complex((3, -1))),
+            Value::Complex(complex((1, -2))),
+            Value::Complex(complex((6, 1))),
+            Value::Complex(complex((0, 1))),
+            Value::Complex(complex((0, -1))),
         ];
         let outputs = [
             "1",
@@ -386,7 +436,7 @@ mod tests {
 
     #[test]
     fn trailing_zeroes() {
-        let float = eval("37000000.");
+        let float = Value::Float(float(37000000.));
         let opts = FormatOptionsBuilder::new()
             .separators(Separator::Always)
             .build();
@@ -397,7 +447,7 @@ mod tests {
 
     #[test]
     fn trailing_zeroes_2() {
-        let float = eval("1400.0010");
+        let float = Value::Float(float_from_str("1400.0010"));
         let opts = FormatOptionsBuilder::new()
             .precision(Some(10))
             .separators(Separator::Always)

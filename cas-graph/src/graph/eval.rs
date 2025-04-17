@@ -1,5 +1,24 @@
-use cas_compute::numerical::{ctxt::Ctxt, eval::Eval, value::Value};
+use cas_compiler::{item::{Item, SymbolDecl}, Compile, Compiler};
+use cas_compute::numerical::value::Value;
+use cas_vm::Vm;
 use super::{analyzed::{AnalyzedExpr, Variable}, GraphOptions, GraphPoint};
+
+/// Creates a VM ready to evaluate the given expression.
+fn create_vm(analyzed: &AnalyzedExpr) -> Vm {
+    let mut compiler = Compiler::new();
+
+    // TODO: make the compiler think there is already a symbol declared at the start so that no
+    // compile error is thrown on the first run
+    compiler.add_item(
+        &cas_parser::parser::ast::LitSym {
+            name: analyzed.independent.as_str().to_string(),
+            span: 0..0,
+        },
+        Item::Symbol(SymbolDecl { id: 0 }),
+    ).unwrap();
+    analyzed.expr.compile(&mut compiler).unwrap();
+    Vm::from(compiler)
+}
 
 /// Evaluate the given expression and returns the points to draw.
 ///
@@ -32,7 +51,6 @@ pub(crate) fn evaluate_expr(
                 cross_axis_bounds,
                 |previous, current| (current.1 - previous.1) / (current.0 - previous.0) / options.scale.1,
                 (options.scale.0 / 64.0, options.scale.0 / 16.0),
-                |x, y| GraphPoint(x, y),
             )
         },
         Variable::Y => {
@@ -47,7 +65,6 @@ pub(crate) fn evaluate_expr(
                 cross_axis_bounds,
                 |previous, current| (current.0 - previous.0) / (current.1 - previous.1) / options.scale.0,
                 (options.scale.1 / 64.0, options.scale.1 / 16.0),
-                |y, x| GraphPoint(x, y),
             )
         },
         Variable::Theta => evaluate_polar_expr(analyzed, options),
@@ -61,9 +78,8 @@ fn evaluate_cartesian_expr_helper(
     cross_axis_bounds: (f64, f64),
     compute_slope: impl Fn(GraphPoint<f64>, GraphPoint<f64>) -> f64,
     step_len: (f64, f64),
-    create_point: impl Fn(f64, f64) -> GraphPoint<f64>,
 ) -> Vec<GraphPoint<f64>> {
-    let mut ctxt = Ctxt::default();
+    let mut vm = create_vm(analyzed);
     let mut points = Vec::new();
 
     let mut last_point = None;
@@ -73,10 +89,18 @@ fn evaluate_cartesian_expr_helper(
     let (min_step_len, max_step_len) = step_len;
     let mut last_slope: Option<f64> = None;
 
+    let symbol = vm.sym_table.resolve_symbol(analyzed.independent.as_str())
+        .expect("symbol must exist since we just created it in `create_vm`");
+
     while current_trace <= bounds.1 {
-        ctxt.add_var(analyzed.independent.as_str(), current_trace.into());
-        if let Ok(Value::Float(float)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_float()) {
-            let point = create_point(current_trace, float.to_f64());
+        vm.variables.insert(symbol.id, current_trace.into());
+
+        if let Ok(Value::Float(float)) = vm.run().map(|v| v.coerce_float()) {
+            let point = match analyzed.independent {
+                Variable::X => GraphPoint(current_trace, float.to_f64()),
+                Variable::Y => GraphPoint(float.to_f64(), current_trace),
+                Variable::Theta => todo!("polar coordinates"),
+            };
             points.push(point);
 
             last_point = current_point;
@@ -122,7 +146,7 @@ fn evaluate_polar_expr(
     analyzed: &AnalyzedExpr,
     options: GraphOptions,
 ) -> Vec<GraphPoint<f64>> {
-    let mut ctxt = Ctxt::default();
+    let mut vm = create_vm(analyzed);
     let mut points = Vec::new();
 
     let mut current_trace = 0.0;
@@ -133,9 +157,12 @@ fn evaluate_polar_expr(
     let bound = (options.scale.0 * options.scale.1) * 2.0 * std::f64::consts::PI;
     let step_len = (options.scale.0 + options.scale.1) / 1024.0;
 
+    let symbol = vm.sym_table.resolve_symbol(analyzed.independent.as_str())
+        .expect("symbol must exist since we just created it in `create_vm`");
+
     while current_trace <= bound {
-        ctxt.add_var(analyzed.independent.as_str(), current_trace.into());
-        if let Ok(Value::Float(r)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_float()) {
+        vm.variables.insert(symbol.id, current_trace.into());
+        if let Ok(Value::Float(r)) = vm.run().map(|v| v.coerce_float()) {
             let f64_r = r.to_f64();
 
             points.push(GraphPoint(
@@ -151,8 +178,8 @@ fn evaluate_polar_expr(
                     // same, assume the expression is periodic and stop evaluating
                     // TODO: this is very naive and can still fail for some expressions
                     let r_at_next_revolution = {
-                        ctxt.add_var(analyzed.independent.as_str(), next_trace_revolution.into());
-                        if let Ok(Value::Float(r)) = analyzed.expr.eval(&mut ctxt).map(|v| v.coerce_float()) {
+                        vm.variables.insert(symbol.id, next_trace_revolution.into());
+                        if let Ok(Value::Float(r)) = vm.run().map(|v| v.coerce_float()) {
                             r.to_f64()
                         } else {
                             break;

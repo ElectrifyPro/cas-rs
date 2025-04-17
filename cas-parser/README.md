@@ -40,11 +40,17 @@ See `cas-compute`'s documentation for examples of running CalcScript programs.
 
 # Language guide
 
-Below is a guide to the language. To try out the examples below quickly, use the
-included REPL. Clone this repositroy and run the following command to start it.
+Below is a guide to the language. To try out the examples below quickly, install
+the REPL with the following command:
 
 ```sh
-cargo run --example repl
+cargo install cas-rs --locked
+```
+
+Then run:
+
+```sh
+cas-rs
 ```
 
 User-input is prefixed with `> `.
@@ -132,7 +138,7 @@ Functions also support default parameters:
 10
 ```
 
-## Expression-oriented and types
+## Expression-oriented
 
 CalcScript is an expression-oriented language. This means that all statements
 are expressions that evaluate to some value. For example, these are all valid
@@ -158,15 +164,17 @@ These are also valid expressions:
 > (x = 2) + (y = 3)
 5
 
-> while t < 10 then {
+> while t < 10 {
   x *= y % 416
   t += 1
 }; x
 118098
 ```
 
-The block expression, `{ ... }`, can contain multiple statements inside of it.
-It evaluates to the last statement within it:
+## Block expressions
+
+The block expression, `{ ... }`, can contain multiple expressions inside of it.
+It evaluates to the last expression within it:
 
 ```text
 > {
@@ -191,36 +199,117 @@ be expected. As an example:
 While this example is contrived, it provides a good example of how expressive
 CalcScript can be.
 
-### Unit type
+Block expressions
 
-The unit type `()` is a special type that has only one value, also called `()`.
-It is used to indicate that a value is not particularly useful, and is the
-return type of functions that don't have an explicit `return` expression. This
-is similar to `void` in C-like languages, `None` in Python, `undefined` in
-JavaScript, and `()` in Rust.
+## Scope
 
-Adding a semicolon to the end of an expression will evaluate, then discard the
-value of that expression and return `()` instead.
+A scope is a region of of the program where a variable can be accessed. In
+CalcScript, scopes are created by the following constructs:
 
-Using most operators with `()` will result in an evaluation error, with the
-exception of comparison-based operators, such as `==`, `!=`, `>`, `<`, etc. This
-can be useful for checking if a function call succeeded or not:
+- Block expressions (curly braces) `{}`
+- Function definitions `f(x) = ...`
+- [`loop` expression](#loop--while--for-loops)
+- [`while` expression](#loop--while--for-loops)
+- [`for` expression](#loop--while--for-loops)
+- [`sum` expression](#sum--product-expressions)
+- [`product` expression](#sum--product-expressions)
 
-```test
-quadratic_formula(a, b, c, plus = true) = {
-    discriminant = b^2 - 4 a c
-    if discriminant >= 0 then {
-        left = -b / (2a)
-        right = sqrt(discriminant) / (2a)
-        if plus then left + right else left - right
+Variables defined within a scope are **only accessible inside of that scope**.
+For example, in the below program, attempting to access the variables `x` and
+`y` outside the block expression will result in an error:
+
+```
+t = {
+    x = 2
+    y = 3
+    x + y
+}
+
+// print(x) // ERROR: unknown variable `x`
+// print(y) // ERROR: unknown variable `y`
+```
+
+There are nice reasons to have scopes. First, they provide a tool for
+organization. For instance, a calculation that uses a lot of temporary variables
+could declare them within a scope to avoid cluttering the global scope:
+
+```
+{
+    a = 2
+    b = 3
+    c = 4
+    d = 5
+    e = 6
+    f = 7
+    g = 8
+    h = 9
+    i = 10
+
+    print(a + b + c + d + e + f + g + h + i)
+}
+
+// print(a) // ERROR: unknown variable `a`
+// print(b) // ERROR: unknown variable `b`
+// ...
+```
+
+Second, scopes allow builtin variables and functions to be temporarily
+overridden. By default, they cannot be overridden at the global scope:
+
+```
+// ERROR: cannot override builtin constant: `pi`
+// pi = 3
+
+// ERROR: cannot override builtin function: `hypot`
+// hypot(a, b) = a * (5b^4 + 20a^2b^2 + 16a^4) / (b^4 + 12a^2b^2 + 16a^4)
+```
+
+There are valid reasons to override these variables and functions. You may want
+to use an approximation of `pi` for certain problems, or try a user
+implementation of a builtin function, or use `i` as a counting variable instead
+of the imaginary unit. This can be done by redefining these variables and
+functions within a scope, and all their meanings will change for all scopes
+nested inside. And, of course, the global scope will remain clean:
+
+```
+{
+    pi = 3
+    L = 5
+    g = 9.8
+    period = 2pi sqrt(L / g)
+    print(period) // 4.2857...
+
+    for i in 0..10 {
+        print(i)
     }
+
+    hypot(a, b) = a * (5b^4 + 20a^2b^2 + 16a^4) / (b^4 + 12a^2b^2 + 16a^4)
+    hypotenuse = hypot(3, 4)
+    print(hypotenuse) // 4.99...
 }
 
-if quadratic_formula(1, 2, 3) == () then {
-    // has no real roots
-} else {
-    // has real roots
-}
+print(pi) // 3.1415...
+print(i) // i
+print(hypot) // <builtin function: hypot>
+```
+
+## Function environment capture
+
+Functions in CalcScript capture their "environment" by value when they are
+defined. This means that any variables used by the function that were declared
+outside the function are copied "into" the function, and reused whenever the
+function is called. This behavior is useful for creating functions that depend
+on certain variables, but are not necessarily called in the same scope as those
+variables.
+
+```
+x = 2
+y = 3
+f() = x + y // `x` and `y` are captured by value
+
+x = 4
+y = 5
+f() // 2 + 3 = 5
 ```
 
 ## Comments
@@ -232,7 +321,7 @@ will be ignored by the parser.
 Comments are typically used to describe or explain the reasoning behind your
 code, or to temporarily disable a line of code for debugging purposes:
 
-```test
+```text
 // the x and y-position of a point, in meters
 x = 2
 y = 3
@@ -247,17 +336,19 @@ distance
 ## Programming constructs
 
 `cas-rs` supports usual programming constructs, such as `if` / `else`
-statements, `loop`s, and `while` loops.
+expressions, `loop`s, `while`, and `for` loops.
 
-In the case of `if` / `else` statements, you often will not need to enclose
+### `if` / `else` expressions
+
+In the case of `if` / `else` expressions, you often will not need to enclose
 conditions or branches with any special syntax (you can do so with curly braces
 or parentheses if needed):
 
-```test
+```text
 my_abs(x) = if x < 0 then -x else x
 quadratic_formula(a, b, c, plus = true) = {
     discriminant = b^2 - 4 a c
-    if discriminant >= 0 then {
+    if discriminant >= 0 {
         left = -b / (2a)
         right = sqrt(discriminant) / (2a)
         if plus then left + right else left - right
@@ -265,18 +356,19 @@ quadratic_formula(a, b, c, plus = true) = {
 }
 ```
 
-`loop`s and `while` loops are also supported. A `loop` expression will execute
-its body forever, while a `while` expression will run its body for as long as
-the given condition is true. Within the scope of a `loop` / `while` expression,
-the `break` and `continue` keywords can be used to break out of the loop or skip
-to the next iteration, respectively:
+### `loop` / `while` / `for` loops
 
-```test
+`loop`s, `while`, and `for` loops are also supported. A `loop` expression will
+execute its body forever, a `while` expression will run its body for as long as
+the given condition is true, and a `for` expression will execute its body for
+each integer in a range. Within the scope of a `loop` / `while` / `for`
+expression, the `break` and `continue` keywords can be used to break out of the
+loop or skip to the next iteration, respectively:
+
+```text
 my_factorial(n) = {
-    i = 1
     result = 1
-    while i < n then {
-        i += 1
+    for i in 1..=n {
         result *= i
     }
     result
@@ -287,15 +379,84 @@ The `break` keyword can also be used to exit a loop while also returning a value
 from the loop. For example, the following function returns the least common
 multiple of two numbers:
 
-```test
+```text
 lcm(a, b) = {
     i = 0
     loop {
         i += 1
-        if i % a == 0 && i % b == 0 then {
+        if i % a == 0 && i % b == 0 {
             break i
         }
     }
+}
+```
+
+#### `then` keyword
+
+The `then` keyword is used within the context of `if` / `else` expressions to
+separate the condition from the code to execute if the condition is true, and
+within `while` / `for` loops to separate the condition / range from the loop
+body. It is typically used when the `if` or loop body is "short enough", and can
+be omitted if the body is "clearly" the next expression, which is true for
+block, return, break, and continue expressions.
+
+In the below example, each pair of declarations are equivalent:
+
+```
+my_abs(x) = if x < 0 then -x else x
+my_abs(x) = if x < 0 {
+    -x
+} else {
+    x
+}
+
+wait(n) = {
+    i = 0
+    while i < n then i += 1
+}
+wait(n) = {
+    i = 0
+    while i < n {
+        i += 1
+    }
+}
+```
+
+### `sum` / `product` expressions
+
+`sum` and `product` expressions can be used to sum or multiply a sequence of
+values, represented by a **range expression**. The range expression is a
+sequence of values separated by `..` or `..=`. The `sum` and `product`
+expressions are followed by a variable name, which is used to represent the
+current value in the sequence. The value of the `sum` or `product` expression is
+the sum or product of the values in the sequence.
+
+```
+n = 100
+sum i in 1..=n of i // 1 + 2 + 3 + ... + 100 = 5050
+```
+
+```
+catalan(n) = product k in 2..=n of (n + k) / k
+catalan(10) // (10 + 2) / 2 * (10 + 3) / 3 * ... * (10 + 10) / 10 = 16796
+```
+
+These expressions compile down to the equivalent of a loop expression.
+
+#### `of` keyword
+
+The `of` keyword is similar to the `then` keyword in that it merely separates
+the range expression from the body of the `sum` or `product` expression. It can
+similarly be omitted if the body is "clearly" the next expression, which is true
+for block, return, break, and continue expressions.
+
+```
+catalan(n) = product k in 2..=n {
+    (n + k) / k
+}
+
+geometric_series(a, r, n) = sum i in 0..n {
+    a * r^i
 }
 ```
 
@@ -328,6 +489,39 @@ Each base is defined in terms of the following alphabet:
 ```text
 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/
 ```
+
+## Unit type
+
+The unit type `()` is a special type that has only one value, also called `()`.
+It is used to indicate that a value is not particularly useful, and is the
+return type of functions that don't have an explicit `return` expression. This
+is similar to `void` in C-like languages, `None` in Python, `undefined` in
+JavaScript, and `()` in Rust.
+
+Adding a semicolon to the end of an expression will evaluate, then discard the
+value of that expression and return `()` instead.
+
+Using most operators with `()` will result in an evaluation error, with the
+exception of comparison-based operators, such as `==`, `!=`, `>`, `<`, etc. This
+can be useful for checking if a function call succeeded or not:
+
+```text
+quadratic_formula(a, b, c, plus = true) = {
+    discriminant = b^2 - 4 a c
+    if discriminant >= 0 {
+        left = -b / (2a)
+        right = sqrt(discriminant) / (2a)
+        if plus then left + right else left - right
+    }
+}
+
+if quadratic_formula(1, 2, 3) == () {
+    // has no real roots
+} else {
+    // has real roots
+}
+```
+
 
 ## Implicit multiplication
 
@@ -424,7 +618,7 @@ results. For example, today, this code will output `true`, as expected:
 ```text
 my_factorial(n) = {
     out = n
-    while n > 1 then {
+    while n > 1 {
         n -= 1
         out *= n
     }

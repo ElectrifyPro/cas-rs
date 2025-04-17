@@ -1,9 +1,19 @@
+use cas_error::Error;
 use crate::{
     parser::{
-        ast::{expr::Expr, helper::SquareDelimited},
-        error::{kind, Error},
+        ast::{expr::Expr, helper::{SquareDelimited, Surrounded}},
+        error::{EmptyRadixLiteral, InvalidRadixBase, InvalidRadixDigit, UnexpectedToken},
         fmt::Latex,
-        token::{Boolean, CloseParen, Float, Name, Int, OpenParen, Quote},
+        token::{
+            Boolean,
+            CloseParen,
+            Name,
+            Int,
+            OpenParen,
+            OpenSquare,
+            Semicolon,
+            Quote,
+        },
         Parse,
         Parser,
         ParseResult,
@@ -17,7 +27,7 @@ use std::{collections::HashSet, fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// An integer literal, representing as a [`String`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitInt {
     /// The value of the integer literal as a string.
@@ -25,21 +35,6 @@ pub struct LitInt {
 
     /// The region of the source code that this literal was parsed from.
     pub span: Range<usize>,
-}
-
-impl<'source> Parse<'source> for LitInt {
-    fn std_parse(
-        input: &mut Parser<'source>,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
-        input
-            .try_parse::<Int>()
-            .map(|int| Self {
-                value: int.lexeme.to_owned(),
-                span: int.span,
-            })
-            .forward_errors(recoverable_errors)
-    }
 }
 
 impl std::fmt::Display for LitInt {
@@ -55,7 +50,7 @@ impl Latex for LitInt {
 }
 
 /// A floating-point literal, represented as a [`String`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitFloat {
     /// The value of the floating-point literal as a string.
@@ -63,21 +58,6 @@ pub struct LitFloat {
 
     /// The region of the source code that this literal was parsed from.
     pub span: Range<usize>,
-}
-
-impl<'source> Parse<'source> for LitFloat {
-    fn std_parse(
-        input: &mut Parser<'source>,
-        recoverable_errors: &mut Vec<Error>
-    ) -> Result<Self, Vec<Error>> {
-        input
-            .try_parse::<Float>()
-            .map(|float| Self {
-                value: float.lexeme.to_owned(),
-                span: float.span,
-            })
-            .forward_errors(recoverable_errors)
-    }
 }
 
 impl std::fmt::Display for LitFloat {
@@ -92,6 +72,96 @@ impl Latex for LitFloat {
     }
 }
 
+/// Parse either an integer or a floating-point number.
+fn parse_ascii_number(input: &mut Parser) -> Result<Literal, Vec<Error>> {
+    struct Num {
+        value: String,
+        span: Range<usize>,
+        has_digits: bool,
+        has_decimal: bool,
+    }
+
+    let mut result: Option<Num> = None;
+    input.advance_past_whitespace();
+
+    while let Ok(token) = input.next_token_raw() {
+        match token.kind {
+            TokenKind::Int => {
+                let mut has_decimal = false;
+                result = result.map_or_else(|| {
+                    Some(Num {
+                        value: token.lexeme.to_owned(),
+                        span: token.span.clone(),
+                        has_digits: true,
+                        has_decimal: false,
+                    })
+                }, |mut num| {
+                    num.value.push_str(token.lexeme);
+                    num.span.end = token.span.end;
+                    num.has_digits = true;
+                    has_decimal = num.has_decimal;
+                    Some(num)
+                });
+
+                if has_decimal {
+                    break;
+                }
+            },
+            TokenKind::Dot => {
+                result = result.map_or_else(|| {
+                    Some(Num {
+                        value: ".".to_owned(),
+                        span: token.span.clone(),
+                        has_digits: false,
+                        has_decimal: true,
+                    })
+                }, |mut num| {
+                    num.value.push('.');
+                    num.span.end = token.span.end;
+                    num.has_decimal = true;
+                    Some(num)
+                });
+            },
+            _ => {
+                input.prev();
+                break;
+            },
+        }
+    }
+
+    let num = result.ok_or_else(|| {
+        // clone to emulate peeking
+        let mut input_ahead = input.clone();
+        match input_ahead.next_token() {
+            Ok(token) => vec![Error::new(vec![token.span], UnexpectedToken {
+                expected: &[TokenKind::Int],
+                found: token.kind,
+            })],
+            Err(e) => vec![e],
+        }
+    })?;
+
+    if !num.has_digits {
+        // could have only encountered a single dot for `num` to be `Some`, yet have no digits
+        return Err(vec![Error::new(vec![num.span.clone()], UnexpectedToken {
+            expected: &[TokenKind::Int],
+            found: TokenKind::Dot,
+        })]);
+    }
+
+    if num.has_decimal {
+        Ok(Literal::Float(LitFloat {
+            value: num.value,
+            span: num.span,
+        }))
+    } else {
+        Ok(Literal::Integer(LitInt {
+            value: num.value,
+            span: num.span,
+        }))
+    }
+}
+
 /// The digits in base 64, in order of increasing value.
 pub const DIGITS: [char; 64] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
@@ -101,7 +171,7 @@ pub const DIGITS: [char; 64] = [
 ];
 
 /// Helper struct to parse the digits used in various bases.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct RadixWord {
     /// The parsed digits.
     pub value: String,
@@ -145,18 +215,18 @@ fn validate_radix_base(num: &Int) -> ParseResult<u8> {
         Ok(base) if (2..=64).contains(&base) => ParseResult::Ok(base),
         Ok(base) if base < 2 => ParseResult::Recoverable(
             64, // use base 64 to limit invalid radix digit errors
-            vec![Error::new(vec![num.span.clone()], kind::InvalidRadixBase { too_large: false })],
+            vec![Error::new(vec![num.span.clone()], InvalidRadixBase { too_large: false })],
         ),
         _ => ParseResult::Recoverable(
             64,
-            vec![Error::new(vec![num.span.clone()], kind::InvalidRadixBase { too_large: true })],
+            vec![Error::new(vec![num.span.clone()], InvalidRadixBase { too_large: true })],
         ),
     }
 }
 
 /// A number written in radix notation. Radix notation allows users to express integers in a base
 /// other than base 10.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitRadix {
     /// The radix of the literal. This value must be between 2 and 64, inclusive.
@@ -180,7 +250,7 @@ impl<'source> Parse<'source> for LitRadix {
         let base = validate_radix_base(&num).forward_errors(recoverable_errors)?;
         let word = RadixWord::parse(input);
         if word.value.is_empty() {
-            recoverable_errors.push(Error::new(vec![quote.span], kind::EmptyRadixLiteral {
+            recoverable_errors.push(Error::new(vec![quote.span], EmptyRadixLiteral {
                 radix: base,
                 allowed: &DIGITS[..base as usize],
             }));
@@ -212,7 +282,7 @@ impl<'source> Parse<'source> for LitRadix {
         }
 
         if !bad_digit_spans.is_empty() {
-            recoverable_errors.push(Error::new(bad_digit_spans, kind::InvalidRadixDigit {
+            recoverable_errors.push(Error::new(bad_digit_spans, InvalidRadixDigit {
                 radix: base,
                 allowed: allowed_digits,
                 digits: bad_digits,
@@ -249,7 +319,7 @@ impl Latex for LitRadix {
 }
 
 /// A boolean literal, either `true` or `false`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitBool {
     /// The value of the boolean literal.
@@ -290,7 +360,7 @@ impl Latex for LitBool {
 }
 
 /// A symbol / identifier literal. Symbols are used to represent variables and functions.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitSym {
     /// The name of the symbol.
@@ -340,7 +410,7 @@ impl Latex for LitSym {
 
 /// The unit type, written as `()`. The unit type is by-default returned by functions that do not
 /// return a value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitUnit {
     /// The region of the source code that this literal was parsed from.
@@ -372,9 +442,9 @@ impl Latex for LitUnit {
     }
 }
 
-/// A list type, consisting of a list of expressions surrounded by square brackets and delimited by
-/// commas.
-#[derive(Debug, Clone, PartialEq)]
+/// The list type, consisting of a list of expressions surrounded by square brackets and delimited by
+/// commas: `[expr1, expr2, ...]`.
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LitList {
     /// The list of expressions.
@@ -424,11 +494,75 @@ impl Latex for LitList {
     }
 }
 
+/// The list type, formed by repeating the given expression `n` times: `[expr; n]`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct LitListRepeat {
+    /// The expression to repeat.
+    pub value: Box<Expr>,
+
+    /// The number of times to repeat the expression.
+    pub count: Box<Expr>,
+
+    /// The region of the source code that this literal was parsed from.
+    pub span: Range<usize>,
+}
+
+impl<'source> Parse<'source> for LitListRepeat {
+    fn std_parse(
+        input: &mut Parser<'source>,
+        recoverable_errors: &mut Vec<Error>
+    ) -> Result<Self, Vec<Error>> {
+        /// Inner struct representing the contents of a repeated list so that we can use the
+        /// [`Surrounded`] helper with it.
+        #[derive(Debug)]
+        struct LitListRepeatInner {
+            /// The expression to repeat.
+            value: Expr,
+
+            /// The number of times to repeat the expression.
+            count: Expr,
+        }
+
+        impl<'source> Parse<'source> for LitListRepeatInner {
+            fn std_parse(
+                input: &mut Parser<'source>,
+                recoverable_errors: &mut Vec<Error>
+            ) -> Result<Self, Vec<Error>> {
+                let value = input.try_parse().forward_errors(recoverable_errors)?;
+                input.try_parse::<Semicolon>().forward_errors(recoverable_errors)?;
+                let count = input.try_parse().forward_errors(recoverable_errors)?;
+                Ok(Self { value, count })
+            }
+        }
+
+        let inner = input.try_parse::<Surrounded<OpenSquare, LitListRepeatInner>>().forward_errors(recoverable_errors)?;
+
+        Ok(Self {
+            value: Box::new(inner.value.value),
+            count: Box::new(inner.value.count),
+            span: inner.open.span.start..inner.close.span.end,
+        })
+    }
+}
+
+impl std::fmt::Display for LitListRepeat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{}; {}]", self.value, self.count)
+    }
+}
+
+impl Latex for LitListRepeat {
+    fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{}; {}]", self.value, self.count)
+    }
+}
+
 /// Represents a literal value in CalcScript.
 ///
 /// A literal is any value that can is written directly into the source code. For example, the
 /// number `1` is a literal (it is currently the only literal type supported by CalcScript).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Literal {
     /// An integer literal.
@@ -451,9 +585,12 @@ pub enum Literal {
     /// not return a value.
     Unit(LitUnit),
 
-    /// A list type, consisting of a list of expressions surrounded by square brackets and delimited
-    /// by commas.
+    /// The list type, consisting of a list of expressions surrounded by square brackets and
+    /// delimited by commas: `[expr1, expr2, ...]`.
     List(LitList),
+
+    /// The list type, formed by repeating the given expression `n` times: `[expr; n]`.
+    ListRepeat(LitListRepeat),
 }
 
 impl Literal {
@@ -467,6 +604,7 @@ impl Literal {
             Literal::Symbol(name) => name.span.clone(),
             Literal::Unit(unit) => unit.span.clone(),
             Literal::List(list) => list.span.clone(),
+            Literal::ListRepeat(repeat) => repeat.span.clone(),
         }
     }
 }
@@ -478,11 +616,11 @@ impl<'source> Parse<'source> for Literal {
     ) -> Result<Self, Vec<Error>> {
         let _ = return_if_ok!(input.try_parse().map(Literal::Boolean).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::Radix).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Literal::Integer).forward_errors(recoverable_errors));
-        let _ = return_if_ok!(input.try_parse().map(Literal::Float).forward_errors(recoverable_errors));
+        let _ = return_if_ok!(parse_ascii_number(input));
         let _ = return_if_ok!(input.try_parse().map(Literal::Symbol).forward_errors(recoverable_errors));
         let _ = return_if_ok!(input.try_parse().map(Literal::Unit).forward_errors(recoverable_errors));
-        input.try_parse().map(Literal::List).forward_errors(recoverable_errors)
+        let _ = return_if_ok!(input.try_parse().map(Literal::List).forward_errors(recoverable_errors));
+        input.try_parse().map(Literal::ListRepeat).forward_errors(recoverable_errors)
     }
 }
 
@@ -496,6 +634,7 @@ impl std::fmt::Display for Literal {
             Literal::Symbol(name) => name.fmt(f),
             Literal::Unit(unit) => unit.fmt(f),
             Literal::List(list) => list.fmt(f),
+            Literal::ListRepeat(repeat) => repeat.fmt(f),
         }
     }
 }
@@ -510,6 +649,7 @@ impl Latex for Literal {
             Literal::Symbol(name) => name.fmt_latex(f),
             Literal::Unit(unit) => unit.fmt_latex(f),
             Literal::List(list) => list.fmt_latex(f),
+            Literal::ListRepeat(repeat) => repeat.fmt_latex(f),
         }
     }
 }

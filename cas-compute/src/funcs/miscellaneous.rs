@@ -27,7 +27,9 @@ impl Abs {
 /// - `Integer`: any value except `0`
 /// - `Complex`: any value except `0.0 + 0.0i` and `NaN + NaNi`
 /// - `Bool`: `true`
-/// - `Unit`: never
+/// - `Unit`: never true; always false
+/// - `List`: lists with at least one element; element(s) does not have to be truthy
+/// - `Function`: always true
 #[derive(Debug)]
 pub struct Bool;
 

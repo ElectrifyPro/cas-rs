@@ -7,6 +7,7 @@ members = [
 	"cas-parser",
 	"cas-rs",
 	"cas-unit-convert",
+	"cas-vm",
 ]
 resolver = "2"
 

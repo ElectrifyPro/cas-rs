@@ -1,0 +1,15 @@
+// Functions in CalcScript implement environment capture. This program
+// demonstrates how this works.
+
+x = 10
+
+// The function `f` captures the value of `x` at the time it is defined, which
+// is 10 in this case. Environment capture means that the value of `x` used
+// inside `f` will always be 10, even if we change `x` later below.
+f() = x * 2
+print(f()) // prints 20
+
+x = 55
+print(f()) // still prints 20
+
+[x, f()]   // returns [55, 20]

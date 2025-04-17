@@ -1,7 +1,8 @@
 //! Structs to help parse binary and unary operators.
 
+use cas_error::Error;
 use crate::{
-    parser::{error::{Error, kind}, fmt::Latex, Parse, Parser},
+    parser::{error::UnexpectedToken, fmt::Latex, Parse, Parser},
     tokenizer::TokenKind,
 };
 use std::{fmt, ops::Range};
@@ -10,7 +11,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// The associativity of a binary or unary operation.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Associativity {
     /// The binary / unary operation is left-associative.
     ///
@@ -37,6 +38,9 @@ pub enum Precedence {
     /// Precedence of assignment (`=`, `+=`, `-=`, `*=`, `/=`, `%=`, `^=`, `&&=`, `||=`, `&=`,
     /// `|=`, `>>=`, and `<<=`).
     Assign,
+
+    /// Precedence of range (`..` and `..=`).
+    Range,
 
     /// Precedence of logical or (`or`).
     Or,
@@ -94,7 +98,7 @@ impl Ord for Precedence {
 }
 
 /// The unary operation that is being performed.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum UnaryOpKind {
     Not,
@@ -124,7 +128,7 @@ impl UnaryOpKind {
 }
 
 /// A unary operator that takes one operand.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct UnaryOp {
     /// The kind of unary operator.
@@ -159,7 +163,7 @@ impl<'source> Parse<'source> for UnaryOp {
             TokenKind::Sub => Ok(UnaryOpKind::Neg),
             _ => Err(vec![Error::new(
                 vec![token.span.clone()],
-                kind::UnexpectedToken {
+                UnexpectedToken {
                     expected: &[
                         TokenKind::Not,
                         TokenKind::BitNot,
@@ -201,7 +205,7 @@ impl Latex for UnaryOp {
 }
 
 /// The binary operation that is being performed.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum BinOpKind {
     Exp,
@@ -259,7 +263,7 @@ impl BinOpKind {
 }
 
 /// A binary operator that takes two operands.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BinOp {
     /// The kind of binary operator.
@@ -313,7 +317,7 @@ impl<'source> Parse<'source> for BinOp {
             TokenKind::Or => Ok(BinOpKind::Or),
             _ => Err(vec![Error::new(
                 vec![token.span.clone()],
-                kind::UnexpectedToken {
+                UnexpectedToken {
                     expected: &[
                         TokenKind::Exp,
                         TokenKind::Mul,
@@ -397,7 +401,7 @@ impl Latex for BinOp {
 }
 
 /// The kind of assignment operator.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum AssignOpKind {
     Assign,
@@ -437,7 +441,7 @@ impl From<AssignOpKind> for BinOpKind {
 
 /// An assignment operator that takes two operands, assigning the value of the right operand to the
 /// left operand, possibly with an intermediate operation.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AssignOp {
     /// The kind of assignment operator.
@@ -481,7 +485,7 @@ impl<'source> Parse<'source> for AssignOp {
             TokenKind::BitLeftAssign => Ok(AssignOpKind::BitLeft),
             _ => Err(vec![Error::new(
                 vec![token.span.clone()],
-                kind::UnexpectedToken {
+                UnexpectedToken {
                     expected: &[
                         TokenKind::Assign,
                         TokenKind::AddAssign,

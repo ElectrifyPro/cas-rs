@@ -1,8 +1,9 @@
+use cas_parser::parser::ast::range::RangeKind;
 use crate::consts::PI;
 use crate::primitive::{complex, float};
 use rug::{Complex, Float, Integer};
-use std::fmt::{Display, Formatter};
-use super::fmt::{FormatOptions, ValueFormatter};
+use std::{cell::RefCell, fmt::{Display, Formatter}, rc::Rc};
+use super::{fmt::{FormatOptions, ValueFormatter}, func::Function};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -27,18 +28,30 @@ pub enum Value {
     Unit,
 
     /// A list of values.
-    List(Vec<Value>),
-}
+    ///
+    /// In `cas-rs`, a list is a reference to a vector of values. This is done to allow efficient
+    /// cloning of lists, as well as mutation of lists in-place. References are passed around
+    /// by default, which can result in somewhat confusing behavior, for example:
+    ///
+    /// ```text
+    /// a = [1, 2, 3]
+    /// b = a
+    /// b[0] = 4
+    /// print(a) // prints [4, 2, 3]
+    /// ```
+    ///
+    /// TODO: In the future, a `clone` method may be added to `cas-rs` to allow the user to
+    /// explicitly clone the list instead of copying the reference.
+    List(Rc<RefCell<Vec<Value>>>),
 
-#[cfg(test)]
-impl Value {
-    /// Returns true if two values are numbers, and they are approximately equal.
-    pub fn approx_eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Value::Float(a), Value::Float(b)) => float(a - b) / float(a) < float(1e-3),
-            _ => false,
-        }
-    }
+    /// A range representing a sequence of values, either half-open or closed.
+    Range(Box<Value>, RangeKind, Box<Value>),
+
+    /// A function.
+    ///
+    /// Functions are treated as values just like any other value in `cas-rs`; they can be stored
+    /// in variables, passed as arguments to other functions, and returned from functions.
+    Function(Function),
 }
 
 impl Value {
@@ -51,6 +64,8 @@ impl Value {
             Value::Boolean(_) => "Boolean",
             Value::Unit => "Unit",
             Value::List(_) => "List",
+            Value::Range(_, _, _) => "Range",
+            Value::Function(_) => "Function",
         }
     }
 
@@ -158,7 +173,7 @@ impl Value {
     }
 
     /// Returns true if this value is a real number, or can be coerced to one.
-    pub fn is_real(&self) -> bool {
+    pub fn is_float(&self) -> bool {
         match self {
             Value::Float(_) => true,
             Value::Integer(_) => true,
@@ -192,7 +207,23 @@ impl Value {
         matches!(self, Value::Unit)
     }
 
+    /// Returns true if this value is a list.
+    pub fn is_list(&self) -> bool {
+        matches!(self, Value::List(_))
+    }
+
     /// Returns true if this value is truthy.
+    ///
+    /// For each type, the following values are considered "truthy":
+    ///
+    /// - `Float`: any value except `0.0` and `NaN`
+    /// - `Integer`: any value except `0`
+    /// - `Complex`: any value except `0.0 + 0.0i` and `NaN + NaNi`
+    /// - `Bool`: `true`
+    /// - `Unit`: never true; always false
+    /// - `List`: lists with at least one element; element(s) does not have to be truthy
+    /// - `Range`: ranges with at least one element; element(s) does not have to be truthy
+    /// - `Function`: always true
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Float(n) => !n.is_zero(),
@@ -200,7 +231,14 @@ impl Value {
             Value::Complex(c) => !c.is_zero(),
             Value::Boolean(b) => *b,
             Value::Unit => false,
-            Value::List(l) => !l.is_empty(),
+            Value::List(l) => !l.borrow().is_empty(),
+            Value::Range(lhs, kind, rhs) => {
+                match kind {
+                    RangeKind::HalfOpen => lhs != rhs,
+                    RangeKind::Closed => true,
+                }
+            },
+            Value::Function(_) => true,
         }
     }
 
@@ -252,6 +290,12 @@ impl From<bool> for Value {
 impl From<()> for Value {
     fn from(_: ()) -> Self {
         Value::Unit
+    }
+}
+
+impl From<Vec<Value>> for Value {
+    fn from(values: Vec<Value>) -> Self {
+        Value::List(Rc::new(RefCell::new(values)))
     }
 }
 

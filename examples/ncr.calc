@@ -1,0 +1,22 @@
+my_ncr(n, k) = {
+    partial_factorial(n, k) = {
+        product a in k + 1..=n of a
+    }
+
+    if k > n return
+
+    sub = n - k
+
+    // ncr(n, k) = n! / (k! * (n - k)!)
+    if k > sub {
+        partial_factorial(n, k) / partial_factorial(sub, 1)
+    } else {
+        partial_factorial(n, sub) / partial_factorial(k, 1)
+    }
+}
+
+// partial_factorial() is only available in my_ncr()
+// if you uncomment this line, a compilation error will occur
+// partial_factorial(5, 3)
+
+my_ncr(5, 3) == ncr(5, 3)

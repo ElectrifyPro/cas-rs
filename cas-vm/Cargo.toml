@@ -1,0 +1,16 @@
+[package]
+name = "cas-vm"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ariadne = "0.2.0"
+cas-attrs = { path = "../cas-attrs" }
+cas-compiler = { path = "../cas-compiler" }
+cas-compute = { path = "../cas-compute" }
+cas-error = { path = "../cas-error" }
+cas-parser = { path = "../cas-parser" }
+replace_with = "0.1.7"
+rug = "1.22.0"

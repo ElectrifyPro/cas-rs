@@ -289,24 +289,28 @@ pub struct Builtin {
 }
 
 impl Builtin {
-    /// Returns a string representation of the function's signature.
+    /// Returns a string representation of the function's signature, not including the function
+    /// name.
     pub fn signature(&self) -> String {
-        let params = self.params.iter().map(|param| {
+        self.params.iter().map(|param| {
             let ty = param.ty.typename();
             if param.ty.optional {
                 format!("{}: {} (optional)", param.ident, ty)
             } else {
                 format!("{}: {}", param.ident, ty)
             }
-        }).collect::<Vec<_>>().join(", ");
-        format!("{}({})", self.name, params)
+        })
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 
     /// Generates the statements that typecheck the arguments.
     pub fn generate_check_stmts(&self, radian: Radian) -> TokenStream2 {
-        let Self { name, .. } = self;
-        let signature = self.signature();
-        let num_params = self.params.len();
+        let Self { name, params, .. } = self;
+        let num_params = params.len();
+        let missing_arg_boundary = params.iter()
+            .position(|param| param.ty.optional)
+            .unwrap_or(params.len());
 
         // for each parameter, we generate a binding with three patterns to typecheck the arguments, and
         // possibly use the default expression if the argument is not provided
@@ -336,18 +340,24 @@ impl Builtin {
                 // accept argument of any type
                 if ty.kind == TypeKind::Value {
                     return quote! {
-                        let #ident = crate::funcs::helper::next_arg(args, &mut arg_count)
-                            .ok_or_else(|| crate::numerical::builtin::error::BuiltinError::MissingArgument(crate::numerical::error::kind::MissingArgument {
-                                name: stringify!(#name).to_owned(),
-                                index: #i,
+                        let #ident = args.next()
+                            .ok_or_else(|| crate::numerical::builtin::error::BuiltinError::MissingArgument(crate::numerical::builtin::error::check::MissingArgument {
+                                name: stringify!(#name),
+                                indices: #i..#missing_arg_boundary,
                                 expected: #num_params,
-                                given: crate::funcs::helper::count_all_args(args, &mut arg_count),
-                                signature: #signature.to_owned(),
+                                given: arg_count,
+                                signature: self.sig_str(),
                             }))?;
+                        // TODO: previously, there was this comment throughout this function:
+                        // "`cas-compiler` can verify this condition at compile time, making [the
+                        // MissingArgument and TooManyArguments] errors impossible"
+                        // now, with support for higher-order functions, this is no longer true;
+                        // `cas-compiler` cannot verify this condition at compile time and it must
+                        // be done at runtime
                     };
                 }
 
-                let base_call = quote! { crate::funcs::helper::next_arg(args, &mut arg_count) };
+                let base_call = quote! { args.next() };
 
                 // coerce real / complex numbers into each other if necessary
                 let type_coerce_expr = match param.ty.kind {
@@ -361,7 +371,7 @@ impl Builtin {
                 let trig_convert_expr = if radian == Radian::Input {
                     Some(quote! {
                         .map(|arg| {
-                            if ctxt.trig_mode == crate::numerical::ctxt::TrigMode::Degrees {
+                            if trig_mode == crate::numerical::trig_mode::TrigMode::Degrees {
                                 arg.into_radians()
                             } else {
                                 arg
@@ -384,12 +394,12 @@ impl Builtin {
                     (
                         quote! { #ident },
                         quote! {
-                            return Err(crate::numerical::builtin::error::BuiltinError::MissingArgument(crate::numerical::error::kind::MissingArgument {
-                                name: stringify!(#name).to_owned(),
-                                index: #i,
+                            return Err(crate::numerical::builtin::error::BuiltinError::MissingArgument(crate::numerical::builtin::error::check::MissingArgument {
+                                name: stringify!(#name),
+                                indices: #i..#missing_arg_boundary,
                                 expected: #num_params,
-                                given: crate::funcs::helper::count_all_args(args, &mut arg_count),
-                                signature: #signature.to_owned(),
+                                given: arg_count,
+                                signature: self.sig_str(),
                             }));
                         },
                     )
@@ -401,12 +411,12 @@ impl Builtin {
                     let #ident = match #full_getter {
                         Some(#ty(#ident)) => #received_type,
                         Some(bad_value) => {
-                            return Err(crate::numerical::builtin::error::BuiltinError::TypeMismatch(crate::numerical::error::kind::TypeMismatch {
-                                name: stringify!(#name).to_owned(),
+                            return Err(crate::numerical::builtin::error::BuiltinError::TypeMismatch(crate::numerical::builtin::error::check::TypeMismatch {
+                                name: stringify!(#name),
                                 index: #i,
                                 expected: #user_ty,
                                 given: bad_value.typename(),
-                                signature: #signature.to_owned(),
+                                signature: self.sig_str(),
                             }));
                         },
                         None => { #none_branch },
@@ -416,12 +426,12 @@ impl Builtin {
 
         quote! {
             #( #type_checkers )*
-            if crate::funcs::helper::count_all_args(args, &mut arg_count) > #num_params {
-                return Err(crate::numerical::builtin::error::BuiltinError::TooManyArguments(crate::numerical::error::kind::TooManyArguments {
-                    name: stringify!(#name).to_owned(),
+            if arg_count > #num_params {
+                return Err(crate::numerical::builtin::error::BuiltinError::TooManyArguments(crate::numerical::builtin::error::check::TooManyArguments {
+                    name: stringify!(#name),
                     expected: #num_params,
-                    given: crate::funcs::helper::count_all_args(args, &mut arg_count),
-                    signature: #signature.to_owned(),
+                    given: arg_count,
+                    signature: self.sig_str(),
                 }));
             }
         }
@@ -444,7 +454,7 @@ impl Builtin {
 
         if radian == Radian::Output {
             quote! {
-                if ctxt.trig_mode == crate::numerical::ctxt::TrigMode::Degrees {
+                if trig_mode == crate::numerical::trig_mode::TrigMode::Degrees {
                     Ok(#make_value.into_degrees())
                 } else {
                     Ok(#make_value)
@@ -462,21 +472,43 @@ impl Builtin {
 
     /// Generate the implementation of the `Builtin` trait for the function.
     fn impl_builtin(&self, radian: Radian) -> TokenStream2 {
-        let Self { pascal_name, params, .. } = self;
-        let arg_count = params.len();
+        let Self { name, pascal_name, params, .. } = self;
         let type_checkers = self.generate_check_stmts(radian);
+        let sig = params.iter()
+            .map(|param| {
+                let name = &param.ident;
+                let kind = match param.ty.optional {
+                    true => quote! { crate::numerical::builtin::ParamKind::Optional },
+                    false => quote! { crate::numerical::builtin::ParamKind::Required },
+                };
+                let typename = param.ty.typename();
+                quote! {
+                    crate::numerical::builtin::BuiltinParam {
+                        name: stringify!(#name),
+                        kind: #kind,
+                        typename: Some(#typename),
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+        let sig_str = self.signature();
         let call = self.generate_call(radian);
 
         quote! {
             impl crate::numerical::builtin::Builtin for #pascal_name {
-                fn num_args(&self) -> usize { #arg_count }
+                fn name(&self) -> &'static str { stringify!(#name) }
+
+                fn sig(&self) -> &'static [crate::numerical::builtin::BuiltinParam] { &[#( #sig ),*] }
+
+                fn sig_str(&self) -> &'static str { #sig_str }
 
                 fn eval(
                     &self,
-                    ctxt: &crate::numerical::ctxt::Ctxt,
-                    args: &mut dyn Iterator<Item = crate::numerical::value::Value>,
+                    trig_mode: crate::numerical::trig_mode::TrigMode,
+                    args: std::vec::Vec<crate::numerical::value::Value>,
                 ) -> Result<crate::numerical::value::Value, crate::numerical::builtin::error::BuiltinError> {
-                    let mut arg_count = 0;
+                    let arg_count = args.len();
+                    let mut args = args.into_iter();
                     #type_checkers
                     #call
                 }

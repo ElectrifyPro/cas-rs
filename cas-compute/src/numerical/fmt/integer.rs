@@ -14,11 +14,25 @@ pub fn should_use_scientific(n: &Integer) -> bool {
 ///
 /// # Panics
 ///
-/// Panics if the string contains any characters other than the ASCII digits (`'0'` - `'9'`).
+/// Panics if the string contains any characters other than the ASCII digits (`'0'` - `'9'`). An
+/// optional negative sign (`'-'`) is allowed at the start of the string.
 fn round(mut s: String, max_digits: usize) -> String {
+    // allow negative sign at the start of the string
+    let negative = s.starts_with('-');
+
+    // SAFETY: we ensure the result is valid UTF-8 by only operating on a subset of ASCII
+    let bytes = unsafe {
+        if negative {
+            &mut s.as_bytes_mut()[1..]
+        } else {
+            s.as_bytes_mut()
+        }
+    };
+
     // ensure all characters are ASCII digits
     // '0' - '9' (digits)
-    for (i, byte) in s.as_bytes().iter().copied().enumerate() {
+    for (i, byte) in bytes.iter().copied().enumerate() {
+        // allow negative sign at the start of the string
         if !byte.is_ascii_digit() {
             panic!(
                 "invalid character in numeric string: '{}' ({}) found at byte position {}",
@@ -28,9 +42,6 @@ fn round(mut s: String, max_digits: usize) -> String {
             );
         }
     }
-
-    // SAFETY: we ensure the result is valid UTF-8 by only operating on a subset of ASCII
-    let bytes = unsafe { s.as_bytes_mut() };
 
     // `max_digits` is greater than the number of digits in the string, so no rounding is
     // necessary
@@ -75,6 +86,12 @@ fn round(mut s: String, max_digits: usize) -> String {
         bytes.as_mut_ptr()
             .add(start_idx)
             .write_bytes(b'0', bytes.len() - start_idx);
+    }
+
+    if let Some(true) = carry {
+        // carry bit is still set, so we need to add a '1' to the start of the string
+        // occurs if the number is basically all 9s
+        s.insert(if negative { 1 } else { 0 }, '1');
     }
 
     s
@@ -136,7 +153,7 @@ pub fn fmt_scientific(f: &mut Formatter<'_>, n: &Integer, options: FormatOptions
         // remove trailing zeroes, since there is now a decimal point, making them redundant as
         // they are now part of the fractional part
         // (they could still be significant figures)
-        let s = s.trim_end_matches('0');
+        let s = s.trim_end_matches('0').trim_end_matches('.');
 
         // if the user wants to use scientific notation, we need to add an exponent
         match options.scientific {

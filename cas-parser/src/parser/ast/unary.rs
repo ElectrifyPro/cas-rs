@@ -1,7 +1,8 @@
+use cas_error::Error;
 use crate::{
     parser::{
         ast::{binary::Binary, expr::{Expr, Primary}},
-        error::{kind, Error},
+        error::NonFatal,
         fmt::Latex,
         token::op::{Associativity, UnaryOp},
         Parser,
@@ -21,20 +22,15 @@ fn try_parse_unary_op(input: &mut Parser, associativity: Associativity) -> Resul
         if op.associativity() == associativity {
             ParseResult::Ok(())
         } else {
-            ParseResult::Unrecoverable(vec![input.error(kind::NonFatal)])
+            ParseResult::Unrecoverable(vec![input.error(NonFatal)])
         }
     }).forward_errors(&mut Vec::new())
 }
 
 /// A unary expression, such as `2!`. Unary expressions can include nested expressions.
 ///
-/// Unary expressions do not directly implement [`Parse`] due to performance implications involving
-/// parsing left-associative unary expressions (see [`Unary::parse_left_or_operand`]). Instead, the
-/// a combination of [`Unary::parse_right`] and [`Unary::parse_left_or_operand`] can be used to
-/// parse unary expressions.
-///
 /// [`Parse`]: crate::parser::Parse
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Unary {
     /// The operand of the unary expression (left or right, depending on the associativity).

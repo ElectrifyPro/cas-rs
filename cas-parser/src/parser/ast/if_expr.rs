@@ -1,9 +1,10 @@
+use cas_error::Error;
 use crate::parser::{
-    ast::expr::Expr,
-    error::{kind, Error},
+    ast::expr::{Atom, Expr},
+    error::MissingIfBranch,
     fmt::Latex,
     garbage::Garbage,
-    keyword::{Else, If as IfToken, Then},
+    keyword::{Else, If as IfToken},
     Parse,
     Parser,
 };
@@ -13,7 +14,7 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// An `if` expression, such as `if true 1 else 2`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct If {
     /// The condition of the `if` expression.
@@ -30,9 +31,6 @@ pub struct If {
 
     /// The span of the `if` keyword.
     pub if_span: Range<usize>,
-
-    /// The span of the `then` keyword.
-    pub then_span: Range<usize>,
 
     /// The span of the `else` keyword.
     pub else_span: Option<Range<usize>>,
@@ -52,32 +50,11 @@ impl<'source> Parse<'source> for If {
     ) -> Result<Self, Vec<Error>> {
         let if_token = input.try_parse::<IfToken>().forward_errors(recoverable_errors)?;
         let condition = input.try_parse().forward_errors(recoverable_errors)?;
-        let (then_token, then_expr) = 'then: {
-            let then_token = match input.try_parse::<Then>().forward_errors(recoverable_errors) {
-                Ok(token) => token,
-                Err(_) => {
-                    recoverable_errors.push(Error::new(
-                        vec![if_token.span.clone(), input.span()],
-                        kind::MissingIfKeyword {
-                            keyword: "then",
-                        },
-                    ));
-                    break 'then Garbage::garbage();
-                },
-            };
-            input.try_parse::<Expr>()
-                .forward_errors(recoverable_errors)
-                .map(|expr| (then_token, expr))
-                .unwrap_or_else(|_| {
-                    recoverable_errors.push(Error::new(
-                        vec![if_token.span.clone(), input.span()],
-                        kind::MissingIfBranch {
-                            keyword: "then",
-                        },
-                    ));
-                    Garbage::garbage()
-                })
-        };
+        let then_expr = input.try_parse_with_state::<_, Atom>(|input| {
+            input.allow_then = true;
+        })
+            .map(Expr::from)
+            .forward_errors(recoverable_errors)?;
         let (else_token, else_expr) = 'else_branch: {
             let Ok(else_token) = input.try_parse::<Else>().forward_errors(recoverable_errors) else {
                 break 'else_branch (None, None);
@@ -88,7 +65,7 @@ impl<'source> Parse<'source> for If {
                 .unwrap_or_else(|_| {
                     recoverable_errors.push(Error::new(
                         vec![if_token.span.clone(), input.span()],
-                        kind::MissingIfBranch {
+                        MissingIfBranch {
                             keyword: "else",
                         },
                     ));
@@ -107,7 +84,6 @@ impl<'source> Parse<'source> for If {
             else_expr: else_expr.map(Box::new),
             span,
             if_span: if_token.span,
-            then_span: then_token.span,
             else_span: else_token.map(|token| token.span),
         })
     }
@@ -117,7 +93,6 @@ impl std::fmt::Display for If {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "if ")?;
         self.condition.fmt(f)?;
-        write!(f, " then ")?;
         self.then_expr.fmt(f)?;
         if let Some(else_expr) = &self.else_expr {
             write!(f, " else ")?;
@@ -131,7 +106,6 @@ impl Latex for If {
     fn fmt_latex(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\\text{{if }}")?;
         self.condition.fmt_latex(f)?;
-        write!(f, "\\text{{ then }}")?;
         self.then_expr.fmt_latex(f)?;
         if let Some(else_expr) = &self.else_expr {
             write!(f, "\\text{{ else }}")?;

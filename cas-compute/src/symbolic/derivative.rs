@@ -77,7 +77,7 @@ impl MultBuilder {
 #[derive(Default)]
 struct SumBuilder(Vec<Expr>);
 
-impl From<SumBuilder> for Expr {
+impl From<_SumBuilder> for Expr {
     fn from(value: SumBuilder) -> Self {
         if value.0.len() > 1 {
             Expr::Add(value.0)
@@ -95,6 +95,37 @@ impl SumBuilder {
             self.0.push(e)
         }
     }
+}
+
+fn sum_rule(exprs: Vec<Expr>, var: &str) -> Expr {
+    let mut sum = SumBuilder::default();
+    for elem in exprs {
+        sum.add(derivative(elem, var));
+    }
+    sum.into()
+}
+
+fn product_rule(product: Vec<Expr>, with: &str) -> Expr {
+    let mut outer_sum = SumBuilder::default();
+
+    // Produces a derivative according the product rule:
+    // f'*g*h + f*g'*h + f*g*h'
+    for derivative_index in 0..product.len() {
+        let mut inner_mult = MultBuilder::default();
+        for term_index in 0..product.len() {
+            let term = if derivative_index == term_index {
+                derivative(product[derivative_index].clone(), with)
+            } else {
+                product[term_index].clone()
+            };
+
+            inner_mult.mult(term);
+        }
+        
+        outer_sum.add(inner_mult.into());
+    }
+
+    outer_sum.into()
 }
 
 // produces the derivative of the given expression
@@ -136,35 +167,8 @@ pub fn derivative(f: Expr, with: &str) -> Expr {
             };
             mult_group.into()
         }
-        Expr::Add(add) => {
-            let mut sum = SumBuilder::default();
-            for elem in add {
-                sum.add(derivative(elem, with));
-            }
-            sum.into()
-        },
-        Expr::Mul(exprs) => {
-            let mut outer_sum = SumBuilder::default();
-
-            // Produces a derivative according the product rule:
-            // f'*g*h + f*g'*h + f*g*h'
-            for derivative_index in 0..exprs.len() {
-                let mut inner_mult = MultBuilder::default();
-                for term_index in 0..exprs.len() {
-                    let term = if derivative_index == term_index {
-                        derivative(exprs[derivative_index].clone(), with)
-                    } else {
-                        exprs[term_index].clone()
-                    };
-
-                    inner_mult.mult(term);
-                }
-                
-                outer_sum.add(inner_mult.into());
-            }
-
-            outer_sum.into()
-        },
+        Expr::Add(exprs) => sum_rule(exprs, with),
+        Expr::Mul(exprs) => product_rule(exprs, with),
         Expr::Exp(expr, expr1) => {
             match &*expr1 {
                 Expr::Primary(Primary::Integer(i)) => {

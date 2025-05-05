@@ -76,6 +76,7 @@
 
 pub mod expr;
 pub mod simplify;
+pub mod derivative;
 pub mod step_collector;
 
 pub use expr::Expr;

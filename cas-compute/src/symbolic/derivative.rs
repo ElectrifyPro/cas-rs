@@ -46,6 +46,57 @@ fn non_unity(e: &Expr) -> bool {
     }
 }
 
+#[derive(Default)]
+struct MultBuilder(Vec<Expr>);
+
+impl From<MultBuilder> for Expr {
+    fn from(value: MultBuilder) -> Self {
+        if value.0.len() > 1 {
+            Expr::Mul(value.0)
+        } else if value.0.len() == 1 {
+            value.0[0].clone()
+        } else {
+            Expr::Primary(Primary::Integer(int(1)))
+        }
+    }
+}
+
+impl MultBuilder {
+    fn mult(&mut self, e: Expr) {
+        if !non_zero(&e) || self.0.get(0).is_some_and(|e| !non_zero(e)) {
+            self.0 = vec![Expr::Primary(Primary::Integer(int(0)))];
+            return;
+        }
+
+        if non_unity(&e) {
+            self.0.push(e)
+        }
+    }
+}
+
+#[derive(Default)]
+struct SumBuilder(Vec<Expr>);
+
+impl From<SumBuilder> for Expr {
+    fn from(value: SumBuilder) -> Self {
+        if value.0.len() > 1 {
+            Expr::Add(value.0)
+        } else if value.0.len() == 1 {
+            value.0[0].clone()
+        } else {
+            Expr::Primary(Primary::Integer(int(0)))
+        }
+    }
+}
+
+impl SumBuilder {
+    fn add(&mut self, e: Expr) {
+        if non_zero(&e) {
+            self.0.push(e)
+        }
+    }
+}
+
 // produces the derivative of the given expression
 pub fn derivative(f: Expr, with: &str) -> Expr {
     if !non_zero(&f) {
@@ -64,7 +115,7 @@ pub fn derivative(f: Expr, with: &str) -> Expr {
         }
         Expr::Primary(Primary::Call(func, args)) => {
             // TODO: context and chain rule?
-            let mut mult_group = Vec::with_capacity(2);
+            let mut mult_group = MultBuilder::default();
             match func.as_str() {
                 "sqrt" => {
                     assert_eq!(args.len(), 1, "sqrt has only one argument");
@@ -72,31 +123,33 @@ pub fn derivative(f: Expr, with: &str) -> Expr {
                 },
                 "sin" => {
                     assert_eq!(args.len(), 1, "sin has exactly one argument");
-                    mult_group.push(derivative(args[0].clone(), with));
-                    mult_group.push(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
+                    mult_group.mult(derivative(args[0].clone(), with));
+                    mult_group.mult(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
                 },
                 "cos" => {
                     assert_eq!(args.len(), 1, "cos has exactly one argument");
-
-                    let mut mult_group = Vec::with_capacity(3);
-                    mult_group.push(derivative(args[0].clone(), with));
-                    mult_group.push(Expr::Primary(Primary::Integer(int(-1))));
-                    mult_group.push(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
+                    mult_group.mult(derivative(args[0].clone(), with));
+                    mult_group.mult(Expr::Primary(Primary::Integer(int(-1))));
+                    mult_group.mult(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
                 },
                 _ => todo!("cannot differentiate this function yet")
             };
-            Expr::Mul(mult_group)
+            mult_group.into()
         }
         Expr::Add(add) => {
-            Expr::Add(add.into_iter().map(|add_elem| derivative(add_elem, with)).filter(non_zero).collect())
+            let mut sum = SumBuilder::default();
+            for elem in add {
+                sum.add(derivative(elem, with));
+            }
+            sum.into()
         },
         Expr::Mul(exprs) => {
-            let mut outer_sum = Vec::new();
+            let mut outer_sum = SumBuilder::default();
 
             // Produces a derivative according the product rule:
             // f'*g*h + f*g'*h + f*g*h'
             for derivative_index in 0..exprs.len() {
-                let mut inner_mult = Vec::new();
+                let mut inner_mult = MultBuilder::default();
                 for term_index in 0..exprs.len() {
                     let term = if derivative_index == term_index {
                         derivative(exprs[derivative_index].clone(), with)
@@ -104,41 +157,31 @@ pub fn derivative(f: Expr, with: &str) -> Expr {
                         exprs[term_index].clone()
                     };
 
-                    // anything times zero is zero
-                    if non_zero(&term) {
-                        if non_unity(&term) {
-                            inner_mult.push(term);
-                        }
-                    } else { 
-                        inner_mult = vec![Expr::Primary(Primary::Integer(int(0)))];
-                        break;
-                    }
+                    inner_mult.mult(term);
                 }
                 
-                let expr = Expr::Mul(inner_mult);
-                if non_zero(&expr) {
-                    outer_sum.push(expr);
-                }
+                outer_sum.add(inner_mult.into());
             }
 
-            Expr::Add(outer_sum)
+            outer_sum.into()
         },
         Expr::Exp(expr, expr1) => {
             match &*expr1 {
                 Expr::Primary(Primary::Integer(i)) => {
-                    let mut mult_group = vec![derivative((*expr).clone(), with)];
-
-                    mult_group.push(Expr::Primary(Primary::Integer(int(i))));
-                    mult_group.push(Expr::Exp(expr, Expr::Primary(Primary::Integer(i - Integer::from(1))).into()));
+                    let mut mult_group = MultBuilder::default();
+                    mult_group.mult(derivative((*expr).clone(), with));
+                    mult_group.mult(Expr::Primary(Primary::Integer(int(i))));
+                    mult_group.mult(Expr::Exp(expr, Expr::Primary(Primary::Integer(i - Integer::from(1))).into()));
 
                     // Apply the power rule (integers)
-                    Expr::Mul(mult_group)
+                    mult_group.into()
                 },
                 Expr::Primary(Primary::Float(i)) => {
-                    let mut mult_group = vec![derivative((*expr).clone(), with)];
-                    mult_group.push(Expr::Primary(Primary::Float(float(i))));
-                    mult_group.push(Expr::Exp(expr, Expr::Primary(Primary::Float(i - float(1))).into())); 
-                    Expr::Mul(mult_group)
+                    let mut mult_group = MultBuilder::default();
+                    mult_group.mult(derivative((*expr).clone(), with));
+                    mult_group.mult(Expr::Primary(Primary::Float(float(i))));
+                    mult_group.mult(Expr::Exp(expr, Expr::Primary(Primary::Float(i - float(1))).into())); 
+                    mult_group.into()
                 },
                 _ => todo!()
             }

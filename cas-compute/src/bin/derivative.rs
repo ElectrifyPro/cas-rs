@@ -11,7 +11,7 @@ fn main() {
     let mut parser = Parser::new(hard);
     let ast_expr = parser.try_parse_full::<Expr>().unwrap();
 
-    let deriv = derivative(ast_expr.clone().into(), "x");
+    let deriv = derivative(ast_expr.clone().into(), "r");
     println!("{deriv}");
     println!("{deriv:?}");
 

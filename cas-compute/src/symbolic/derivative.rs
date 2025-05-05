@@ -59,12 +59,33 @@ pub fn derivative(f: Expr, with: &str) -> Expr {
             if sym == with {
                 Expr::Primary(Primary::Integer(int(1)))
             } else {
-                // should treat as a constant, if we know these variables aren't eventually functions of ourself
-                todo!("Doesn't support integrating with variables other than the integration variable")
+                Expr::Primary(Primary::Integer(int(0)))
             }
         }
-        Expr::Primary(_) => {
-            todo!()
+        Expr::Primary(Primary::Call(func, args)) => {
+            // TODO: context and chain rule?
+            let mut mult_group = Vec::with_capacity(2);
+            match func.as_str() {
+                "sqrt" => {
+                    assert_eq!(args.len(), 1, "sqrt has only one argument");
+                    return derivative(Expr::Exp(Box::new(args[0].clone()), Box::new(Expr::Primary(Primary::Float(float(0.5))))), with);
+                },
+                "sin" => {
+                    assert_eq!(args.len(), 1, "sin has exactly one argument");
+                    mult_group.push(derivative(args[0].clone(), with));
+                    mult_group.push(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
+                },
+                "cos" => {
+                    assert_eq!(args.len(), 1, "cos has exactly one argument");
+
+                    let mut mult_group = Vec::with_capacity(3);
+                    mult_group.push(derivative(args[0].clone(), with));
+                    mult_group.push(Expr::Primary(Primary::Integer(int(-1))));
+                    mult_group.push(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
+                },
+                _ => todo!("cannot differentiate this function yet")
+            };
+            Expr::Mul(mult_group)
         }
         Expr::Add(add) => {
             Expr::Add(add.into_iter().map(|add_elem| derivative(add_elem, with)).filter(non_zero).collect())
@@ -105,12 +126,19 @@ pub fn derivative(f: Expr, with: &str) -> Expr {
         Expr::Exp(expr, expr1) => {
             match &*expr1 {
                 Expr::Primary(Primary::Integer(i)) => {
+                    let mut mult_group = vec![derivative((*expr).clone(), with)];
+
+                    mult_group.push(Expr::Primary(Primary::Integer(int(i))));
+                    mult_group.push(Expr::Exp(expr, Expr::Primary(Primary::Integer(i - Integer::from(1))).into()));
+
                     // Apply the power rule (integers)
-                    Expr::Mul(vec![Expr::Primary(Primary::Integer(int(i))), Expr::Exp(expr, Expr::Primary(Primary::Integer(i - Integer::from(1))).into())])
+                    Expr::Mul(mult_group)
                 },
                 Expr::Primary(Primary::Float(i)) => {
-                    // Apply the power rule (floats)
-                    Expr::Mul(vec![Expr::Primary(Primary::Float(float(i))), Expr::Exp(expr, Expr::Primary(Primary::Float(i - float(1))).into())])
+                    let mut mult_group = vec![derivative((*expr).clone(), with)];
+                    mult_group.push(Expr::Primary(Primary::Float(float(i))));
+                    mult_group.push(Expr::Exp(expr, Expr::Primary(Primary::Float(i - float(1))).into())); 
+                    Expr::Mul(mult_group)
                 },
                 _ => todo!()
             }

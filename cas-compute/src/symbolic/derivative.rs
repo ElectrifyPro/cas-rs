@@ -1,11 +1,6 @@
-
-use std::ops::Mul;
-
-use cas_parser::parser::token::Symbol;
-use rug::{Float, Integer};
+use rug::Integer;
 
 use crate::primitive::{float, int};
-use crate::symbolic::derivative;
 
 use super::expr::Primary;
 use super::Expr;
@@ -97,15 +92,15 @@ impl SumBuilder {
     }
 }
 
-fn sum_rule(exprs: &[Expr], var: &str) -> Expr {
+fn sum_rule(exprs: &[Expr], var: &str) -> Result<Expr, SymbolicDerivativeError> {
     let mut sum = SumBuilder::default();
     for elem in exprs {
-        sum.add(derivative(elem, var));
+        sum.add(derivative(elem, var)?);
     }
-    sum.into()
+    Ok(sum.into())
 }
 
-fn product_rule(product: &[Expr], with: &str) -> Expr {
+fn product_rule(product: &[Expr], with: &str) -> Result<Expr, SymbolicDerivativeError> {
     let mut outer_sum = SumBuilder::default();
 
     // Produces a derivative according the product rule:
@@ -114,7 +109,7 @@ fn product_rule(product: &[Expr], with: &str) -> Expr {
         let mut inner_mult = MultBuilder::default();
         for term_index in 0..product.len() {
             let term = if derivative_index == term_index {
-                derivative(&product[derivative_index], with)
+                derivative(&product[derivative_index], with)?
             } else {
                 product[term_index].clone()
             };
@@ -125,23 +120,33 @@ fn product_rule(product: &[Expr], with: &str) -> Expr {
         outer_sum.add(inner_mult.into());
     }
 
-    outer_sum.into()
+    Ok(outer_sum.into())
 }
 
-// produces the derivative of the given expression
-pub fn derivative(f: &Expr, with: &str) -> Expr {
+#[derive(Debug)]
+pub enum SymbolicDerivativeError {
+    /// The function may be differentiable, but we do not support symbolically computing it yet
+    Unsupported,
+
+    /// The provided sub-expression is not differentiable
+    Undifferentiable(Expr)
+}
+
+// Produces the derivative of the given expression, returning None if the derivative could not be
+// symbolically computed
+pub fn derivative(f: &Expr, with: &str) -> Result<Expr, SymbolicDerivativeError> {
     if !non_zero(&f) {
-        return Expr::Primary(Primary::Integer(int(0)))
+        return Ok(Expr::Primary(Primary::Integer(int(0))))
     }
     let expr = match f {
         Expr::Primary(Primary::Float(_)) | Expr::Primary(Primary::Integer(_)) => {
-            Expr::Primary(Primary::Integer(int(0)))
+            Ok(Expr::Primary(Primary::Integer(int(0))))
         },
         Expr::Primary(Primary::Symbol(sym)) => {
             if sym == with {
-                Expr::Primary(Primary::Integer(int(1)))
+                Ok(Expr::Primary(Primary::Integer(int(1))))
             } else {
-                Expr::Primary(Primary::Integer(int(0)))
+                Ok(Expr::Primary(Primary::Integer(int(0))))
             }
         }
         Expr::Primary(Primary::Call(func, args)) => {
@@ -154,18 +159,20 @@ pub fn derivative(f: &Expr, with: &str) -> Expr {
                 },
                 "sin" => {
                     assert_eq!(args.len(), 1, "sin has exactly one argument");
-                    mult_group.mult(derivative(&args[0], with));
+                    mult_group.mult(derivative(&args[0], with)?);
                     mult_group.mult(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
                 },
                 "cos" => {
                     assert_eq!(args.len(), 1, "cos has exactly one argument");
-                    mult_group.mult(derivative(&args[0], with));
+                    mult_group.mult(derivative(&args[0], with)?);
                     mult_group.mult(Expr::Primary(Primary::Integer(int(-1))));
                     mult_group.mult(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
                 },
-                _ => todo!("cannot differentiate this function yet")
+                _ => {
+                    return Err(SymbolicDerivativeError::Unsupported);
+                }
             };
-            mult_group.into()
+            Ok(mult_group.into())
         }
         Expr::Add(exprs) => sum_rule(exprs, with),
         Expr::Mul(exprs) => product_rule(exprs, with),
@@ -176,31 +183,33 @@ pub fn derivative(f: &Expr, with: &str) -> Expr {
             match &**expr1 {
                 Expr::Primary(Primary::Integer(i)) => {
                     let mut mult_group = MultBuilder::default();
-                    mult_group.mult(derivative(&expr, with));
+                    mult_group.mult(derivative(&expr, with)?);
                     mult_group.mult(Expr::Primary(Primary::Integer(i.clone())));
                     mult_group.mult(Expr::Exp(expr.clone(), Expr::Primary(Primary::Integer(i - Integer::from(1))).into()));
 
                     // Apply the power rule (integers)
-                    mult_group.into()
+                    Ok(mult_group.into())
                 },
                 Expr::Primary(Primary::Float(i)) => {
                     let mut mult_group = MultBuilder::default();
-                    mult_group.mult(derivative(&*expr, with));
+                    mult_group.mult(derivative(&*expr, with)?);
                     mult_group.mult(Expr::Primary(Primary::Float(float(i.clone()))));
                     mult_group.mult(Expr::Exp(expr.clone(), Expr::Primary(Primary::Float(i - float(1))).into())); 
-                    mult_group.into()
+                    Ok(mult_group.into())
                 },
-                // d/dx a^x = a^x ln(a)
-                _ => todo!()
+                // TODO(Dhruv): d/dx a^x = a^x ln(a)
+                _ => {
+                    Err(SymbolicDerivativeError::Unsupported)
+                }
             }
         }
     };
 
     //TODO: call simplify between operations?
-    if non_zero(&expr) {
+    if expr.as_ref().is_ok_and(|e| non_zero(e)) {
         expr
     } else {
-        Expr::Primary(Primary::Integer(int(0)))
+        Ok(Expr::Primary(Primary::Integer(int(0))))
     }
 }
 
@@ -237,7 +246,7 @@ pub mod tests {
         let ast_expr = parser.try_parse_full::<AstExpr>().unwrap();
 
         let expr = Expr::try_from(ast_expr.clone()).expect("Parsed expression must be representable as a symbolic expression").into();
-        let symbolic = derivative(&expr, "x").into();
+        let symbolic = derivative(&expr, "x").expect(&format!("Derivative for \"{function}\" was unable to be computed symbolically")).into();
 
         for point in points.into_iter() {
             let symbolically_computed = eval_x(&symbolic, point);

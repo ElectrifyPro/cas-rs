@@ -5,29 +5,21 @@ use crate::primitive::{float, int};
 use super::expr::Primary;
 use super::Expr;
 
-// Something that is not trivially zero - intended to clean up ASTs and not mathetmatically
-// rigorous
-fn non_zero(e: &Expr) -> bool {
+/// Returns `true` if the given [`Expr`] is "clearly" nonzero. This is intended to clean up ASTs
+/// and is not mathetmatically rigorous.
+fn is_non_zero(e: &Expr) -> bool {
     match e {
-        Expr::Primary(Primary::Float(f)) => {
-            !f.is_zero()
-        },
-        Expr::Primary(Primary::Integer(i)) => {
-            !i.is_zero()
-        },
-        Expr::Add(sum) => {
-            sum.iter().any(non_zero)
-        },
-        Expr::Mul(mul) => {
-            mul.iter().all(non_zero)
-        }
-        _ => true
+        Expr::Primary(Primary::Float(f)) => !f.is_zero(),
+        Expr::Primary(Primary::Integer(i)) => !i.is_zero(),
+        Expr::Add(sum) => sum.iter().any(non_zero),
+        Expr::Mul(mul) => mul.iter().all(non_zero),
+        _ => true,
     }
 }
 
-// Something that is not trivially one - intended to clean up ASTs and not mathetmatically
-// rigorous
-fn non_unity(e: &Expr) -> bool {
+/// Returns `true` if the given [`Expr`] is "clearly" not one. This is intended to clean up ASTs
+/// and is not mathetmatically rigorous.
+fn is_non_unity(e: &Expr) -> bool {
     match e {
         Expr::Primary(Primary::Float(f)) => !f.eq(&float(1)),
         Expr::Primary(Primary::Integer(i)) => !i.eq(&int(1)),
@@ -41,18 +33,14 @@ fn non_unity(e: &Expr) -> bool {
     }
 }
 
+/// Helper struct to build a product of expressions while applying basic simplification rules. If
+/// any of the expressions are zero, the product is reduced to zero.
 #[derive(Default)]
 struct MultBuilder(Vec<Expr>);
 
 impl From<MultBuilder> for Expr {
     fn from(value: MultBuilder) -> Self {
-        if value.0.len() > 1 {
-            Expr::Mul(value.0)
-        } else if value.0.len() == 1 {
-            value.0[0].clone()
-        } else {
-            Expr::Primary(Primary::Integer(int(1)))
-        }
+        Expr::Mul(value.0).downgrade()
     }
 }
 
@@ -69,18 +57,14 @@ impl MultBuilder {
     }
 }
 
+/// Helper struct to build a summation of expressions while applying basic simplification rules.
+/// only non-zero expressions are added to the sum.
 #[derive(Default)]
 struct SumBuilder(Vec<Expr>);
 
 impl From<SumBuilder> for Expr {
     fn from(value: SumBuilder) -> Self {
-        if value.0.len() > 1 {
-            Expr::Add(value.0)
-        } else if value.0.len() == 1 {
-            value.0[0].clone()
-        } else {
-            Expr::Primary(Primary::Integer(int(0)))
-        }
+        Expr::Add(value.0).downgrade()
     }
 }
 
@@ -92,6 +76,7 @@ impl SumBuilder {
     }
 }
 
+/// `(f + g)' = f' + g'`
 fn sum_rule(exprs: &[Expr], var: &str) -> Result<Expr, SymbolicDerivativeError> {
     let mut sum = SumBuilder::default();
     for elem in exprs {
@@ -100,6 +85,7 @@ fn sum_rule(exprs: &[Expr], var: &str) -> Result<Expr, SymbolicDerivativeError> 
     Ok(sum.into())
 }
 
+/// `(f * g * h)' = f' * g * h + f * g' * h + f * g * h'`
 fn product_rule(product: &[Expr], with: &str) -> Result<Expr, SymbolicDerivativeError> {
     let mut outer_sum = SumBuilder::default();
 
@@ -132,8 +118,8 @@ pub enum SymbolicDerivativeError {
     Undifferentiable(Expr)
 }
 
-// Produces the derivative of the given expression, returning None if the derivative could not be
-// symbolically computed
+/// Computes the derivative of the given expression. Returns [`Err`] if the derivative could not
+/// be symbolically computed.
 pub fn derivative(f: &Expr, with: &str) -> Result<Expr, SymbolicDerivativeError> {
     if !non_zero(&f) {
         return Ok(Expr::Primary(Primary::Integer(int(0))))

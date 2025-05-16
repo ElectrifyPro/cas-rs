@@ -1,6 +1,6 @@
 use cas_compute::numerical::value::Value;
 use cas_parser::parser::{ast::range::RangeKind, token::op::{BinOpKind, UnaryOpKind}};
-use crate::{item::Symbol, Label};
+use crate::{item::Symbol, register::Register, Label};
 use std::ops::Range;
 
 /// Kinds of bytecode instructions emitted by the compiler.
@@ -17,6 +17,20 @@ use std::ops::Range;
 /// See the `Span information` section of each variant for how to interpret the spans.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InstructionKind {
+    /// Compares the top value on the stack with the value in the specified register for equality.
+    /// `true` is pushed onto the stack if they are equal, `false` otherwise.
+    ///
+    /// The top value is removed from the stack.
+    CmpReg(Register),
+
+    /// Sets the value of the specified register to the top value on the stack.
+    ///
+    /// The value is then removed from the stack.
+    SetReg(Register),
+
+    /// Increments the value of the specified register by 1.
+    IncReg(Register),
+
     /// Load a constant value (one known at compile time) onto the stack.
     LoadConst(Value),
 

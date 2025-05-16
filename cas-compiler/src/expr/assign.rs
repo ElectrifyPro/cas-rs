@@ -1,12 +1,13 @@
 use cas_compute::numerical::{func::{Function, User}, value::Value};
 use cas_error::Error;
 use cas_parser::parser::{
-    ast::{assign::{Assign, AssignTarget}, LitSym},
-    token::op::AssignOpKind,
+    ast::{assign::{Assign, AssignTarget}, LitSym, Param},
+    token::op::{AssignOpKind, UnaryOpKind},
 };
 use crate::{
     error::OverrideBuiltinConstant,
     item::Symbol,
+    register::Register,
     Compile,
     Compiler,
     InstructionKind,
@@ -98,6 +99,21 @@ impl Compile for Assign {
                     // arguments to function are placed on the stack, so we need to go through the
                     // parameters in reverse order to store them in the correct order
                     for param in header.params.iter().rev() {
+                        if let Param::Default(_, default_expr) = param {
+                            let next_param_start = compiler.new_unassociated_label();
+
+                            compiler.add_instr(InstructionKind::LoadConst(Value::Integer(header.params.len().into())));
+                            compiler.add_instr(InstructionKind::CmpReg(Register::ArgCounter));
+                            compiler.add_instr(InstructionKind::Unary(UnaryOpKind::Not));
+                            compiler.add_instr(InstructionKind::JumpIfFalse(next_param_start));
+
+                            default_expr.compile(compiler)?;
+
+                            compiler.add_instr(InstructionKind::IncReg(Register::ArgCounter));
+
+                            compiler.set_end_label(next_param_start);
+                        }
+
                         let symbol_id = compiler.add_symbol(param.symbol())?;
                         compiler.add_instr(InstructionKind::AssignVar(symbol_id));
                     }

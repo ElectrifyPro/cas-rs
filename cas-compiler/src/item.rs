@@ -17,25 +17,20 @@ impl Signature<'_> {
     pub fn missing_args(&self, num_given: usize) -> Vec<usize> {
         match self {
             Self::Builtin(builtin) => {
-                // NOTE: we will later enforce default arguments to be at the end of the signature
-                // so we can safely assume that all required arguments are at the beginning
+                // default arguments must be at the end of the signature, so we can safely assume
+                // that all required arguments are at the beginning
                 let idx_of_first_default = builtin.sig()
                     .iter()
                     .position(|param| param.kind == ParamKind::Optional);
                 // the missing arguments are the required arguments before the first default
                 // argument, and after the number of arguments given
-                (0..idx_of_first_default.unwrap_or(builtin.sig().len()))
-                    .filter(|&i| i >= num_given)
+                (num_given..idx_of_first_default.unwrap_or(builtin.sig().len()))
                     .collect()
             },
             Self::Parser(params) => {
                 let idx_of_first_default = params.iter()
-                    .position(|param| match param {
-                        ParserParam::Symbol(_) => false,
-                        ParserParam::Default(..) => true,
-                    });
-                (0..idx_of_first_default.unwrap_or(params.len()))
-                    .filter(|&i| i >= num_given)
+                    .position(|param| matches!(param, ParserParam::Default(..)));
+                (num_given..idx_of_first_default.unwrap_or(params.len()))
                     .collect()
             },
         }

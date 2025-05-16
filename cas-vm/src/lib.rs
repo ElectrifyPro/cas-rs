@@ -3,6 +3,7 @@
 pub mod error;
 mod frame;
 mod instruction;
+mod register;
 
 use cas_compute::{
     consts::{E, I, PHI, PI, TAU},
@@ -42,6 +43,7 @@ use instruction::{
     exec_unary_instruction,
     Derivative,
 };
+use register::Registers;
 use std::{cell::RefCell, collections::HashMap, ops::Range, rc::Rc};
 
 /// The maximum number of stack frames before a stack overflow error is thrown in the [`Vm`].
@@ -79,6 +81,9 @@ pub struct Vm {
 
     /// Variables in the global scope.
     pub variables: HashMap<usize, Value>,
+
+    /// Registers used by the VM.
+    registers: Registers,
 }
 
 impl Default for Vm {
@@ -89,6 +94,7 @@ impl Default for Vm {
             labels: HashMap::new(),
             sym_table: SymbolTable::default(),
             variables: HashMap::new(),
+            registers: Registers::default(),
         }
     }
 }
@@ -104,6 +110,7 @@ impl From<Compiler> for Vm {
                 .collect(),
             sym_table: compiler.sym_table,
             variables: HashMap::new(),
+            registers: Registers::default(),
         }
     }
 }
@@ -127,6 +134,7 @@ impl Vm {
                 .collect(),
             sym_table: compiler.sym_table,
             variables: HashMap::new(),
+            registers: Registers::default(),
         })
     }
 
@@ -142,6 +150,7 @@ impl Vm {
                 .collect(),
             sym_table: compiler.sym_table,
             variables: HashMap::new(),
+            registers: Registers::default(),
         })
     }
 
@@ -254,6 +263,32 @@ impl Vm {
         // println!("instruction to execute: {:?} (chunk/inst: {}/{})", instruction, instruction_pointer.0, instruction_pointer.1);
 
         match &instruction.kind {
+            InstructionKind::CmpReg(register) => {
+                let value = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing value to compare",
+                ))?.coerce_integer();
+                let Value::Integer(int) = value else {
+                    return Err(Error::new(instruction.spans.clone(), InvalidIndexType {
+                        expr_type: value.typename(),
+                    }));
+                };
+                let reg_value = self.registers.get(*register);
+                value_stack.push(Value::Boolean(int == *reg_value));
+            },
+            InstructionKind::SetReg(register) => {
+                let value = value_stack.pop().ok_or_else(|| internal_err(
+                    &instruction,
+                    "missing value to set register",
+                ))?.coerce_integer();
+                let Value::Integer(int) = value else {
+                    return Err(Error::new(instruction.spans.clone(), InvalidIndexType {
+                        expr_type: value.typename(),
+                    }));
+                };
+                self.registers.set(*register, int);
+            },
+            InstructionKind::IncReg(register) => self.registers.increment(*register),
             InstructionKind::LoadConst(value) => {
                 let mut value = value.clone();
 
@@ -554,6 +589,8 @@ impl Vm {
         let mut value_stack = vec![];
         let mut instruction_pointer = (0, 0);
 
+        self.registers = Registers::default();
+
         while instruction_pointer.1 < self.chunks[instruction_pointer.0].instructions.len() {
             match self.run_one(
                 &mut value_stack,
@@ -739,6 +776,12 @@ mod tests {
             let stmt = parser.try_parse_full::<Stmt>().unwrap();
             assert_eq!(vm.execute(vec![stmt]).unwrap(), expected);
         }
+    }
+
+    #[test]
+    fn user_func_with_default() {
+        let result = run_program("f(x = 2) = x; f()").unwrap();
+        assert_eq!(result, Value::Integer(int(2)));
     }
 
     #[test]

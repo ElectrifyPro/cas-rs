@@ -1,7 +1,7 @@
 [package]
 name = "cas-graph"
 description = "A customizable graphing calculator for CalcScript"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/ElectrifyPro/cas-rs"
@@ -12,9 +12,9 @@ categories = ["mathematics", "visualization"]
 
 [dependencies]
 cairo-rs = { version = "0.18.2", features = ["png"] }
-cas-compiler = { version = "0.1.0", path = "../cas-compiler" }
-cas-compute = { version = "0.1.0", path = "../cas-compute" }
-cas-error = { version = "0.1.0", path = "../cas-error" }
-cas-parser = { version = "0.1.0", path = "../cas-parser" }
-cas-vm = { version = "0.1.0", path = "../cas-vm" }
+cas-compiler = { version = "0.2.0", path = "../cas-compiler" }
+cas-compute = { version = "0.2.0", path = "../cas-compute" }
+cas-error = { version = "0.2.0", path = "../cas-error" }
+cas-parser = { version = "0.2.0", path = "../cas-parser" }
+cas-vm = { version = "0.2.0", path = "../cas-vm" }
 rayon = "1.7.0"

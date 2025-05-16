@@ -50,23 +50,42 @@ To learn more about CalcScript and example REPL usage, see the [`cas-parser`](ca
 
 ## General expression evaluation
 
-`cas-rs` can also be used as a library to evaluate CalcScript expressions. Here is an example of evaluating the expression `x^2 + 5x + 6` where `x = 2`:
+`cas-rs` can also be used as a library to evaluate mathematical expressions and run CalcScript code. Use [`cas-parser`](cas-parser/README.md) to parse an expression, and [`cas-vm`](cas-vm/README.md) to compile and execute it. Here is an example of evaluating the expression `x^2 + 5x + 6` where `x = 2`:
 
 ```rust
-use cas_compute::numerical::{ctxt::Ctxt, eval::Eval};
-use cas_parser::parser::{ast::Expr, Parser};
+use cas_parser::parser::Parser;
+use cas_vm::Vm;
 
-let mut parser = Parser::new("x^2 + 5x + 6");
-let ast_expr = parser.try_parse_full::<Expr>().unwrap();
+let mut parser = Parser::new("x = 2; x^2 + 5x + 6");
+let stmts = parser.try_parse_full_many().unwrap();
 
-let mut ctxt = Ctxt::default();
-ctxt.add_var("x", 2.into());
+let result = Vm::compile_program(stmts)
+    .unwrap()
+    .run()
+    .unwrap();
 
-let result = ast_expr.eval(&mut ctxt).unwrap();
-assert_eq!(result, 24.into());
+assert_eq!(result, 20.into());
 ```
 
-Learn more about this in the [`cas-compute`](cas-compute/README.md) crate.
+Learn more about this in the [`cas-vm`](cas-vm/README.md) crate.
+
+## Algebraic simplification
+
+`cas-rs` includes a rudimentary algebraic simplifier that can simplify expressions using a variety of rules. Try it out with [`cas-compute`](cas-compute/README.md):
+
+```rust
+use cas_compute::symbolic::simplify;
+use cas_parser::parser::{ast::Expr, Parser};
+
+let mut parser = Parser::new("6x + 11x + 4y - 2y");
+let expr = parser.try_parse_full::<Expr>().unwrap();
+println!("Original: {}", expr); // 6x+11x+4y-2y
+
+let simplified = simplify(&expr.into());
+println!("Simplified: {}", simplified); // 2 * y + 17 * x
+```
+
+```rust
 
 ## Graphing calculator
 

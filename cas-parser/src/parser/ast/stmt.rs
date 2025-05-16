@@ -12,6 +12,11 @@ use std::{fmt, ops::Range};
 use serde::{Deserialize, Serialize};
 
 /// Represents a statement in CalcScript.
+///
+/// A statement is the building block of all CalcScript programs. A complete program is a sequence
+/// of one or more statements that are executed in order, and returns the value of the last
+/// statement. A statement's return value can be discarded by adding a semicolon at the end of the
+/// statement.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Stmt {

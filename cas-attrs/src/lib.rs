@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 mod builtin;
 mod error_kind;
 
@@ -7,7 +9,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse_macro_input;
 
-/// Derives the [`ErrorKind`] trait, provided in the `cas_error` crate, for the given item.
+/// Derives the [`ErrorKind`] trait for the given item.
 ///
 /// This trait can be derived for any kind of `struct` and `enum`.
 ///
@@ -29,27 +31,27 @@ use syn::parse_macro_input;
 /// | `message`   | The message displayed at the top of the error when it is displayed.                                                                                              |
 /// | `labels`    | A list of labels that point to the spans of the error. The first label will be associated with the first span, the second label with the second span, and so on. |
 /// | `help`      | Optional help text for the error, describing what the user can do to fix it.                                                                                     |
+/// | `note`      | Optional note text for the error, providing additional context for the error.                                                                                    |
 ///
 /// The `message` and `help` tags accept an expression that can be converted to a [`String`], and
 /// the `labels` tag accepts an expression that can be converted to a [`Vec`] of [`String`]s. Each
-/// expression is actually evaluated within an associated function with access to `$self`, so the
+/// expression is actually evaluated within an associated function with access to `&self`, so the
 /// expression can use the members of the struct or determine which variant of the enum is being
 /// used in the output.
 ///
-/// [`ErrorKind`]: cas_error::ErrorKind
+/// [`ErrorKind`]: https://docs.rs/cas-error/latest/cas_error/trait.ErrorKind.html
 #[proc_macro_derive(ErrorKind, attributes(error))]
 pub fn error_kind(item: TokenStream) -> TokenStream {
     let target = parse_macro_input!(item as ErrorKindTarget);
     quote! { #target }.into()
 }
 
-/// An attribute that implements `cas_compute`'s `Builtin` trait on `struct`s representing
-/// functions.
+/// An attribute that implements the [`Builtin`] trait on `struct`s representing functions.
 ///
 /// This attribute can be applied to any `struct` that has a static implementation through an
 /// associated function called `eval_static`. The attribute will use this function in the
-/// implementation of the `Builtin` trait to perform runtime type-checking of the arguments passed
-/// to the function.
+/// implementation of the [`Builtin`] trait to perform runtime type-checking of the arguments
+/// passed to the function.
 ///
 /// The `eval_static` method can be implemented like any Rust function, with some limitations to
 /// the types of its parameters, to match the types that [`Value`] provides. These are the accepted
@@ -61,7 +63,7 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 /// | `Integer` | [`rug::Integer`]: An integer value. Integers can freely coerce to `Complex` or `Float`.                                  |
 /// | `Complex` | [`rug::Complex`]: A complex number value. Complex numbers can coerce to `Float` or `Integer` if the imaginary part is 0. |
 /// | `bool`    | [`bool`]: A boolean value.                                                                                               |
-/// | `()`      | [`()`]: The unit type, analogous to `()` in Rust.                                                                        |
+/// | `()`      | [`()`](unit): The unit type, analogous to `()` in Rust.                                                                        |
 /// | `Value`   | Any value, regardless of type. The value will be left as a [`Value`] for the function to handle.                         |
 ///
 /// In addition, any of these types can be wrapped in an [`Option`] to make the argument optional.
@@ -124,7 +126,11 @@ pub fn error_kind(item: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// [`Value`]: cas_compute::numerical::value::Value
+/// [`Builtin`]: https://docs.rs/cas-compute/latest/cas_compute/numerical/builtin/trait.Builtin.html
+/// [`Value`]: https://docs.rs/cas-compute/latest/cas_compute/numerical/value/enum.Value.html
+/// [`rug::Float`]: https://docs.rs/rug/latest/rug/struct.Float.html
+/// [`rug::Integer`]: https://docs.rs/rug/latest/rug/struct.Integer.html
+/// [`rug::Complex`]: https://docs.rs/rug/latest/rug/struct.Complex.html
  // NOTE: this cannot be a derive macro, since we need to know information about the function
  // signature; applying #[derive(Builtin)] to the marker struct does not provide that information
 #[proc_macro_attribute]

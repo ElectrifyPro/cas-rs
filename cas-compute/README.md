@@ -1,38 +1,52 @@
-Numerical and symbolic evaluation for CalcScript.
+Tools for evaluation of CalcScript expressions.
 
-This crate provides an evaluator for CalcScript. It is split into two main
-submodules, `numerical` and `symbolic`, which handle numerical and symbolic
-evaluation respectively. Currently, symbolic manipulation is limited to
-simplification, but this will be extended in the future.
+This crate provides tools to help evaluate CalcScript code. It is split into two
+main submodules, `funcs` and `symbolic`, which provide implementations of useful
+mathematical functions, and symbolic evaluation respectively. Currently,
+symbolic manipulation is limited to simplification, but this will be extended in
+the future.
 
 # Usage
 
-## Numerical evaluation
+## Function implementations
 
-The `numerical` module implements an evaluator for CalcScript expressions.
-Expressions are evaluated using the [`Eval`](numerical::eval::Eval) trait,
-optionally with a custom [`Ctxt`](numerical::ctxt::Ctxt) context, used to
-specify the variables and functions in scope, and the trigonometric mode to use
-for trigonometric functions.
+The `funcs` module statically implements a variety of algorithms and functions
+used in CalcScript, such as trigonometric, combinatoric, and probability
+distribution functions. The functions use the arbitrary-precision types from
+the [`rug`] crate to ensure that they can handle high-precision calculations.
 
-The default [`Ctxt::default()`](numerical::ctxt::Ctxt::default) includes some
-useful constants in the [`consts`] module and every builtin function in the
-[`funcs`] module.
-
-See its [module-level documentation](numerical) for more information.
+To use a function, import it from the `funcs` module and call it with the
+appropriate arguments. You may need to convert the arguments to the expected
+[`rug`] these conversions.
 
 ```rust
-use cas_compute::numerical::eval::Eval;
-use cas_parser::parser::{ast::Expr, Parser};
+use cas_compute::funcs::miscellaneous::{Factorial, Gamma};
+use cas_compute::numerical::value::Value;
+use cas_compute::primitive::{complex, float};
 
-let mut parser = Parser::new("5sin(pi/2) * 6!");
-let ast_expr = parser.try_parse_full::<Expr>().unwrap();
-let result = ast_expr.eval_default().unwrap();
+let z = complex((8.0, 0.0)); // 8 + 0i
+// let z = complex(8); // equivalent
+let gamma_z = Gamma::eval_static(z);
 
-// 5sin(pi/2) * 6!
-// = 5 * 1 * 720 = 3600
-assert_eq!(result, 3600.into());
+// Factorial supports floats, so it returns a `Value` for it to support both
+// floating-point and integer return types
+let factorial_i = Factorial::eval_static(float(7)); // 7! = 5040
+
+// the effect is that we need to wrap `gamma_z` in a `Value` to compare it with
+// factorial_i, or extract a `rug::Complex` from `factorial_i` to compare it
+// with `gamma_z`
+//
+// this will most likely be improved in the future
+
+assert_eq!(Value::Complex(gamma_z).coerce_integer(), factorial_i);
 ```
+
+## Numerical helpers
+
+The `numerical` module provides helpers used in other `cas-rs` libraries, mainly
+the [`Value`] type and [`Value`] formatting. Since version 0.2.0, it no longer
+provides numerical evaluation; instead, that functionality was moved to `cas-vm`
+as CalcScript became a compiled language.
 
 ## Simplification
 
@@ -65,6 +79,8 @@ crate.
 - `serde`: Derives [`Serialize`] and [`Deserialize`] for various types provided
 by this crate.
 
+[`rug`]: https://gitlab.com/tspiteri/rug
+[`Value`]: https://docs.rs/cas-compute/latest/cas_compute/numerical/value/enum.Value.html
 [`mysql_common`]: https://docs.rs/mysql-common/latest/mysql_common/
 [`Serialize`]: https://docs.rs/serde/latest/serde/trait.Serialize.html
 [`Deserialize`]: https://docs.rs/serde/latest/serde/trait.Deserialize.html

@@ -1,6 +1,6 @@
 [package]
 name = "cas-compute"
-description = "Numerical and symbolic evaluation for CalcScript"
+description = "Tools for evaluation of CalcScript expressions"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"

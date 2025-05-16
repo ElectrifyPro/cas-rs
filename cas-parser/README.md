@@ -10,8 +10,8 @@ for examples of basic programs written in CalcScript.
 # Usage
 
 This crate is responsible for making sense of code written in CalcScript, before
-passing the parsed code to `cas-compute` to be evaluated, so it's typical to use
-`cas-parser` and `cas-compute` together. Here is an example of how to parse
+passing the parsed code to `cas-vm` to be compiled and executed, so it's typical
+to use `cas-parser` and `cas-vm` together. Here is an example of how to parse
 CalcScript code:
 
 ```rust
@@ -36,7 +36,8 @@ println!("{:#?}", expr);
 // ...
 ```
 
-See `cas-compute`'s documentation for examples of running CalcScript programs.
+See `cas-vm`'s documentation for examples of compiling and executing CalcScript
+programs.
 
 # Language guide
 
@@ -66,7 +67,7 @@ Common operators used in math and programming are supported, including:
 - `~==`, `~!=` (approximate equality)
 - `&`, `|`, `<<`, `>>`, `~` (bitwise operators)
 
-```text
+```calcscript
 > 1 + 3
 4
 
@@ -80,7 +81,7 @@ true
 Implicit multiplication (writing multiplication without the `*` operator) is
 also reasonably supported:
 
-```text
+```calcscript
 > x = 2
 2
 
@@ -99,7 +100,7 @@ implicit multiplication.
 Variables and functions are created using the `=` operator. Compound assignments
 are also supported:
 
-```text
+```calcscript
 > x = 2
 2
 
@@ -121,7 +122,7 @@ are also supported:
 
 Functions also support default parameters:
 
-```text
+```calcscript
 > log(100)
 2
 
@@ -144,7 +145,7 @@ CalcScript is an expression-oriented language. This means that all statements
 are expressions that evaluate to some value. For example, these are all valid
 expressions that yield integers or floating-point numbers:
 
-```text
+```calcscript
 > 1 + 2
 3
 
@@ -157,7 +158,7 @@ expressions that yield integers or floating-point numbers:
 
 These are also valid expressions:
 
-```text
+```calcscript
 > t = 0
 0
 
@@ -176,7 +177,7 @@ These are also valid expressions:
 The block expression, `{ ... }`, can contain multiple expressions inside of it.
 It evaluates to the last expression within it:
 
-```text
+```calcscript
 > {
   x = 2
   y = 3
@@ -188,7 +189,7 @@ It evaluates to the last expression within it:
 Being an expression, a block can be used in any place where an expression would
 be expected. As an example:
 
-```text
+```calcscript
 > a = 3; b = 4
 4
 
@@ -218,7 +219,7 @@ Variables defined within a scope are **only accessible inside of that scope**.
 For example, in the below program, attempting to access the variables `x` and
 `y` outside the block expression will result in an error:
 
-```
+```calcscript
 t = {
     x = 2
     y = 3
@@ -233,7 +234,7 @@ There are nice reasons to have scopes. First, they provide a tool for
 organization. For instance, a calculation that uses a lot of temporary variables
 could declare them within a scope to avoid cluttering the global scope:
 
-```
+```calcscript
 {
     a = 2
     b = 3
@@ -256,7 +257,7 @@ could declare them within a scope to avoid cluttering the global scope:
 Second, scopes allow builtin variables and functions to be temporarily
 overridden. By default, they cannot be overridden at the global scope:
 
-```
+```calcscript
 // ERROR: cannot override builtin constant: `pi`
 // pi = 3
 
@@ -271,7 +272,7 @@ of the imaginary unit. This can be done by redefining these variables and
 functions within a scope, and all their meanings will change for all scopes
 nested inside. And, of course, the global scope will remain clean:
 
-```
+```calcscript
 {
     pi = 3
     L = 5
@@ -302,7 +303,7 @@ function is called. This behavior is useful for creating functions that depend
 on certain variables, but are not necessarily called in the same scope as those
 variables.
 
-```
+```calcscript
 x = 2
 y = 3
 f() = x + y // `x` and `y` are captured by value
@@ -321,7 +322,7 @@ will be ignored by the parser.
 Comments are typically used to describe or explain the reasoning behind your
 code, or to temporarily disable a line of code for debugging purposes:
 
-```text
+```calcscript
 // the x and y-position of a point, in meters
 x = 2
 y = 3
@@ -344,7 +345,7 @@ In the case of `if` / `else` expressions, you often will not need to enclose
 conditions or branches with any special syntax (you can do so with curly braces
 or parentheses if needed):
 
-```text
+```calcscript
 my_abs(x) = if x < 0 then -x else x
 quadratic_formula(a, b, c, plus = true) = {
     discriminant = b^2 - 4 a c
@@ -365,7 +366,7 @@ each integer in a range. Within the scope of a `loop` / `while` / `for`
 expression, the `break` and `continue` keywords can be used to break out of the
 loop or skip to the next iteration, respectively:
 
-```text
+```calcscript
 my_factorial(n) = {
     result = 1
     for i in 1..=n {
@@ -379,7 +380,7 @@ The `break` keyword can also be used to exit a loop while also returning a value
 from the loop. For example, the following function returns the least common
 multiple of two numbers:
 
-```text
+```calcscript
 lcm(a, b) = {
     i = 0
     loop {
@@ -402,7 +403,7 @@ block, return, break, and continue expressions.
 
 In the below example, each pair of declarations are equivalent:
 
-```
+```calcscript
 my_abs(x) = if x < 0 then -x else x
 my_abs(x) = if x < 0 {
     -x
@@ -431,12 +432,12 @@ expressions are followed by a variable name, which is used to represent the
 current value in the sequence. The value of the `sum` or `product` expression is
 the sum or product of the values in the sequence.
 
-```
+```calcscript
 n = 100
 sum i in 1..=n of i // 1 + 2 + 3 + ... + 100 = 5050
 ```
 
-```
+```calcscript
 catalan(n) = product k in 2..=n of (n + k) / k
 catalan(10) // (10 + 2) / 2 * (10 + 3) / 3 * ... * (10 + 10) / 10 = 16796
 ```
@@ -450,7 +451,7 @@ the range expression from the body of the `sum` or `product` expression. It can
 similarly be omitted if the body is "clearly" the next expression, which is true
 for block, return, break, and continue expressions.
 
-```
+```calcscript
 catalan(n) = product k in 2..=n {
     (n + k) / k
 }
@@ -467,7 +468,7 @@ other than base-10. To type a number in radix notation, type the base, followed
 by a single quote, followed by the digits of the number. For example, this is
 the number 1072, expressed in various different bases:
 
-```text
+```calcscript
 > a = 2'10000110000
 1072
 
@@ -486,7 +487,7 @@ the number 1072, expressed in various different bases:
 
 Each base is defined in terms of the following alphabet:
 
-```text
+```calcscript
 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/
 ```
 
@@ -505,7 +506,7 @@ Using most operators with `()` will result in an evaluation error, with the
 exception of comparison-based operators, such as `==`, `!=`, `>`, `<`, etc. This
 can be useful for checking if a function call succeeded or not:
 
-```text
+```calcscript
 quadratic_formula(a, b, c, plus = true) = {
     discriminant = b^2 - 4 a c
     if discriminant >= 0 {
@@ -530,7 +531,7 @@ cases, you can omit the `*` symbol when multiplying two expressions, as one
 might in commonly accepted mathematical notation. For example, the following
 code is valid:
 
-```text
+```calcscript
 > x = 2
 2
 
@@ -552,7 +553,7 @@ often treat implicit multiplication as having higher precedence than explicit
 multiplication. For example, running this example on some other calculators
 would result in `f` and `g` having the same value:
 
-```text
+```calcscript
 // !!! THIS IS NOT THE BEHAVIOR OF CAS-RS! !!!
 
 a = 4
@@ -564,7 +565,7 @@ g = 1 / (2a)
 In the following CalcScript example, `f`, `g`, and `h` evaluate to the **same
 value** (`1 / 2 * 4 = 2`):
 
-```text
+```calcscript
 a = 4
 
 f = 1 / 2a
@@ -586,14 +587,14 @@ whitespace can have unexpected interactions that may appear ambiguous.
 In the below example, there must be whitespace between `a` and `c`, otherwise
 the parser will treat `ac` as a single symbol.
 
-```text
+```calcscript
 discriminant(a, b, c) = b^2 - 4a c
 ```
 
 This example would fail when calling the function at runtime, due to the
 variable `ac` not being defined:
 
-```text
+```calcscript
 discriminant(a, b, c) = b^2 - 4ac
 ```
 
@@ -615,7 +616,7 @@ This may seem like an obvious choice, but in the past, this wasn't the case,
 which made it incredibly easy to write ambiguous code that produced unexpected
 results. For example, today, this code will output `true`, as expected:
 
-```text
+```calcscript
 my_factorial(n) = {
     out = n
     while n > 1 {
@@ -632,7 +633,7 @@ But in the past, this code would not have compiled due to implicit
 multiplication being inserted everywhere (literally). A semicolon (`;`) was
 required if one wanted to avoid this behavior:
 
-```text
+```calcscript
 my_factorial(n) = {
     out = n;
     while n > 1 then {
@@ -654,7 +655,7 @@ It is a design goal to make the parser as helpful as possible. For example, this
 is the generated error if the user inputs incomplete [radix
 notation](#radix-notation):
 
-```text
+```calcscript
 > 2' + 3
 Error: missing value in radix notation
    ╭─[input:1:2]
@@ -669,7 +670,7 @@ Error: missing value in radix notation
 
 Here is a variant of the above error:
 
-```text
+```calcscript
 > 2'+ 3
 Error: invalid digits in radix notation: `+`
    ╭─[input:1:3]

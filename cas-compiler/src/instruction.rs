@@ -64,8 +64,6 @@ pub enum InstructionKind {
     LoadIndexed,
 
     /// Drops the top value from the stack.
-    ///
-    /// No error is returned if the stack is empty.
     Drop,
 
     /// Performs the binary operation on the second-to-top and top stack values.

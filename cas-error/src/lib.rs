@@ -1,5 +1,4 @@
-//! Contains the common [`ErrorKind`] trait used by all errors to display user-facing error
-//! messages.
+#![doc = include_str!("../README.md")]
 
 use ariadne::{Color, Report, Source};
 use std::{fmt::Debug, io::Write, ops::Range};

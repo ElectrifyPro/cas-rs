@@ -10,6 +10,8 @@ fn fmt_helper(f: &mut Formatter<'_>, n: &Float, options: FormatOptions) -> std::
     if n == &1 {
         return write!(f, "i");
     } else if n == &-1 {
+        // NOTE: this path is impossible in the `fmt` function, which makes the input to this
+        // function positive
         return write!(f, "-i");
     }
 

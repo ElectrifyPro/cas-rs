@@ -1,0 +1,29 @@
+// This function creates a counter that increments by 1 each time it is called.
+// It uses a closure to maintain the state of the counter.
+make_counter() = {
+    count = [0]
+
+    // Return the counting closure. The name doesn't matter (we chose "_"), but
+    // all functions must have a name.
+    _() = {
+        // We can actually add to the list directly; CalcScript applies the +
+        // operator to all elements in the list. In this case, there's just one
+        // element, so it works like a normal number.
+        count += 1
+        count[0]
+    }
+}
+
+// Each created counter has its own state, so we can create multiple counters
+// that work independently.
+counter_a = make_counter()
+print(counter_a())  // Output: 1
+print(counter_a())  // Output: 2
+print(counter_a())  // Output: 3
+print(counter_a())  // Output: 4
+
+counter_b = make_counter()
+print(counter_b())  // Output: 1
+print(counter_b())  // Output: 2
+print(counter_a())  // Output: 5
+print(counter_b())  // Output: 3

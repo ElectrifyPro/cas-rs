@@ -289,10 +289,9 @@ pub struct Builtin {
 }
 
 impl Builtin {
-    /// Returns a string representation of the function's signature, not including the function
-    /// name.
+    /// Returns a string representation of the function's signature.
     pub fn signature(&self) -> String {
-        self.params.iter().map(|param| {
+        let params = self.params.iter().map(|param| {
             let ty = param.ty.typename();
             if param.ty.optional {
                 format!("{}: {} (optional)", param.ident, ty)
@@ -301,7 +300,8 @@ impl Builtin {
             }
         })
             .collect::<Vec<_>>()
-            .join(", ")
+            .join(", ");
+        format!("{}({})", self.name, params)
     }
 
     /// Generates the statements that typecheck the arguments.

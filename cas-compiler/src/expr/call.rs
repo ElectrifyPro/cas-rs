@@ -47,7 +47,10 @@ impl Compile for Call {
 
         if self.derivatives > 0 {
             // compute derivative of function
-            compiler.add_instr_with_spans(InstructionKind::CallDerivative(self.derivatives), spans);
+            compiler.add_instr_with_spans(
+                InstructionKind::CallDerivative(self.derivatives, self.args.len()),
+                spans,
+            );
         } else {
             // call the function
             compiler.add_instr_with_spans(InstructionKind::Call(self.args.len()), spans);

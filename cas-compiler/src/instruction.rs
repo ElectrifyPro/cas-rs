@@ -133,7 +133,12 @@ pub enum InstructionKind {
     Call(usize),
 
     /// Computes the `n`th numerical derivative of the function at the top of the stack.
-    CallDerivative(u8),
+    ///
+    /// The number of arguments included in the call is specified by the `usize` value. It is
+    /// important to note that CalcScript **does not** support derivatives of non-unary functions.
+    /// The purpose of this field is to provide a way to discover violations of this rule at
+    /// runtime, when the actual function can be resolved, and report corresponding errors.
+    CallDerivative(u8, usize),
 
     /// Returns from the current function.
     Return,

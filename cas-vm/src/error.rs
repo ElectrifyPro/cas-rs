@@ -54,6 +54,25 @@ pub struct InvalidUnaryOperation {
 )]
 pub struct BitshiftOverflow;
 
+/// Cannot differentiate a function using prime notation.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = format!(
+        "cannot differentiate `{}` function using prime notation",
+        self.name
+    ),
+    labels = ["this function"],
+    help = format!("only functions with a *single parameter* can be differentiated using prime notation; the `{}` function has {} parameter(s)", (&self.name).fg(EXPR), self.actual),
+    note = "consider partially applying the function (i.e. `f(x) = log(x, 2)`) to make it differentiable",
+)]
+pub struct InvalidDifferentiation {
+    /// The name of the function that was called.
+    pub name: String,
+
+    /// The number of arguments the function actually takes.
+    pub actual: usize,
+}
+
 /// Too many arguments were given to a function call.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

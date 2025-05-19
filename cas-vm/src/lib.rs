@@ -28,6 +28,7 @@ use error::{
     IndexOutOfBounds,
     IndexOutOfRange,
     InternalError,
+    InvalidDifferentiation,
     InvalidIndexTarget,
     InvalidIndexType,
     InvalidLengthType,
@@ -270,9 +271,16 @@ impl Vm {
                 self.registers.fn_signature = fn_signature.clone();
                 self.registers.num_params = *num_params;
                 self.registers.num_default_params = *num_default_params;
-            },
-            InstructionKind::CheckExecReady => {
-                if self.registers.num_args > self.registers.num_params {
+
+                if call_stack.last().unwrap().derivative && self.registers.num_params != 1 {
+                    return Err(Error::new(
+                        self.registers.call_site_spans.clone(),
+                        InvalidDifferentiation {
+                            name: self.registers.fn_name.clone(),
+                            actual: self.registers.num_params,
+                        },
+                    ));
+                } else if self.registers.num_args > self.registers.num_params {
                     let spans = &self.registers.call_site_spans;
                     let expected = self.registers.num_params;
                     return Err(Error::new(
@@ -291,7 +299,8 @@ impl Vm {
                         },
                     ));
                 }
-
+            },
+            InstructionKind::CheckExecReady => {
                 value_stack.push(Value::Boolean(
                     self.registers.num_args == self.registers.num_params,
                 ));
@@ -484,18 +493,17 @@ impl Vm {
                 }
             },
             InstructionKind::Call(args_given) => {
-                self.registers.call_site_spans = instruction.spans.clone();
-                self.registers.num_args = *args_given;
-
                 let Value::Function(func) = value_stack.pop().ok_or_else(|| internal_err(
                     &instruction,
                     "missing function to call",
                 ))? else {
                     return Err(internal_err(&instruction, "cannot call non-function"));
                 };
-                // TODO: default parameter support
                 match func {
                     Function::User(user) => {
+                        self.registers.call_site_spans = instruction.spans.clone();
+                        self.registers.num_args = *args_given;
+
                         call_stack.push(Frame::new((
                             instruction_pointer.0,
                             instruction_pointer.1 + 1,
@@ -513,7 +521,7 @@ impl Vm {
                     },
                 }
             },
-            InstructionKind::CallDerivative(derivatives) => {
+            InstructionKind::CallDerivative(derivatives, num_args) => {
                 let Value::Function(func) = value_stack.pop().ok_or_else(|| internal_err(
                     &instruction,
                     "missing function for prime notation",
@@ -522,6 +530,9 @@ impl Vm {
                 };
                 match func {
                     Function::User(user) => {
+                        self.registers.call_site_spans = instruction.spans.clone();
+                        self.registers.num_args = *num_args;
+
                         let initial = value_stack.pop().ok_or_else(|| internal_err(
                             &instruction,
                             "missing initial value for derivative computation",
@@ -542,6 +553,16 @@ impl Vm {
                         return Ok(ControlFlow::Jump);
                     },
                     Function::Builtin(builtin) => {
+                        if builtin.sig().len() != 1 {
+                            return Err(Error::new(
+                                instruction.spans.clone(),
+                                InvalidDifferentiation {
+                                    name: builtin.name().to_string(),
+                                    actual: builtin.sig().len(),
+                                },
+                            ));
+                        }
+
                         let initial = value_stack.pop().ok_or_else(|| internal_err(
                             &instruction,
                             "missing initial value for derivative computation",
@@ -967,6 +988,38 @@ f(32)").unwrap();
     }
 
     #[test]
+    fn exec_valid_prime_notation() {
+        let result = run_program("f(x) = log(x, 2)
+g(x) = 1/(x ln(2))
+f'(64) ~== g(64)").unwrap();
+        assert_eq!(result, Value::Boolean(true));
+    }
+
+    #[test]
+    fn exec_valid_prime_notation_but_wrong_args() {
+        let result = run_program("f(x) = x^2 + 5x + 6; f'(64, 32)").unwrap_err();
+
+        // error: too many arguments passed to f
+        // spans[0] = start of "f'(..."
+        // spans[1] = closing parenthesis of "f'(...)"
+        // spans[2] = points two second argument "32"
+        assert_eq!(result.spans, vec![
+            21..24,
+            30..31,
+            28..30,
+        ]);
+    }
+
+    #[test]
+    fn exec_unsupported_prime_notation() {
+        let result = run_program("log'(32, 2)").unwrap_err();
+
+        // error: can only differentiate functions with exactly 1 argument
+        // spans[0] = start of "log'(..."
+        assert_eq!(result.spans[0], 0..5);
+    }
+
+    #[test]
     fn exec_scoping() {
         let err = run_program("f() = j + 6
 g() = {
@@ -974,10 +1027,11 @@ g() = {
     f()
 }").unwrap_err();
 
-        // error is in the definition of `f`
+        // error: undefined variable `j`
         // variable `j` is defined in `g`, so `f` can only access it if `x` is passed as an
         // argument, or `j` is in a higher scope
-        assert_eq!(err.spans[0], 6..7);
+        // spans[0] = variable `j` in `j + 6`
+        assert_eq!(err.spans, vec![6..7]);
     }
 
     #[test]

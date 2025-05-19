@@ -1,7 +1,12 @@
 [package]
 name = "cas-compiler"
+description = "Bytecode compiler for CalcScript programs"
 version = "0.2.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/ElectrifyPro/cas-rs"
+keywords = ["calcscript", "codegen", "math-language", "bytecode", "evaluation"]
+categories = ["compilers", "mathematics"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

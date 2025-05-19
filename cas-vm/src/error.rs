@@ -69,7 +69,7 @@ pub struct BitshiftOverflow;
 )]
 pub struct TooManyArguments {
     /// The name of the function that was called.
-    pub name: &'static str,
+    pub name: String,
 
     /// The number of arguments that were expected.
     pub expected: usize,
@@ -78,16 +78,16 @@ pub struct TooManyArguments {
     pub given: usize,
 
     /// The signature of the function, not including the function name.
-    pub signature: &'static str,
+    pub signature: String,
 }
 
 impl From<cas_compute::numerical::builtin::error::TooManyArguments> for TooManyArguments {
     fn from(err: cas_compute::numerical::builtin::error::TooManyArguments) -> Self {
         Self {
-            name: err.name,
+            name: err.name.to_string(),
             expected: err.expected,
             given: err.given,
-            signature: err.signature,
+            signature: err.signature.to_string(),
         }
     }
 }
@@ -119,7 +119,7 @@ impl From<cas_compute::numerical::builtin::error::TooManyArguments> for TooManyA
 )]
 pub struct MissingArgument {
     /// The name of the function that was called.
-    pub name: &'static str,
+    pub name: String,
 
     /// The indices of the missing arguments.
     pub indices: Range<usize>,
@@ -131,17 +131,17 @@ pub struct MissingArgument {
     pub given: usize,
 
     /// The signature of the function, not including the function name.
-    pub signature: &'static str,
+    pub signature: String,
 }
 
 impl From<cas_compute::numerical::builtin::error::MissingArgument> for MissingArgument {
     fn from(err: cas_compute::numerical::builtin::error::MissingArgument) -> Self {
         Self {
-            name: err.name,
+            name: err.name.to_string(),
             indices: err.indices,
             expected: err.expected,
             given: err.given,
-            signature: err.signature,
+            signature: err.signature.to_string(),
         }
     }
 }

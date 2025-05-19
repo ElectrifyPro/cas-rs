@@ -1,6 +1,6 @@
 use cas_compute::numerical::value::Value;
 use cas_parser::parser::{ast::range::RangeKind, token::op::{BinOpKind, UnaryOpKind}};
-use crate::{item::Symbol, register::Register, Label};
+use crate::{item::Symbol, Label};
 use std::ops::Range;
 
 /// Kinds of bytecode instructions emitted by the compiler.
@@ -17,19 +17,47 @@ use std::ops::Range;
 /// See the `Span information` section of each variant for how to interpret the spans.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InstructionKind {
-    /// Compares the top value on the stack with the value in the specified register for equality.
-    /// `true` is pushed onto the stack if they are equal, `false` otherwise.
+    /// Initializes key VM registers for a call to a user-defined function.
     ///
-    /// The top value is removed from the stack.
-    CmpReg(Register),
-
-    /// Sets the value of the specified register to the top value on the stack.
+    /// This is a special instruction used in user function argument validation, and is compiled in
+    /// as the first instruction of a user function.
     ///
-    /// The value is then removed from the stack.
-    SetReg(Register),
+    /// The fields of this instruction are:
+    ///
+    /// - `fn_name`: The name of the function being executed.
+    /// - `fn_signature`: The signature of the function being executed.
+    /// - `num_params`: The total number of parameters in the function signature.
+    /// - `num_default_params`: The number of default parameters in the function signature.
+    InitFunc(String, String, usize, usize),
 
-    /// Increments the value of the specified register by 1.
-    IncReg(Register),
+    /// Checks if there are enough arguments on the stack to start executing the user function
+    /// body, or throws a runtime error if there are too many arguments.
+    ///
+    /// This is a special instruction used in user function argument validation, and is compiled in
+    /// just before compiling a default argument expression. The specific order of operations is:
+    ///
+    /// - Compare the number of currently available arguments (set in the argument counter) to the
+    /// number of arguments expected by the function.
+    /// - If they are equal, the function is ready to be executed. The VM will then assign the
+    /// given values to its internal variables representing the function parameters and execute the
+    /// function body, jumping around as needed.
+    /// - If there are more arguments than expected, an error is thrown.
+    /// - Otherwise, fall-through to the default argument expression.
+    /// - The default argument expression is compiled.
+    CheckExecReady,
+
+    /// Increments the argument counter by 1.
+    ///
+    /// This is a special instruction used in user function argument validation, and is compiled in
+    /// after each default argument expression.
+    NextArg,
+
+    /// Checks if there are missing or extra arguments by the time the function body is reached,
+    /// throwing a runtime error if so.
+    ///
+    /// This is a special instruction used in user function argument validation, and is compiled in
+    /// after all default argument expressions and before the function body.
+    ErrorIfMissingArgs,
 
     /// Load a constant value (one known at compile time) onto the stack.
     LoadConst(Value),
@@ -112,6 +140,11 @@ pub enum InstructionKind {
 
     /// Jump to the specified label.
     Jump(Label),
+
+    /// Jumps to the specified label if the top value on the stack is the boolean `true`.
+    ///
+    /// This will result in an error if the top value is not a boolean.
+    JumpIfTrue(Label),
 
     /// Jumps to the specified label if the top value on the stack is the boolean `false`.
     ///

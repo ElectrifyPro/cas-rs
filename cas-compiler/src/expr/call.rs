@@ -1,7 +1,6 @@
-use cas_compute::numerical::Value;
 use cas_error::Error;
 use cas_parser::parser::ast::{call::Call, Expr, Param};
-use crate::{item::Func, register::Register, Compile, Compiler, InstructionKind};
+use crate::{item::Func, Compile, Compiler, InstructionKind};
 
 /// Compiles the correct instructions that generate the arguments for the function call, in
 /// order to check if the user is relying on the default value of an optional parameter.
@@ -51,8 +50,6 @@ impl Compile for Call {
             compiler.add_instr_with_spans(InstructionKind::CallDerivative(self.derivatives), spans);
         } else {
             // call the function
-            compiler.add_instr(InstructionKind::LoadConst(Value::Integer(self.args.len().into())));
-            compiler.add_instr(InstructionKind::SetReg(Register::ArgCounter));
             compiler.add_instr_with_spans(InstructionKind::Call(self.args.len()), spans);
         }
 

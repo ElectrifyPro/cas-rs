@@ -261,34 +261,64 @@ impl Vm {
         // println!("value stack: {:?}", value_stack.iter().map(|v: &Value| v.to_string()).collect::<Vec<_>>());
         // println!("call stack: {:?}", call_stack);
         // println!("instruction to execute: {:?} (chunk/inst: {}/{})", instruction, instruction_pointer.0, instruction_pointer.1);
+        // println!("registers: {:?}", self.registers);
+        // println!();
 
         match &instruction.kind {
-            InstructionKind::CmpReg(register) => {
-                let value = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
-                    "missing value to compare",
-                ))?.coerce_integer();
-                let Value::Integer(int) = value else {
-                    return Err(Error::new(instruction.spans.clone(), InvalidIndexType {
-                        expr_type: value.typename(),
-                    }));
-                };
-                let reg_value = self.registers.get(*register);
-                value_stack.push(Value::Boolean(int == *reg_value));
+            InstructionKind::InitFunc(fn_name, fn_signature, num_params, num_default_params) => {
+                self.registers.fn_name = fn_name.clone();
+                self.registers.fn_signature = fn_signature.clone();
+                self.registers.num_params = *num_params;
+                self.registers.num_default_params = *num_default_params;
             },
-            InstructionKind::SetReg(register) => {
-                let value = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
-                    "missing value to set register",
-                ))?.coerce_integer();
-                let Value::Integer(int) = value else {
-                    return Err(Error::new(instruction.spans.clone(), InvalidIndexType {
-                        expr_type: value.typename(),
-                    }));
-                };
-                self.registers.set(*register, int);
+            InstructionKind::CheckExecReady => {
+                if self.registers.num_args > self.registers.num_params {
+                    let spans = &self.registers.call_site_spans;
+                    let expected = self.registers.num_params;
+                    return Err(Error::new(
+                        // take spans starting from extraneous argument, matching builtin function
+                        // error behavior
+                        vec![
+                            spans[0].clone(),
+                            spans[1].clone(),
+                            spans[2 + expected].start..spans.last().unwrap().end,
+                        ],
+                        TooManyArguments {
+                            name: self.registers.fn_name.clone(),
+                            expected,
+                            given: self.registers.num_args,
+                            signature: self.registers.fn_signature.clone(),
+                        },
+                    ));
+                }
+
+                value_stack.push(Value::Boolean(
+                    self.registers.num_args == self.registers.num_params,
+                ));
             },
-            InstructionKind::IncReg(register) => self.registers.increment(*register),
+            InstructionKind::NextArg => {
+                // increment the argument counter
+                self.registers.num_args += 1;
+            },
+            InstructionKind::ErrorIfMissingArgs => {
+                if self.registers.num_args != self.registers.num_params {
+                    return Err(Error::new(
+                        self.registers.call_site_spans.clone(),
+                        MissingArgument {
+                            name: self.registers.fn_name.clone(),
+                            indices: {
+                                let offset = self.registers.num_default_params;
+                                let start_idx = self.registers.num_args - offset;
+                                let end_idx = self.registers.num_params - offset;
+                                start_idx..end_idx
+                            },
+                            expected: self.registers.num_params,
+                            given: self.registers.num_args,
+                            signature: self.registers.fn_signature.clone(),
+                        },
+                    ));
+                }
+            },
             InstructionKind::LoadConst(value) => {
                 let mut value = value.clone();
 
@@ -454,6 +484,9 @@ impl Vm {
                 }
             },
             InstructionKind::Call(args_given) => {
+                self.registers.call_site_spans = instruction.spans.clone();
+                self.registers.num_args = *args_given;
+
                 let Value::Function(func) = value_stack.pop().ok_or_else(|| internal_err(
                     &instruction,
                     "missing function to call",
@@ -558,10 +591,24 @@ impl Vm {
                 }
 
                 return Ok(ControlFlow::Jump);
-            }
+            },
             InstructionKind::Jump(label) => {
                 *instruction_pointer = self.labels[label];
                 return Ok(ControlFlow::Jump);
+            },
+            InstructionKind::JumpIfTrue(label) => {
+                let b = match value_stack.pop() {
+                    Some(Value::Boolean(b)) => b,
+                    Some(other) => return Err(Error::new(instruction.spans.clone(), ConditionalNotBoolean {
+                        expr_type: other.typename(),
+                    })),
+                    None => return Err(internal_err(&instruction, "missing value to check")),
+                };
+
+                if b {
+                    *instruction_pointer = self.labels[label];
+                    return Ok(ControlFlow::Jump);
+                }
             },
             InstructionKind::JumpIfFalse(label) => {
                 let b = match value_stack.pop() {
@@ -682,7 +729,7 @@ mod tests {
         let stmts = parser.try_parse_full_many::<Stmt>().unwrap();
 
         let mut vm = Vm::compile_program(stmts)?;
-        Ok(vm.run().unwrap())
+        vm.run()
     }
 
     /// Compile the given source code and execute the resulting bytecode, using degrees as the
@@ -693,7 +740,7 @@ mod tests {
 
         let mut vm = Vm::compile_program(stmts)?
             .with_trig_mode(TrigMode::Degrees);
-        Ok(vm.run().unwrap())
+        vm.run()
     }
 
     #[test]
@@ -779,9 +826,20 @@ mod tests {
     }
 
     #[test]
-    fn user_func_with_default() {
-        let result = run_program("f(x = 2) = x; f()").unwrap();
-        assert_eq!(result, Value::Integer(int(2)));
+    fn user_func_default_param() {
+        let result = run_program("f(x = 2) = x; f() + f(3)").unwrap();
+        assert_eq!(result, Value::Integer(int(5)));
+    }
+
+    #[test]
+    fn user_func_mixed_param() {
+        let result = run_program("f(a, b, c = 3, d = 4) = a b c d; f(1, 2)").unwrap();
+        assert_eq!(result, Value::Integer(int(24)));
+    }
+
+    #[test]
+    fn user_func_bad_mixed_param() {
+        assert!(run_program("f(a, b, c = 3, d = 4) = a b c d; f()").is_err());
     }
 
     #[test]

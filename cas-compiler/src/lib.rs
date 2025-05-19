@@ -4,7 +4,6 @@ pub mod expr;
 pub mod error;
 pub mod instruction;
 pub mod item;
-pub mod register;
 pub mod sym_table;
 
 use cas_compute::{consts::all as all_consts, funcs::all as all_funcs};

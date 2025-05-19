@@ -56,6 +56,11 @@ impl Param {
             Param::Default(symbol, _) => symbol,
         }
     }
+
+    /// Returns true if the parameter has a default value.
+    pub fn has_default(&self) -> bool {
+        matches!(self, Param::Default(_, _))
+    }
 }
 
 impl<'source> Parse<'source> for Param {

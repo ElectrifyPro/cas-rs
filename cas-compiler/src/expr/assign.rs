@@ -2,12 +2,11 @@ use cas_compute::numerical::{func::{Function, User}, value::Value};
 use cas_error::Error;
 use cas_parser::parser::{
     ast::{assign::{Assign, AssignTarget}, LitSym, Param},
-    token::op::{AssignOpKind, UnaryOpKind},
+    token::op::AssignOpKind,
 };
 use crate::{
     error::OverrideBuiltinConstant,
     item::Symbol,
-    register::Register,
     Compile,
     Compiler,
     InstructionKind,
@@ -96,29 +95,51 @@ impl Compile for Assign {
             AssignTarget::Func(header) => {
                 // for function assignment, create a new chunk for the function body
                 let NewChunk { id, chunk, captures } = compiler.new_chunk(header, |compiler| {
+                    compiler.add_instr(InstructionKind::InitFunc(
+                        header.name.to_string(),
+                        header.to_string(),
+                        header.params.len(),
+                        header.params.iter().filter(|p| p.has_default()).count(),
+                    ));
+
                     // arguments to function are placed on the stack, so we need to go through the
                     // parameters in reverse order to store them in the correct order
-                    for param in header.params.iter().rev() {
-                        if let Param::Default(_, default_expr) = param {
-                            let next_param_start = compiler.new_unassociated_label();
+                    let mut iter = header.params.iter().rev().peekable();
+                    while let Some(Param::Default(sym, default_expr)) =
+                        iter.next_if(|p| p.has_default()) {
+                        let assign_param = compiler.new_unassociated_label();
 
-                            compiler.add_instr(InstructionKind::LoadConst(Value::Integer(header.params.len().into())));
-                            compiler.add_instr(InstructionKind::CmpReg(Register::ArgCounter));
-                            compiler.add_instr(InstructionKind::Unary(UnaryOpKind::Not));
-                            compiler.add_instr(InstructionKind::JumpIfFalse(next_param_start));
+                        // are there currently enough arguments on the stack?
+                        // if so, no need to push a default value
+                        compiler.add_instr(InstructionKind::CheckExecReady);
+                        compiler.add_instr(InstructionKind::JumpIfTrue(assign_param));
 
-                            default_expr.compile(compiler)?;
+                        // if not, push a default value onto the stack, count that as one new
+                        // argument
+                        default_expr.compile(compiler)?;
+                        compiler.add_instr(InstructionKind::NextArg);
 
-                            compiler.add_instr(InstructionKind::IncReg(Register::ArgCounter));
+                        compiler.set_end_label(assign_param);
 
-                            compiler.set_end_label(next_param_start);
-                        }
+                        // assign the default (or already provided) value to the parameter
+                        let symbol_id = compiler.add_symbol(sym)?;
+                        compiler.add_instr(InstructionKind::AssignVar(symbol_id));
+                    }
 
+                    // if we get here and there are still fewer or more arguments than parameters,
+                    // there are missing or extra arguments; raise an error
+                    compiler.add_instr(InstructionKind::ErrorIfMissingArgs);
+
+                    // assign required arguments; we know there are enough arguments on the stack,
+                    // as proven by `CheckExecReady`
+                    for param in iter {
                         let symbol_id = compiler.add_symbol(param.symbol())?;
                         compiler.add_instr(InstructionKind::AssignVar(symbol_id));
                     }
+
                     self.value.compile(compiler)?;
                     compiler.add_instr(InstructionKind::Return);
+
                     Ok(())
                 })?;
 

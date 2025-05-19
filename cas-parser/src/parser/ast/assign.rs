@@ -127,8 +127,8 @@ impl FuncHeader {
     }
 
     /// Attempts to parse a [`FuncHeader`], where the function name has already been parsed.
-    fn parse_or_lower<'source>(
-        input: &mut Parser<'source>,
+    fn parse_or_lower(
+        input: &mut Parser,
         recoverable_errors: &mut Vec<Error>,
         name: LitSym,
     ) -> Result<Self, Vec<Error>> {
@@ -325,7 +325,7 @@ impl<'source> Parse<'source> for AssignTarget {
                         _ => unreachable!(),
                     },
                     (unchanged_primary, false) => match unchanged_primary {
-                        Primary::Literal(Literal::Symbol(symbol)) => return Ok(AssignTarget::Symbol(symbol)),
+                        Primary::Literal(Literal::Symbol(symbol)) => Ok(AssignTarget::Symbol(symbol)),
                         _ => unreachable!(),
                     },
                 }

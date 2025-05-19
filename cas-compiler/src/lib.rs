@@ -302,10 +302,10 @@ impl Compiler {
     /// If the item to add matches that of a builtin item, one of the following will occur:
     ///
     /// - If this function is called from the global scope, an [`OverrideBuiltinConstant`] or
-    /// [`OverrideBuiltinFunction`] error is returned.
+    ///   [`OverrideBuiltinFunction`] error is returned.
     /// - If this function is called anywhere else, the symbol table will successfully be updated
-    /// with the new item. This item shadows the existing builtin, meaning the builtin will not be
-    /// accessible until the scope in which this item was declared, ends.
+    ///   with the new item. This item shadows the existing builtin, meaning the builtin will not
+    ///   be accessible until the scope in which this item was declared, ends.
     pub fn add_item(&mut self, symbol: &LitSym, item: Item) -> Result<(), Error> {
         // if we are in the global scope, ensure we don't accidentally override builtin constants
         // and functions. this is because there would be no way to access the builtin constants and
@@ -445,10 +445,10 @@ impl Compiler {
     /// If the symbol name matches that of a builtin constant, one of the following will occur:
     ///
     /// - If this function is called from the global scope, an [`OverrideBuiltinConstant`]
-    /// error is returned.
+    ///   error is returned.
     /// - If this function is called anywhere else, the symbol table will successfully be updated
-    /// with the new symbol. This symbol shadows the existing builtin constant, meaning the builtin
-    /// will not be accessible until the scope in which this symbol was declared, ends.
+    ///   with the new symbol. This symbol shadows the existing builtin constant, meaning the
+    ///   builtin will not be accessible until the scope in which this symbol was declared, ends.
     ///
     /// Returns the unique identifier for the symbol, which can be used to reference the symbol in
     /// the bytecode.

@@ -157,7 +157,7 @@ impl FuncDecl {
     /// Returns [`Ok`] if the call matches the signature, or [`Err`] otherwise.
     pub fn check_call(&self, call: &Call) -> Result<(), Error> {
         check_call(
-            Signature::Parser(&*self.signature),
+            Signature::Parser(&self.signature),
             self.signature.len(),
             call
         )
@@ -212,7 +212,7 @@ impl Func {
     pub fn check_call(&self, call: &Call) -> Result<(), Error> {
         match self {
             Self::User(user) => check_call(
-                Signature::Parser(&*user.signature),
+                Signature::Parser(&user.signature),
                 user.signature.len(),
                 call,
             ),

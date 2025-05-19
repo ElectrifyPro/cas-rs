@@ -17,9 +17,7 @@ fn trim_trailing(s: &str) -> &str {
     // look for decimal point
     if s.contains('.') {
         // look for trailing zeros
-        let trimmed = s.trim_end_matches('0').trim_end_matches('.');
-        let byte_len = trimmed.len();
-        &s[..byte_len]
+        s.trim_end_matches('0').trim_end_matches('.')
     } else {
         // cannot trim trailing zeros to the left of the decimal point
         s

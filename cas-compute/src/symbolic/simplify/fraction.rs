@@ -131,8 +131,8 @@ pub(crate) fn extract_fractional(factors: &mut Vec<SymExpr>) -> Option<SymExpr> 
 /// - [`SymExpr::Mul(factors)`] -> `numerator / denominator`
 ///   * `numerator` is the first [`SymExpr::Primary(Primary::Integer(num))`] found in `factors`
 ///   * `denominator` is the first [`SymExpr::Exp`] found in `factors`, where the base is a
-///   [`Primary::Integer`] and the exponent is `-1`; if no such expression is found, `denominator`
-///   is `1`
+///     [`Primary::Integer`] and the exponent is `-1`; if no such expression is found, `denominator`
+///     is `1`
 /// - [`SymExpr::Exp(lhs, rhs)`] -> `1 / lhs`
 ///   * `lhs` must be a [`Primary::Integer`]
 pub(crate) fn extract_explicit_frac(expr: &mut SymExpr) -> Option<(Integer, Integer)> {

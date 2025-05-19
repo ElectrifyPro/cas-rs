@@ -98,8 +98,7 @@ impl CompoundUnit {
             //     .find(|u| std::mem::discriminant(&u.quantity) == std::mem::discriminant(&unit.quantity))
             //     .ok_or(ConversionError { unit: *unit, target: target.units[0] })?;
             let target_unit_factor = target.units.iter()
-                .map(|u| unit.conversion_factor(*u))
-                .flatten()
+                .flat_map(|u| unit.conversion_factor(*u))
                 .next()
                 .ok_or(ConversionError { unit: *unit, target: target.units[0] })?;
             factor *= target_unit_factor;

@@ -334,9 +334,8 @@ impl<'source> Parser<'source> {
 
         inner()
             .map(|value| (value, errors))
-            .map_err(|unrecoverable: Vec<Error>| {
+            .inspect_err(|_unrecoverable| {
                 self.cursor = start;
-                unrecoverable
             })
             .into()
     }
@@ -465,7 +464,7 @@ impl<T> ParseResult<T> {
     ///
     /// - [`ParseResult::Ok`] is converted to [`Ok`].
     /// - [`ParseResult::Recoverable`] is converted to [`Ok`]. The errors are appended to the given
-    /// mutable [`Vec`].
+    ///   mutable [`Vec`].
     /// - [`ParseResult::Unrecoverable`] is converted to [`Err`].
     ///
     /// This can be a convenient way to allow utilizing the [`?`] operator in a parsing function,

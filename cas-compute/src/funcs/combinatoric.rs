@@ -9,9 +9,9 @@ use rug::Integer;
 /// The returned value can be interepeted in a number of ways:
 ///
 /// - Returns the number of ways to choose `k` (`r`) items from `n` items, where the order of the
-/// items does not matter.
+///   items does not matter.
 /// - Returns the coefficient of the `x^k` term in the polynomial expansion of `(x + 1)^n`, or the
-/// coefficient of the `x^k * y^(n - k)` term in the polynomial expansion of `(x + y)^n`.
+///   coefficient of the `x^k * y^(n - k)` term in the polynomial expansion of `(x + y)^n`.
 /// - Returns the number in row `n` and column `k` of Pascal's triangle.
 #[derive(Debug)]
 pub struct Ncr;

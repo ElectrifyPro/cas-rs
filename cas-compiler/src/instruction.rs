@@ -37,10 +37,10 @@ pub enum InstructionKind {
     /// just before compiling a default argument expression. The specific order of operations is:
     ///
     /// - Compare the number of currently available arguments (set in the argument counter) to the
-    /// number of arguments expected by the function.
+    ///   number of arguments expected by the function.
     /// - If they are equal, the function is ready to be executed. The VM will then assign the
-    /// given values to its internal variables representing the function parameters and execute the
-    /// function body, jumping around as needed.
+    ///   given values to its internal variables representing the function parameters and execute
+    ///   the function body, jumping around as needed.
     /// - If there are more arguments than expected, an error is thrown.
     /// - Otherwise, fall-through to the default argument expression.
     /// - The default argument expression is compiled.

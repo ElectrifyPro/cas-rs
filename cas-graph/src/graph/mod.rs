@@ -110,7 +110,7 @@ fn round_to(n: f64, k: f64) -> f64 {
 /// Returns a 2-tuple where the first element is the major grid spacing for the axis, and the
 /// second is the major grid divisions for the axis.
 fn choose_major_grid_spacing(mut scale: f64) -> (f64, u8) {
-    scale = scale / 4.0;
+    scale /= 4.0;
 
     // to make the grid lines look nice and easier to read,
     // only choose the closest scale:

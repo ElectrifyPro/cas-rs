@@ -30,10 +30,10 @@
 //! **strict equality**. We define two expressions to be strictly equal if:
 //!
 //! - They are the same type of expression (i.e. both [`SymExpr::Primary`], both [`SymExpr::Add`],
-//! etc.).
+//!   etc.).
 //! - If both are [`SymExpr::Primary`], both expressions must have strictly equal values.
 //! - If both are [`SymExpr::Add`] or [`SymExpr::Mul`], both expressions must have strictly equal
-//! terms / factors, **_in any order_**.
+//!   terms / factors, **_in any order_**.
 //! - If both are [`SymExpr::Exp`], both expressions must have strictly equal base and exponent.
 //!
 //! Strict equality is not the same as semantic / mathematical equality. For the pairs of
@@ -428,10 +428,10 @@ impl SymExpr {
 ///
 /// Two expressions are strictly equal if:
 /// - They are the same type of expression (i.e. both [`SymExpr::Primary`], both [`SymExpr::Add`],
-/// etc.).
+///   etc.).
 /// - If both are [`SymExpr::Primary`], both expressions must have strictly equal values.
 /// - If both are [`SymExpr::Add`] or [`SymExpr::Mul`], both expressions must have strictly equal
-/// terms / factors, **_in any order_**.
+///   terms / factors, **_in any order_**.
 /// - If both are [`SymExpr::Exp`], both expressions must have strictly equal base and exponent.
 ///
 /// For more information about strict equality, see the [module-level documentation](self).
@@ -481,8 +481,7 @@ impl PartialEq for SymExpr {
 /// commutative hashing function, unaffected by the order of the elements.
 impl Hash for SymExpr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let self_discr = std::mem::discriminant(self).hash(state);
-        self_discr.hash(state);
+        std::mem::discriminant(self).hash(state);
 
         match self {
             SymExpr::Primary(val) => val.hash(state),

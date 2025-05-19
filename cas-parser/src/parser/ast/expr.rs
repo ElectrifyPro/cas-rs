@@ -137,7 +137,7 @@ impl Expr {
         ExprIter::new(self)
     }
 
-    /// If this expression is a [`Expr::Paren`], returns the innermost expression in the
+    /// If this expression is an [`Expr::Paren`], returns the innermost expression in the
     /// parenthesized expression. Otherwise, returns `self`.
     pub fn innermost(&self) -> &Expr {
         let mut inner = self;

@@ -15,7 +15,7 @@ impl ReplError {
     /// The `ariadne` crate's [`Report`] type actually does not have a `Display` implementation, so
     /// we can only use its `eprint` method to print to stderr.
     ///
-    /// [`Report`]: ariadne::Report
+    /// [`Report`]: https://docs.rs/ariadne/latest/ariadne/struct.Report.html
     pub fn report_to_stderr(&self, src_id: &str, input: &str) {
         match self {
             Self::Many(errs) => errs.iter().for_each(|err| err.report_to_stderr(src_id, input).unwrap()),

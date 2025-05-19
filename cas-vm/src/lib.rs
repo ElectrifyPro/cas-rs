@@ -345,11 +345,11 @@ impl Vm {
             },
             InstructionKind::CreateListRepeat => {
                 let count = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing # of repetitions",
                 ))?;
                 let value = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing value to repeat",
                 ))?;
                 let list = vec![value; extract_length(count, instruction.spans.clone())?];
@@ -357,11 +357,11 @@ impl Vm {
             },
             InstructionKind::CreateRange(kind) => {
                 let end = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing end of range",
                 ))?;
                 let start = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing start of range",
                 ))?;
                 value_stack.push(Value::Range(
@@ -378,7 +378,7 @@ impl Vm {
                         .find_map(|frame| frame.get_variable(*id))
                         .cloned()
                         .ok_or_else(|| internal_err(
-                            &instruction,
+                            instruction,
                             format!("user variable `{}` not initialized", id),
                         ))?;
                     value_stack.push(value);
@@ -394,7 +394,7 @@ impl Vm {
                             all_funcs()
                                 .get(other)
                                 .ok_or_else(|| internal_err(
-                                    &instruction,
+                                    instruction,
                                     format!("builtin function `{}` not found", other),
                                 ))?
                                 .as_ref()
@@ -404,36 +404,36 @@ impl Vm {
             },
             InstructionKind::StoreVar(id) => {
                 let last_frame = call_stack.last_mut().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "no stack frame to store variable in",
                 ))?;
                 let value = value_stack.last().cloned().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "no value to store in variable",
                 ))?;
                 last_frame.add_variable(id.to_owned(), value);
             },
             InstructionKind::AssignVar(id) => {
                 let last_frame = call_stack.last_mut().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "no stack frame to store variable in",
                 ))?;
                 last_frame.add_variable(id.to_owned(), value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "no value to store in variable",
                 ))?);
             },
             InstructionKind::StoreIndexed => {
                 let index = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing index to store value at",
                 ))?;
                 let list = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing list to store value in",
                 ))?;
                 let value = value_stack.last().cloned().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing value to store",
                 ))?;
                 let Value::List(list) = list else {
@@ -452,11 +452,11 @@ impl Vm {
             },
             InstructionKind::LoadIndexed => {
                 let index = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing index to load value at",
                 ))?;
                 let list = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing list to load value from",
                 ))?;
                 let Value::List(list) = list else {
@@ -478,7 +478,7 @@ impl Vm {
             // and popped through the program
             InstructionKind::Drop => {
                 value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "nothing to drop",
                 ))?;
             },
@@ -494,10 +494,10 @@ impl Vm {
             },
             InstructionKind::Call(args_given) => {
                 let Value::Function(func) = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing function to call",
                 ))? else {
-                    return Err(internal_err(&instruction, "cannot call non-function"));
+                    return Err(internal_err(instruction, "cannot call non-function"));
                 };
                 match func {
                     Function::User(user) => {
@@ -523,10 +523,10 @@ impl Vm {
             },
             InstructionKind::CallDerivative(derivatives, num_args) => {
                 let Value::Function(func) = value_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "missing function for prime notation",
                 ))? else {
-                    return Err(internal_err(&instruction, "cannot use prime notation on non-function"));
+                    return Err(internal_err(instruction, "cannot use prime notation on non-function"));
                 };
                 match func {
                     Function::User(user) => {
@@ -534,7 +534,7 @@ impl Vm {
                         self.registers.num_args = *num_args;
 
                         let initial = value_stack.pop().ok_or_else(|| internal_err(
-                            &instruction,
+                            instruction,
                             "missing initial value for derivative computation",
                         ))?;
                         let derivative = Derivative::new(*derivatives, initial)
@@ -545,7 +545,7 @@ impl Vm {
                         )).with_derivative());
                         check_stack_overflow(&instruction.spans, call_stack)?;
                         value_stack.push(derivative.next_eval().ok_or_else(|| internal_err(
-                            &instruction,
+                            instruction,
                             "missing next value in derivative computation",
                         ))?);
                         derivative_stack.push(derivative);
@@ -564,7 +564,7 @@ impl Vm {
                         }
 
                         let initial = value_stack.pop().ok_or_else(|| internal_err(
-                            &instruction,
+                            instruction,
                             "missing initial value for derivative computation",
                         ))?;
                         let value = Derivative::new(*derivatives, initial)
@@ -576,18 +576,18 @@ impl Vm {
             },
             InstructionKind::Return => {
                 let frame = call_stack.pop().ok_or_else(|| internal_err(
-                    &instruction,
+                    instruction,
                     "no frame to return to",
                 ))?;
 
                 if frame.derivative {
                     // progress the derivative computation if needed
                     let derivative = derivative_stack.last_mut().ok_or_else(|| internal_err(
-                        &instruction,
+                        instruction,
                         "no derivative computation to return to",
                     ))?;
                     let value = value_stack.pop().ok_or_else(|| internal_err(
-                        &instruction,
+                        instruction,
                         "missing value to feed in derivative computation",
                     ))?;
                     if let Some(value) = derivative.advance(value)
@@ -601,7 +601,7 @@ impl Vm {
                         call_stack.push(frame);
 
                         value_stack.push(derivative.next_eval().ok_or_else(|| internal_err(
-                            &instruction,
+                            instruction,
                             "missing next value in derivative computation",
                         ))?);
                         *instruction_pointer = (instruction_pointer.0, 0);
@@ -623,7 +623,7 @@ impl Vm {
                     Some(other) => return Err(Error::new(instruction.spans.clone(), ConditionalNotBoolean {
                         expr_type: other.typename(),
                     })),
-                    None => return Err(internal_err(&instruction, "missing value to check")),
+                    None => return Err(internal_err(instruction, "missing value to check")),
                 };
 
                 if b {
@@ -637,7 +637,7 @@ impl Vm {
                     Some(other) => return Err(Error::new(instruction.spans.clone(), ConditionalNotBoolean {
                         expr_type: other.typename(),
                     })),
-                    None => return Err(internal_err(&instruction, "missing value to check")),
+                    None => return Err(internal_err(instruction, "missing value to check")),
                 };
 
                 if !b {

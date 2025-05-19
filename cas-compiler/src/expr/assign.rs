@@ -52,7 +52,7 @@ impl Compile for Assign {
                         })?;
 
                         compiler.add_instr(InstructionKind::Binary(compound.into()));
-                        let symbol_id = extract_user_symbol(&symbol, compiler.resolve_symbol(symbol)?)?;
+                        let symbol_id = extract_user_symbol(symbol, compiler.resolve_symbol(symbol)?)?;
                         compiler.add_instr(InstructionKind::StoreVar(symbol_id));
                     }
                 }

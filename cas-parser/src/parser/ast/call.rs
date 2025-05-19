@@ -71,7 +71,7 @@ impl Call {
     ) -> Result<(Primary, bool), Vec<Error>> {
         let name = match target {
             Primary::Literal(Literal::Symbol(name)) => name,
-            target => return Ok((Primary::from(target), false)),
+            target => return Ok((target, false)),
         };
 
         let mut derivatives = 0usize;

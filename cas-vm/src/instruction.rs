@@ -230,9 +230,9 @@ fn eval_bool_operands(
         BinOpKind::ApproxNotEq => Value::Boolean(left != right),
         BinOpKind::BitAnd => Value::Boolean(left & right),
         BinOpKind::BitOr => Value::Boolean(left | right),
-        BinOpKind::Greater => Value::Boolean(left > right),
+        BinOpKind::Greater => Value::Boolean(left & !right),
         BinOpKind::GreaterEq => Value::Boolean(left >= right),
-        BinOpKind::Less => Value::Boolean(left < right),
+        BinOpKind::Less => Value::Boolean(!left & right),
         BinOpKind::LessEq => Value::Boolean(left <= right),
         BinOpKind::Exp | BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod | BinOpKind::Add
             | BinOpKind::Sub | BinOpKind::BitRight | BinOpKind::BitLeft => return Err(InvalidBinaryOperation {
@@ -355,29 +355,29 @@ fn eval_binary(
     right: Value,
 ) -> Result<Value, EvalError> {
     if left.is_integer() && right.is_integer() {
-        return Ok(eval_integer_operands(op, left.coerce_integer(), right.coerce_integer())?);
+        return eval_integer_operands(op, left.coerce_integer(), right.coerce_integer());
     }
 
     if left.is_float() && right.is_float() {
-        return Ok(eval_float_operands(op, left.coerce_float(), right.coerce_float())?);
+        return eval_float_operands(op, left.coerce_float(), right.coerce_float());
     }
 
     if left.is_complex() && right.is_complex() {
-        return Ok(eval_complex_operands(op, left.coerce_complex(), right.coerce_complex())?);
+        return eval_complex_operands(op, left.coerce_complex(), right.coerce_complex());
     }
 
     if left.is_boolean() && right.is_boolean() {
-        return Ok(eval_bool_operands(op, left, right)?);
+        return eval_bool_operands(op, left, right);
     }
 
     if left.is_unit() && right.is_unit() {
-        return Ok(eval_unit_operands(op, left, right)?);
+        return eval_unit_operands(op, left, right);
     }
 
     if left.is_list() && right.is_list() {
-        return Ok(eval_list_operands(op, left, right)?);
+        return eval_list_operands(op, left, right);
     } else if left.is_list() || right.is_list() {
-        return Ok(eval_list_operand(op, left, right)?);
+        return eval_list_operand(op, left, right);
     }
 
     Err(InvalidBinaryOperation {

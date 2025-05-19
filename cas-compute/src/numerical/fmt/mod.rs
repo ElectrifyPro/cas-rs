@@ -261,7 +261,7 @@ impl Display for ValueFormatter<'_> {
             },
             Value::Range(lhs, kind, rhs) => {
                 write!(f, "{}", ValueFormatter {
-                    value: &lhs,
+                    value: lhs,
                     options: self.options,
                 })?;
                 match kind {
@@ -269,7 +269,7 @@ impl Display for ValueFormatter<'_> {
                     RangeKind::Closed => write!(f, " ..= ")?,
                 }
                 write!(f, "{}", ValueFormatter {
-                    value: &rhs,
+                    value: rhs,
                     options: self.options,
                 })
             },

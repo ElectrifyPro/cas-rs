@@ -95,13 +95,9 @@ impl<'source> Parse<'source> for Break {
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
         let break_token = input.try_parse::<BreakToken>().forward_errors(recoverable_errors)?;
-        let value = if let Ok(value) = input.try_parse_with_state::<_, Expr>(|state| {
+        let value = input.try_parse_with_state::<_, Expr>(|state| {
             state.expr_end_at_eol = true;
-        }).forward_errors(recoverable_errors) {
-            Some(value)
-        } else {
-            None
-        };
+        }).forward_errors(recoverable_errors).ok();
         let span = if let Some(value) = &value {
             break_token.span.start..value.span().end
         } else {

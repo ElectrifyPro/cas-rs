@@ -96,7 +96,7 @@ impl Value {
     ///
     /// - The value is a float with a zero fractional part.
     /// - The value is a complex number with a zero imaginary part, and a real part with a zero
-    ///  fractional part.
+    ///   fractional part.
     pub fn coerce_integer(self) -> Self {
         match self {
             Value::Float(n) if n.is_integer() => Value::Integer(n.to_integer().unwrap()),
@@ -114,10 +114,10 @@ impl Value {
     ///
     /// - If the value is an integer, it is returned as-is.
     /// - If the value is a float with a zero fractional part, it is converted to an integer.
-    /// Otherwise, it is returned as-is.
+    ///   Otherwise, it is returned as-is.
     /// - If the value is a complex number with a zero imaginary part, either an integer or float
-    /// is returned if the real part is an integer or float, respectively. Otherwise, it is
-    /// returned as-is.
+    ///   is returned if the real part is an integer or float, respectively. Otherwise, it is
+    ///   returned as-is.
     pub fn coerce_number(self) -> Self {
         match self {
             Value::Float(n) if n.is_integer() => Value::Integer(n.to_integer().unwrap()),

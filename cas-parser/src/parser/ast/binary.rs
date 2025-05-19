@@ -287,7 +287,13 @@ impl Binary {
                 // because they are not valid in all contexts
                 input.set_cursor(&input_ahead);
                 let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
-                lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::Range(RangeKind::HalfOpen), rhs)?;
+                lhs = Self::complete_rhs(
+                    input,
+                    recoverable_errors,
+                    lhs,
+                    BinOpExt::Range(RangeKind::HalfOpen),
+                    rhs,
+                )?;
             } else if input_ahead.try_parse_then::<RangeClosed, _>(|_, input| {
                 if Precedence::Range >= precedence {
                     ParseResult::Ok(())
@@ -297,7 +303,13 @@ impl Binary {
             }).is_ok() {
                 input.set_cursor(&input_ahead);
                 let rhs = Unary::parse_or_lower(input, recoverable_errors)?;
-                lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::Range(RangeKind::Closed), rhs)?;
+                lhs = Self::complete_rhs(
+                    input,
+                    recoverable_errors,
+                    lhs,
+                    BinOpExt::Range(RangeKind::Closed),
+                    rhs,
+                )?;
             } else if BinOpKind::Mul.precedence() >= precedence {
                 // implicit multiplication test
 
@@ -336,7 +348,13 @@ impl Binary {
                     // we know now implicit multiplication is the correct branch to take
                     recoverable_errors.extend(inner_recoverable_errors);
                     input.set_cursor(&input_ahead);
-                    lhs = Self::complete_rhs(input, recoverable_errors, lhs, BinOpExt::ImplicitMultiplication, rhs.into())?;
+                    lhs = Self::complete_rhs(
+                        input,
+                        recoverable_errors,
+                        lhs,
+                        BinOpExt::ImplicitMultiplication,
+                        rhs,
+                    )?;
                 } else {
                     break;
                 }

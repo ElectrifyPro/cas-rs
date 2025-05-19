@@ -75,9 +75,9 @@ assert_eq!(simplified, SymExpr::Mul(vec![
 # Feature flags
 
 - `mysql`: Derives [`mysql_common`] traits for various types provided by this
-crate.
+  crate.
 - `serde`: Derives [`Serialize`] and [`Deserialize`] for various types provided
-by this crate.
+  by this crate.
 
 [`rug`]: https://gitlab.com/tspiteri/rug
 [`Value`]: https://docs.rs/cas-compute/latest/cas_compute/numerical/value/enum.Value.html

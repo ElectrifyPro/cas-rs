@@ -13,7 +13,7 @@ use std::{fs::File, io::{self, BufReader, IsTerminal, Read}};
 /// Executes the given input string in a new VM, returning the results of the execution.
 #[inline]
 fn execute(input: &str) -> Result<Value, ReplError> {
-    let ast = Parser::new(&input).try_parse_full_many()?;
+    let ast = Parser::new(input).try_parse_full_many()?;
     let mut vm = Vm::compile_program(ast)?;
     let value = vm.run()?;
     Ok(value)
@@ -27,7 +27,7 @@ fn execute_and_print(source_name: &str, input: &str, fmt: FormatOptions) {
 /// Executes the given input string in the REPL VM, returning the results of the execution.
 #[inline]
 fn repl_execute(input: &str, vm: &mut ReplVm) -> Result<Value, ReplError> {
-    let ast = Parser::new(&input).try_parse_full_many()?;
+    let ast = Parser::new(input).try_parse_full_many()?;
     let value = vm.execute(ast)?;
     Ok(value)
 }

@@ -2,13 +2,12 @@
 //!
 //! # Expression representation
 //!
-//! Algebraic expressions in this module are represented as a tree of [`expr::Expr`] nodes, which
-//! should be distinguished from the [`cas_parser::parser::ast::Expr`] nodes produced by
-//! [`cas_parser`]. The main difference is that [`expr::Expr`] nodes **flatten** out the tree
-//! structure.
+//! Algebraic expressions in this module are represented as a tree of [`SymExpr`] nodes. It's
+//! similar to the [`cas_parser::parser::ast::Expr`] nodes produced by [`cas_parser`], with the
+//! main difference being that [`SymExpr`] nodes **flatten** out the tree structure.
 //!
 //! For example, the expression `x + (y + z)` would be represented internally as a single
-//! [`expr::Expr::Add`] node with _three_ children, `x`, `y`, and `z`, where as the
+//! [`SymExpr::Add`] node with _three_ children, `x`, `y`, and `z`, where as the
 //! [`cas_parser::parser::ast::Expr`] node would have two children, `x` and `(y + z)`.
 //!
 //! This is done to make it easier to perform algebraic manipulations on the expression. A common
@@ -16,24 +15,24 @@
 //! share the same factors (e.g. `x + x = 2x`). This is much easier to do when the terms in
 //! question are all at the same level in the tree.
 //!
-//! If you have a [`cas_parser::parser::ast::Expr`], you can convert it to an [`expr::Expr`] using
-//! the [`From`] trait. It should be noted that conversion to [`expr::Expr`] is lossy, as
-//! [`expr::Expr`] does not store span information and is free to rearrange the terms and / or
+//! If you have a [`cas_parser::parser::ast::Expr`], you can convert it to an [`SymExpr`] using
+//! the [`From`] trait. It should be noted that conversion to [`SymExpr`] is lossy, as
+//! [`SymExpr`] does not store span information and is free to rearrange the terms and / or
 //! factors during conversion, however the resulting expression will be semantically equivalent to
 //! the original.
 //!
 //! ```
-//! use cas_compute::symbolic::expr::{Expr, Primary};
-//! use cas_parser::parser::{ast::Expr as AstExpr, Parser};
+//! use cas_compute::symbolic::expr::{Primary, SymExpr};
+//! use cas_parser::parser::{ast::Expr, Parser};
 //!
 //! let mut parser = Parser::new("x + (y + z)");
-//! let ast_expr = parser.try_parse_full::<AstExpr>().unwrap();
+//! let ast_expr = parser.try_parse_full::<Expr>().unwrap();
 //!
-//! let expr: Expr = ast_expr.into();
-//! assert_eq!(expr, Expr::Add(vec![
-//!     Expr::Primary(Primary::Symbol("x".to_string())),
-//!     Expr::Primary(Primary::Symbol("y".to_string())),
-//!     Expr::Primary(Primary::Symbol("z".to_string())),
+//! let expr = ast_expr.into();
+//! assert_eq!(expr, SymExpr::Add(vec![
+//!     SymExpr::Primary(Primary::Symbol("x".to_string())),
+//!     SymExpr::Primary(Primary::Symbol("y".to_string())),
+//!     SymExpr::Primary(Primary::Symbol("z".to_string())),
 //! ]));
 //! ```
 //!
@@ -78,6 +77,6 @@ pub mod expr;
 pub mod simplify;
 pub mod step_collector;
 
-pub use expr::Expr;
+pub use expr::SymExpr;
 pub use simplify::{simplify, simplify_with, simplify_with_steps};
 pub use step_collector::StepCollector;

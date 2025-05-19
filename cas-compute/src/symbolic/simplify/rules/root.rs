@@ -2,7 +2,7 @@
 
 use crate::primitive::int;
 use crate::symbolic::{
-    expr::{Expr, Primary},
+    expr::{SymExpr, Primary},
     simplify::{rules::do_call, step::Step},
     step_collector::StepCollector,
 };
@@ -33,8 +33,8 @@ fn prime_factorization(mut n: Integer) -> HashMap<Integer, usize> {
 ///
 /// Returns a 2-tuple of the factors that have been moved outside of the root and the factors that
 /// remain inside the root.
-fn do_root(expr: &Expr, root: usize) -> Option<Expr> {
-    let factors = if let Expr::Mul(factors) = expr {
+fn do_root(expr: &SymExpr, root: usize) -> Option<SymExpr> {
+    let factors = if let SymExpr::Mul(factors) = expr {
         factors.clone()
     } else {
         vec![expr.clone()]
@@ -46,15 +46,15 @@ fn do_root(expr: &Expr, root: usize) -> Option<Expr> {
         |mut counts, factor| {
             match factor {
                 // for each integer factor, replace with its prime factorization
-                Expr::Primary(Primary::Integer(n)) => {
+                SymExpr::Primary(Primary::Integer(n)) => {
                     let factorization = prime_factorization(n);
                     for (factor, count) in factorization {
-                        *counts.entry(Expr::Primary(Primary::Integer(factor))).or_insert(0) += count;
+                        *counts.entry(SymExpr::Primary(Primary::Integer(factor))).or_insert(0) += count;
                     }
                 },
 
                 // extract numerical exponent
-                Expr::Exp(left, right) if right.is_integer() => {
+                SymExpr::Exp(left, right) if right.is_integer() => {
                     *counts.entry(*left).or_insert(0) += right.as_integer().unwrap().to_usize().unwrap();
                 },
 
@@ -73,9 +73,9 @@ fn do_root(expr: &Expr, root: usize) -> Option<Expr> {
             if count / root == 0 {
                 None
             } else {
-                Some(Expr::Exp(
+                Some(SymExpr::Exp(
                     Box::new(factor.clone()),
-                    Box::new(Expr::Primary(Primary::Integer(Integer::from(count / root))))
+                    Box::new(SymExpr::Primary(Primary::Integer(Integer::from(count / root))))
                 ))
             }
         })
@@ -86,9 +86,9 @@ fn do_root(expr: &Expr, root: usize) -> Option<Expr> {
             if count % root == 0 {
                 None
             } else {
-                Some(Expr::Exp(
+                Some(SymExpr::Exp(
                     Box::new(factor),
-                    Box::new(Expr::Primary(Primary::Integer(Integer::from(count % root))))
+                    Box::new(SymExpr::Primary(Primary::Integer(Integer::from(count % root))))
                 ))
             }
         })
@@ -99,23 +99,23 @@ fn do_root(expr: &Expr, root: usize) -> Option<Expr> {
         None
     } else if inside_factors.is_empty() {
         // everything was pulled out of the root; the root / call is gone
-        Some(Expr::Mul(outside_factors))
+        Some(SymExpr::Mul(outside_factors))
     } else {
         // call needs to be rebuilt with the new arguments
         let call = match root {
-            2 => Primary::Call("sqrt".to_string(), vec![Expr::Mul(inside_factors)]),
-            3 => Primary::Call("cbrt".to_string(), vec![Expr::Mul(inside_factors)]),
+            2 => Primary::Call("sqrt".to_string(), vec![SymExpr::Mul(inside_factors)]),
+            3 => Primary::Call("cbrt".to_string(), vec![SymExpr::Mul(inside_factors)]),
             n => Primary::Call(
                 "root".to_string(),
-                vec![Expr::Mul(inside_factors), Expr::Primary(Primary::Integer(Integer::from(n)))],
+                vec![SymExpr::Mul(inside_factors), SymExpr::Primary(Primary::Integer(Integer::from(n)))],
             ),
         };
-        Some(Expr::Mul(outside_factors) * Expr::Primary(call))
+        Some(SymExpr::Mul(outside_factors) * SymExpr::Primary(call))
     }
 }
 
 /// `sqrt(x^2) = x`, `x >= 0`
-fn sqrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+fn sqrt(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_call(expr, "sqrt", |args| {
         do_root(args.first()?, 2)
     })?;
@@ -126,7 +126,7 @@ fn sqrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Exp
 }
 
 /// `cbrt(x^3) = x`
-fn cbrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+fn cbrt(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_call(expr, "cbrt", |args| {
         do_root(args.first()?, 3)
     })?;
@@ -136,7 +136,7 @@ fn cbrt(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Exp
 }
 
 /// `root(x^y, y) = x`
-fn root(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+fn root(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_call(expr, "root", |args| {
         let y = args.get(1)?.as_integer()?;
         do_root(args.first()?, y.to_usize()?)
@@ -152,7 +152,7 @@ fn root(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Exp
 ///
 /// Root simplification may or may not reduce the complexity of the expression, since it can
 /// introduce additional operations. However, it may be necessary for future rules to apply.
-pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn all(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     sqrt(expr, step_collector)
         .or_else(|| cbrt(expr, step_collector))
         .or_else(|| root(expr, step_collector))

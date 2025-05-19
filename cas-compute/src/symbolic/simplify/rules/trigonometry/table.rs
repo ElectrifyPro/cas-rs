@@ -1,4 +1,4 @@
-use crate::symbolic::expr::Expr;
+use crate::symbolic::expr::SymExpr;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use super::consts::{input::*, output::*, ONE, ONE_HALF, ZERO};
@@ -7,14 +7,14 @@ use super::consts::{input::*, output::*, ONE, ONE_HALF, ZERO};
 #[derive(PartialEq, Eq, Hash)]
 pub struct TrigOut {
     /// The output of the trigonometric function.
-    pub output: &'static Expr,
+    pub output: &'static SymExpr,
 
     /// Whether to negate the output.
     pub neg: bool,
 }
 
-impl From<&'static Expr> for TrigOut {
-    fn from(output: &'static Expr) -> Self {
+impl From<&'static SymExpr> for TrigOut {
+    fn from(output: &'static SymExpr) -> Self {
         Self {
             output,
             neg: false,
@@ -22,7 +22,7 @@ impl From<&'static Expr> for TrigOut {
     }
 }
 
-pub static SIN_TABLE: Lazy<HashMap<&Expr, TrigOut>> = Lazy::new(|| HashMap::from([
+pub static SIN_TABLE: Lazy<HashMap<&SymExpr, TrigOut>> = Lazy::new(|| HashMap::from([
     // sin(0) = 0
     (&*ZERO, TrigOut::from(&*ZERO)),
 
@@ -75,7 +75,7 @@ pub static SIN_TABLE: Lazy<HashMap<&Expr, TrigOut>> = Lazy::new(|| HashMap::from
     (&*ONE, TrigOut::from(&*ZERO)),
 ]));
 
-pub static COS_TABLE: Lazy<HashMap<&Expr, TrigOut>> = Lazy::new(|| HashMap::from([
+pub static COS_TABLE: Lazy<HashMap<&SymExpr, TrigOut>> = Lazy::new(|| HashMap::from([
     // cos(0) = 1
     (&*ZERO, TrigOut::from(&*ONE)),
 
@@ -128,7 +128,7 @@ pub static COS_TABLE: Lazy<HashMap<&Expr, TrigOut>> = Lazy::new(|| HashMap::from
     (&*ONE, TrigOut::from(&*ONE)),
 ]));
 
-pub static TAN_TABLE: Lazy<HashMap<&Expr, TrigOut>> = Lazy::new(|| HashMap::from([
+pub static TAN_TABLE: Lazy<HashMap<&SymExpr, TrigOut>> = Lazy::new(|| HashMap::from([
     // tan(0) = 0
     (&*ZERO, TrigOut::from(&*ZERO)),
 

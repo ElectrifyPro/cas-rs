@@ -2,13 +2,13 @@
 
 use crate::primitive::int;
 use crate::symbolic::{
-    expr::{Expr, Primary},
+    expr::{SymExpr, Primary},
     simplify::{fraction::{extract_explicit_frac, make_fraction, extract_fractional}, rules::do_add, step::Step},
     step_collector::StepCollector,
 };
 
 /// Extension of the `+=` implementation for [`Expr`] to also support adding fractions.
-fn add_assign(lhs: &mut Expr, rhs: Expr) {
+fn add_assign(lhs: &mut SymExpr, rhs: SymExpr) {
     // special case to use the `+=` implementation if both are floats, and don't try
     // `extract_explicit_frac`
     if lhs.is_float() && rhs.is_float() {
@@ -22,11 +22,11 @@ fn add_assign(lhs: &mut Expr, rhs: Expr) {
             let numerator = num1 * &den2 + num2 * &den1;
             let denominator = den1 * den2;
             if denominator == 1 {
-                *lhs = Expr::Primary(Primary::Integer(numerator));
+                *lhs = SymExpr::Primary(Primary::Integer(numerator));
             } else {
                 *lhs = make_fraction(
-                    Expr::Primary(Primary::Integer(numerator)),
-                    Expr::Primary(Primary::Integer(denominator)),
+                    SymExpr::Primary(Primary::Integer(numerator)),
+                    SymExpr::Primary(Primary::Integer(denominator)),
                 );
             }
         },
@@ -36,7 +36,7 @@ fn add_assign(lhs: &mut Expr, rhs: Expr) {
 
 /// `0+a = a`
 /// `a+0 = a`
-pub fn add_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn add_zero(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_add(expr, |terms| {
         let new_terms = terms.iter()
             .filter(|term| {
@@ -51,7 +51,7 @@ pub fn add_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Op
         if new_terms.len() == terms.len() {
             None
         } else {
-            Some(Expr::Add(new_terms).downgrade())
+            Some(SymExpr::Add(new_terms).downgrade())
         }
     })?;
 
@@ -66,7 +66,7 @@ pub fn add_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Op
 /// `a+a+a = 3a`
 /// `2a+3a = 5a`
 /// etc.
-pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn combine_like_terms(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_add(expr, |terms| {
         let mut new_terms = terms.to_vec();
         let mut current_term_idx = 0;
@@ -79,29 +79,29 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
         /// - `1/4*a*b` -> `(1/4, a*b)`
         /// - `sqrt(6)` -> `(1, sqrt(6))`
         /// - `a` -> `(1, a)`
-        fn get_coeff(expr: &Expr) -> (Expr, Expr) {
+        fn get_coeff(expr: &SymExpr) -> (SymExpr, SymExpr) {
             match expr {
-                Expr::Primary(Primary::Integer(_)) | Expr::Primary(Primary::Float(_)) => {
-                    (expr.clone(), Expr::Primary(Primary::Integer(int(1))))
+                SymExpr::Primary(Primary::Integer(_)) | SymExpr::Primary(Primary::Float(_)) => {
+                    (expr.clone(), SymExpr::Primary(Primary::Integer(int(1))))
                 },
-                Expr::Mul(factors) => {
+                SymExpr::Mul(factors) => {
                     let mut factors = factors.clone();
                     let fraction = extract_fractional(&mut factors)
-                        .unwrap_or(Expr::Primary(Primary::Integer(int(1))));
+                        .unwrap_or(SymExpr::Primary(Primary::Integer(int(1))));
 
                     (
                         fraction,
-                        Expr::Mul(factors).downgrade(),
+                        SymExpr::Mul(factors).downgrade(),
                     )
                 },
-                Expr::Exp(..) => {
+                SymExpr::Exp(..) => {
                     if expr.is_integer_recip() {
-                        (expr.clone(), Expr::Primary(Primary::Integer(int(1))))
+                        (expr.clone(), SymExpr::Primary(Primary::Integer(int(1))))
                     } else {
-                        (Expr::Primary(Primary::Integer(int(1))), expr.clone())
+                        (SymExpr::Primary(Primary::Integer(int(1))), expr.clone())
                     }
                 },
-                _ => (Expr::Primary(Primary::Integer(int(1))), expr.clone()),
+                _ => (SymExpr::Primary(Primary::Integer(int(1))), expr.clone()),
             }
         }
 
@@ -138,7 +138,7 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
         if new_terms.len() == terms.len() {
             None
         } else {
-            Some(Expr::Add(new_terms).downgrade())
+            Some(SymExpr::Add(new_terms).downgrade())
         }
     })?;
 
@@ -149,7 +149,7 @@ pub fn combine_like_terms(expr: &Expr, step_collector: &mut dyn StepCollector<St
 /// Applies all addition rules.
 ///
 /// All addition rules will reduce the complexity of the expression.
-pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn all(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     add_zero(expr, step_collector)
         .or_else(|| combine_like_terms(expr, step_collector))
 }

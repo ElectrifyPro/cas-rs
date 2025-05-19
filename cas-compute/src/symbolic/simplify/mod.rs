@@ -27,7 +27,7 @@ pub mod step;
 use crate::primitive::{float, int};
 use crate::symbolic::StepCollector;
 use step::Step;
-use super::expr::{Expr, Primary};
+use super::expr::{SymExpr, Primary};
 
 /// The default complexity heuristic function.
 ///
@@ -39,10 +39,10 @@ use super::expr::{Expr, Primary};
 /// - `complexity(add) = 3 + sum(complexity(terms))`
 /// - `complexity(mul) = 2 + sum(complexity(factors))`
 /// - `complexity(exp) = 1 + complexity(lhs) + complexity(rhs)`
-pub fn default_complexity(expr: &Expr) -> usize {
+pub fn default_complexity(expr: &SymExpr) -> usize {
     expr.post_order_iter()
         .map(|expr| match expr {
-            Expr::Primary(primary) => {
+            SymExpr::Primary(primary) => {
                 match primary {
                     Primary::Integer(num) => int(num.abs_ref())
                         .to_usize().unwrap(),
@@ -53,21 +53,21 @@ pub fn default_complexity(expr: &Expr) -> usize {
                     Primary::Call(name, args) => name.len() + args.len(),
                 }
             },
-            Expr::Add(terms) => 3 + terms.len(),
-            Expr::Mul(factors) => 2 + factors.len(),
-            Expr::Exp(_, _) => 1,
+            SymExpr::Add(terms) => 3 + terms.len(),
+            SymExpr::Mul(factors) => 2 + factors.len(),
+            SymExpr::Exp(_, _) => 1,
         })
         .sum()
 }
 
 /// Base implementation of the simplification algorithm.
 pub(crate) fn inner_simplify_with<F>(
-    expr: &Expr,
+    expr: &SymExpr,
     complexity: F,
     step_collector: &mut dyn StepCollector<Step>,
-) -> (Expr, bool)
+) -> (SymExpr, bool)
 where
-    F: Copy + Fn(&Expr) -> usize,
+    F: Copy + Fn(&SymExpr) -> usize,
 {
     let mut expr = expr.clone();
     let mut changed_at_least_once = false;
@@ -87,7 +87,7 @@ where
 
         // then begin recursing into the expression's children
         match expr {
-            Expr::Primary(ref mut primary) => {
+            SymExpr::Primary(ref mut primary) => {
                 if let Primary::Call(_, args) = primary {
                     let mut changed_in_this_pass = false;
                     for arg in args.iter_mut() {
@@ -100,8 +100,8 @@ where
 
                 return (expr, changed_at_least_once);
             },
-            Expr::Add(ref terms) => {
-                let mut output = Expr::Add(Vec::new());
+            SymExpr::Add(ref terms) => {
+                let mut output = SymExpr::Add(Vec::new());
                 for term in terms {
                     let result = inner_simplify_with(term, complexity, step_collector);
                     output += result.0;
@@ -112,8 +112,8 @@ where
                 }
                 expr = output;
             },
-            Expr::Mul(ref mut factors) => {
-                let mut output = Expr::Mul(Vec::new());
+            SymExpr::Mul(ref mut factors) => {
+                let mut output = SymExpr::Mul(Vec::new());
                 for factor in factors.iter_mut() {
                     let result = inner_simplify_with(factor, complexity, step_collector);
                     output *= result.0;
@@ -122,7 +122,7 @@ where
                 }
                 expr = output;
             },
-            Expr::Exp(ref mut lhs, ref mut rhs) => {
+            SymExpr::Exp(ref mut lhs, ref mut rhs) => {
                 let result_l = inner_simplify_with(lhs, complexity, step_collector);
                 let result_r = inner_simplify_with(rhs, complexity, step_collector);
 
@@ -142,7 +142,7 @@ where
 }
 
 /// Simplify the given expression, using the default complexity heuristic function.
-pub fn simplify(expr: &Expr) -> Expr {
+pub fn simplify(expr: &SymExpr) -> SymExpr {
     inner_simplify_with(expr, default_complexity, &mut ()).0
 }
 
@@ -150,9 +150,9 @@ pub fn simplify(expr: &Expr) -> Expr {
 ///
 /// The complexity heuristic function should return a number that represents the complexity of the
 /// given expression. The lower the number, the simpler the expression.
-pub fn simplify_with<F>(expr: &Expr, complexity: F) -> Expr
+pub fn simplify_with<F>(expr: &SymExpr, complexity: F) -> SymExpr
 where
-    F: Copy + Fn(&Expr) -> usize,
+    F: Copy + Fn(&SymExpr) -> usize,
 {
     inner_simplify_with(expr, complexity, &mut ()).0
 }
@@ -160,7 +160,7 @@ where
 /// Simplify the given expression, using the default complexity heuristic function. The steps taken
 /// by the simplifier will also be collected and returned. This is useful for debugging, and also
 /// for displaying the steps taken to the user.
-pub fn simplify_with_steps(expr: &Expr) -> (Expr, Vec<Step>) {
+pub fn simplify_with_steps(expr: &SymExpr) -> (SymExpr, Vec<Step>) {
     let mut steps = Vec::new();
     let expr = inner_simplify_with(expr, default_complexity, &mut steps).0;
     (expr, steps)
@@ -175,25 +175,25 @@ mod tests {
     use fraction::make_fraction;
     use pretty_assertions::assert_eq;
 
-    /// Simplifies the given expression, returning the result as a [`Expr`].
-    fn simplify_str(input: &str) -> Expr {
+    /// Simplifies the given expression, returning the result as a [`SymExpr`].
+    fn simplify_str(input: &str) -> SymExpr {
         let expr = Parser::new(input).try_parse_full::<AstExpr>().unwrap();
-        simplify(&Expr::from(expr))
+        simplify(&SymExpr::from(expr))
     }
 
     /// Simplifies the given expression, returning the result and steps taken.
-    fn simplify_str_steps(input: &str) -> (Expr, Vec<Step>) {
+    fn simplify_str_steps(input: &str) -> (SymExpr, Vec<Step>) {
         let expr = Parser::new(input).try_parse_full::<AstExpr>().unwrap();
-        simplify_with_steps(&Expr::from(expr))
+        simplify_with_steps(&SymExpr::from(expr))
     }
 
     #[test]
     fn add_rules() {
         // also tests multiply_zero
         let simplified_expr = simplify_str("0+0*(3x+5b^2i)+0+(3a)");
-        assert_eq!(simplified_expr, Expr::Mul(vec![
-            Expr::Primary(Primary::Symbol(String::from("a"))),
-            Expr::Primary(Primary::Integer(int(3))),
+        assert_eq!(simplified_expr, SymExpr::Mul(vec![
+            SymExpr::Primary(Primary::Symbol(String::from("a"))),
+            SymExpr::Primary(Primary::Integer(int(3))),
         ]));
     }
 
@@ -201,22 +201,22 @@ mod tests {
     fn add_fractions() {
         let simplified_expr = simplify_str("1/2 + 1/3 - 2 + 5/6");
         assert_eq!(simplified_expr, make_fraction(
-            Expr::Primary(Primary::Integer(int(-1))),
-            Expr::Primary(Primary::Integer(int(3))),
+            SymExpr::Primary(Primary::Integer(int(-1))),
+            SymExpr::Primary(Primary::Integer(int(3))),
         ));
     }
 
     #[test]
     fn add_fractions_with_factors() {
         let simplified_expr = simplify_str("pi/2 + 2 - 1/3 - 5pi/6");
-        assert_eq!(simplified_expr, Expr::Add(vec![
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
             make_fraction(
-                Expr::Primary(Primary::Integer(int(5))),
-                Expr::Primary(Primary::Integer(int(3))),
+                SymExpr::Primary(Primary::Integer(int(5))),
+                SymExpr::Primary(Primary::Integer(int(3))),
             ),
             make_fraction(
-                -Expr::Primary(Primary::Symbol(String::from("pi"))),
-                Expr::Primary(Primary::Integer(int(3))),
+                -SymExpr::Primary(Primary::Symbol(String::from("pi"))),
+                SymExpr::Primary(Primary::Integer(int(3))),
             ),
         ]));
     }
@@ -224,12 +224,12 @@ mod tests {
     #[test]
     fn combine_like_terms() {
         let simplified_expr = simplify_str("-9(6m-3) + 6(1+4m)");
-        assert_eq!(simplified_expr, Expr::Add(vec![
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Symbol(String::from("m"))),
-                Expr::Primary(Primary::Integer(int(-30))),
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Symbol(String::from("m"))),
+                SymExpr::Primary(Primary::Integer(int(-30))),
             ]),
-            Expr::Primary(Primary::Integer(int(33))),
+            SymExpr::Primary(Primary::Integer(int(33))),
         ]));
     }
 
@@ -238,34 +238,34 @@ mod tests {
         let simplified_expr = simplify_str("3x^2y - 16x y + 5x y^2 + 2x^2y - 13x y + 4x y^2 + 2x y + 11x y^2 + x^3y");
 
         // x^3y + 20y^2x + 5x^2y - 27xy
-        assert_eq!(simplified_expr, Expr::Add(vec![
-            Expr::Mul(vec![
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                    Box::new(Expr::Primary(Primary::Integer(int(3)))),
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
+            SymExpr::Mul(vec![
+                SymExpr::Exp(
+                    Box::new(SymExpr::Primary(Primary::Symbol(String::from("x")))),
+                    Box::new(SymExpr::Primary(Primary::Integer(int(3)))),
                 ),
-                Expr::Primary(Primary::Symbol(String::from("y"))),
+                SymExpr::Primary(Primary::Symbol(String::from("y"))),
             ]),
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Integer(int(20))),
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
-                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Integer(int(20))),
+                SymExpr::Exp(
+                    Box::new(SymExpr::Primary(Primary::Symbol(String::from("y")))),
+                    Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
                 ),
-                Expr::Primary(Primary::Symbol(String::from("x"))),
+                SymExpr::Primary(Primary::Symbol(String::from("x"))),
             ]),
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Integer(int(5))),
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Integer(int(5))),
+                SymExpr::Exp(
+                    Box::new(SymExpr::Primary(Primary::Symbol(String::from("x")))),
+                    Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
                 ),
-                Expr::Primary(Primary::Symbol(String::from("y"))),
+                SymExpr::Primary(Primary::Symbol(String::from("y"))),
             ]),
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Integer(int(-27))),
-                Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Symbol(String::from("y"))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Integer(int(-27))),
+                SymExpr::Primary(Primary::Symbol(String::from("x"))),
+                SymExpr::Primary(Primary::Symbol(String::from("y"))),
             ]),
         ]));
     }
@@ -273,35 +273,35 @@ mod tests {
     #[test]
     fn combine_like_terms_3() {
         let simplified_expr = simplify_str("x + 2x");
-        assert_eq!(simplified_expr, Expr::Mul(vec![
-            Expr::Primary(Primary::Integer(int(3))),
-            Expr::Primary(Primary::Symbol(String::from("x"))),
+        assert_eq!(simplified_expr, SymExpr::Mul(vec![
+            SymExpr::Primary(Primary::Integer(int(3))),
+            SymExpr::Primary(Primary::Symbol(String::from("x"))),
         ]));
     }
 
     #[test]
     fn combine_like_terms_decimals() {
         let simplified_expr = simplify_str("3.75x + 1.4x - -0.13449 + 11.2x / x");
-        assert_eq!(simplified_expr, Expr::Add(vec![
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Float(float_from_str("5.15"))),
-                Expr::Primary(Primary::Symbol(String::from("x"))),
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Float(float_from_str("5.15"))),
+                SymExpr::Primary(Primary::Symbol(String::from("x"))),
             ]),
-            Expr::Primary(Primary::Float(float_from_str("11.33449"))),
+            SymExpr::Primary(Primary::Float(float_from_str("11.33449"))),
         ]));
     }
 
     #[test]
     fn combine_like_terms_mixed_number_types() {
         let simplified_expr = simplify_str("15x/4 + 1.4x - -0.13449 + 56x / (5x)");
-        assert_eq!(simplified_expr, Expr::Add(vec![
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
             make_fraction(
-                Expr::Primary(Primary::Integer(int(103))),
-                Expr::Primary(Primary::Integer(int(20))),
-            ) * Expr::Primary(Primary::Symbol(String::from("x"))),
+                SymExpr::Primary(Primary::Integer(int(103))),
+                SymExpr::Primary(Primary::Integer(int(20))),
+            ) * SymExpr::Primary(Primary::Symbol(String::from("x"))),
             make_fraction(
-                Expr::Primary(Primary::Integer(int(1133449))),
-                Expr::Primary(Primary::Integer(int(100000))),
+                SymExpr::Primary(Primary::Integer(int(1133449))),
+                SymExpr::Primary(Primary::Integer(int(100000))),
             ),
         ]));
     }
@@ -311,16 +311,16 @@ mod tests {
         // has fractions on x terms, decimals on y terms
         // decimals and fractions should be kept separate
         let simplified_expr = simplify_str("11.75y - x/2 * 14 + -6.24y + 37/6x");
-        assert_eq!(simplified_expr, Expr::Add(vec![
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
             make_fraction(
-                Expr::Primary(Primary::Integer(int(-5))),
-                Expr::Primary(Primary::Integer(int(6))),
-            ) * Expr::Primary(Primary::Symbol(String::from("x"))),
-            Expr::Mul(vec![
+                SymExpr::Primary(Primary::Integer(int(-5))),
+                SymExpr::Primary(Primary::Integer(int(6))),
+            ) * SymExpr::Primary(Primary::Symbol(String::from("x"))),
+            SymExpr::Mul(vec![
                 // coefficients of y-terms were specially chosen to avoid floating-point errors
                 // :)
-                Expr::Primary(Primary::Float(float_from_str("5.51"))),
-                Expr::Primary(Primary::Symbol(String::from("y"))),
+                SymExpr::Primary(Primary::Float(float_from_str("5.51"))),
+                SymExpr::Primary(Primary::Symbol(String::from("y"))),
             ]),
         ]));
     }
@@ -328,35 +328,35 @@ mod tests {
     #[test]
     fn multiply_rules() {
         let simplified_expr = simplify_str("0*(3x+5b^2i)*1*(3a)");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(0))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Integer(int(0))));
     }
 
     #[test]
     fn multiply_rules_2() {
         // also tests add_zero
         let simplified_expr = simplify_str("1*3*1*1*1*(1+(x^2+5x+6)*0)*1*1");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(3))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Integer(int(3))));
     }
 
     #[test]
     fn combine_like_factors() {
         let simplified_expr = simplify_str("a * b * a^3 * c^2 * d^2 * a^2 * b^4 * d^2");
-        assert_eq!(simplified_expr, Expr::Mul(vec![
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("d".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(4)))),
+        assert_eq!(simplified_expr, SymExpr::Mul(vec![
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("d".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(4)))),
             ),
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("b".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(5)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("b".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(5)))),
             ),
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("a".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(6)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("a".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(6)))),
             ),
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("c".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("c".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
             ),
         ]));
     }
@@ -364,21 +364,21 @@ mod tests {
     #[test]
     fn combine_like_factors_strict_eq() {
         let simplified_expr = simplify_str("(a + 1 + b) * (b + a) * (b + a + 1) * (a + b)");
-        assert_eq!(simplified_expr, Expr::Mul(vec![
-            Expr::Exp(
-                Box::new(Expr::Add(vec![
-                    Expr::Primary(Primary::Symbol("a".to_string())),
-                    Expr::Primary(Primary::Symbol("b".to_string())),
-                    Expr::Primary(Primary::Integer(int(1))),
+        assert_eq!(simplified_expr, SymExpr::Mul(vec![
+            SymExpr::Exp(
+                Box::new(SymExpr::Add(vec![
+                    SymExpr::Primary(Primary::Symbol("a".to_string())),
+                    SymExpr::Primary(Primary::Symbol("b".to_string())),
+                    SymExpr::Primary(Primary::Integer(int(1))),
                 ])),
-                Box::new(Expr::Primary(Primary::Integer(int(2)))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
             ),
-            Expr::Exp(
-                Box::new(Expr::Add(vec![
-                    Expr::Primary(Primary::Symbol("a".to_string())),
-                    Expr::Primary(Primary::Symbol("b".to_string())),
+            SymExpr::Exp(
+                Box::new(SymExpr::Add(vec![
+                    SymExpr::Primary(Primary::Symbol("a".to_string())),
+                    SymExpr::Primary(Primary::Symbol("b".to_string())),
                 ])),
-                Box::new(Expr::Primary(Primary::Integer(int(2)))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
             ),
         ]));
     }
@@ -386,40 +386,40 @@ mod tests {
     #[test]
     fn simple_combine_like_factors() {
         let simplified_expr = simplify_str("(a+b)/(a+b)");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Integer(int(1))));
     }
 
     #[test]
     fn combine_like_factors_mul_numbers() {
         let simplified_expr = simplify_str("-1 * -1 * 2 * 2");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(4))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Integer(int(4))));
     }
 
     #[test]
     fn combine_like_factors_decimals() {
         let simplified_expr = simplify_str("4.125 * -1.99 * 2.59");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Float(float_from_str("-21.2606625"))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Float(float_from_str("-21.2606625"))));
     }
 
     #[test]
     fn complicated_combine_like_factors() {
         let simplified_expr = simplify_str("3p^-5q^9r^7/(12p^-2q*r^2)");
-        assert_eq!(simplified_expr, Expr::Mul(vec![
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("r".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(5)))),
+        assert_eq!(simplified_expr, SymExpr::Mul(vec![
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("r".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(5)))),
             ),
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("q".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(8)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("q".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(8)))),
             ),
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("p".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(-3)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("p".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(-3)))),
             ),
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Integer(int(4)))),
-                Box::new(Expr::Primary(Primary::Integer(int(-1)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Integer(int(4)))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(-1)))),
             ),
         ]));
     }
@@ -430,27 +430,27 @@ mod tests {
         let simplified_expr = simplify_str("2^(1/2)/2*3^(1/2)/2 + 2^(1/2)/2*1/2");
 
         // sqrt(2)/4 + sqrt(6)/4
-        assert_eq!(simplified_expr, Expr::Add(vec![
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
             // sqrt(2)/4 = 2^(-3/2)
             // the result is a denominator that is not rationalized
             // TODO: rationalize the denominator
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
                 Box::new(make_fraction(
-                    Expr::Primary(Primary::Integer(int(-3))),
-                    Expr::Primary(Primary::Integer(int(2))),
+                    SymExpr::Primary(Primary::Integer(int(-3))),
+                    SymExpr::Primary(Primary::Integer(int(2))),
                 )),
             ),
             // sqrt(6)/4
             make_fraction(
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Integer(int(6)))),
-                    Box::new(Expr::Exp(
-                        Box::new(Expr::Primary(Primary::Integer(int(2)))),
-                        Box::new(Expr::Primary(Primary::Integer(int(-1)))),
+                SymExpr::Exp(
+                    Box::new(SymExpr::Primary(Primary::Integer(int(6)))),
+                    Box::new(SymExpr::Exp(
+                        Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
+                        Box::new(SymExpr::Primary(Primary::Integer(int(-1)))),
                     )),
                 ),
-                Expr::Primary(Primary::Integer(int(4))),
+                SymExpr::Primary(Primary::Integer(int(4))),
             ),
         ]));
     }
@@ -459,12 +459,12 @@ mod tests {
     fn distribute() {
         // 1/x * (y+2x) = y/x + 2
         let (simplified_expr, steps) = simplify_str_steps("1/x * (y+2x)");
-        assert_eq!(simplified_expr, Expr::Add(vec![
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
             make_fraction(
-                Expr::Primary(Primary::Symbol("y".to_string())),
-                Expr::Primary(Primary::Symbol("x".to_string())),
+                SymExpr::Primary(Primary::Symbol("y".to_string())),
+                SymExpr::Primary(Primary::Symbol("x".to_string())),
             ),
-            Expr::Primary(Primary::Integer(int(2))),
+            SymExpr::Primary(Primary::Integer(int(2))),
         ]));
         assert!(steps.contains(&Step::DistributiveProperty));
     }
@@ -473,16 +473,16 @@ mod tests {
     fn distribute_2() {
         // x^2 * (1 + x + y/x^2) = x^2 + x^3 + y
         let (simplified_expr, steps) = simplify_str_steps("x^2 * (1 + x + y/x^2)");
-        assert_eq!(simplified_expr, Expr::Add(vec![
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("x".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(2)))),
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("x".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
             ),
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("x".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(3)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("x".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(3)))),
             ),
-            Expr::Primary(Primary::Symbol("y".to_string())),
+            SymExpr::Primary(Primary::Symbol("y".to_string())),
         ]));
         assert!(steps.contains(&Step::DistributiveProperty));
     }
@@ -490,31 +490,31 @@ mod tests {
     #[test]
     fn power_rules() {
         let simplified_expr = simplify_str("(1^0)^(3x+5b^2i)^1^(3a)");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Integer(int(1))));
     }
 
     #[test]
     fn power_rules_2() {
         let simplified_expr = simplify_str("(0^1)^0");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Integer(int(1))));
     }
 
     #[test]
     fn power_rules_3a() {
         let simplified_expr = simplify_str("x^3 * x^-2");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Symbol("x".to_string())));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Symbol("x".to_string())));
     }
 
     #[test]
     fn power_rules_3b() {
         let simplified_expr = simplify_str("x^3 / x^2");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Symbol("x".to_string())));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Symbol("x".to_string())));
     }
 
     #[test]
     fn power_rule_steps() {
         let (simplified_expr, steps) = simplify_str_steps("(1^0)^(3x+5b^2i)^1^(3a)");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(1))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Integer(int(1))));
         assert_eq!(steps, vec![
             Step::PowerPower,
             Step::PowerOneLeft,
@@ -524,19 +524,19 @@ mod tests {
     #[test]
     fn imaginary_num() {
         let simplified_expr = simplify_str("i^372 + i^145 - i^215 - i^807");
-        assert_eq!(simplified_expr, Expr::Add(vec![
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Integer(int(3))),
-                Expr::Primary(Primary::Symbol("i".to_string())),
+        assert_eq!(simplified_expr, SymExpr::Add(vec![
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Integer(int(3))),
+                SymExpr::Primary(Primary::Symbol("i".to_string())),
             ]),
-            Expr::Primary(Primary::Integer(int(1))),
+            SymExpr::Primary(Primary::Integer(int(1))),
         ]));
     }
 
     #[test]
     fn trigonometric_sine() {
         let simplified_expr = simplify_str("sin(pi/6 + pi/4 + pi/2 + pi/12)");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(0))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Integer(int(0))));
     }
 
     #[test]
@@ -544,11 +544,11 @@ mod tests {
         let simplified_expr = simplify_str("sin(47pi/4 + 31pi/2)");
 
         // -sqrt(2)/2 = -2^(1/2)/2 = -2^(-1/2)
-        assert_eq!(simplified_expr, -Expr::Exp(
-            Box::new(Expr::Primary(Primary::Integer(int(2)))),
+        assert_eq!(simplified_expr, -SymExpr::Exp(
+            Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
             Box::new(make_fraction(
-                Expr::Primary(Primary::Integer(int(-1))),
-                Expr::Primary(Primary::Integer(int(2))),
+                SymExpr::Primary(Primary::Integer(int(-1))),
+                SymExpr::Primary(Primary::Integer(int(2))),
             )),
         ));
     }
@@ -578,7 +578,7 @@ mod tests {
         for (i, input) in inputs.into_iter().enumerate() {
             assert_eq!(
                 simplify_str(input),
-                Expr::Primary(Primary::Integer(int(1))),
+                SymExpr::Primary(Primary::Integer(int(1))),
                 "failed on input #{}",
                 i,
             );
@@ -610,7 +610,7 @@ mod tests {
         for (i, input) in inputs.into_iter().enumerate() {
             assert_eq!(
                 simplify_str(input),
-                Expr::Primary(Primary::Integer(int(1))),
+                SymExpr::Primary(Primary::Integer(int(1))),
                 "failed on input #{}",
                 i,
             );
@@ -642,7 +642,7 @@ mod tests {
         for (i, input) in inputs.into_iter().enumerate() {
             assert_eq!(
                 simplify_str(input),
-                Expr::Primary(Primary::Integer(int(1))),
+                SymExpr::Primary(Primary::Integer(int(1))),
                 "failed on input #{}",
                 i,
             );
@@ -652,20 +652,20 @@ mod tests {
     #[test]
     fn root_rules() {
         let simplified_expr = simplify_str("sqrt(878*192*a^2*b^3*a^145)");
-        assert_eq!(simplified_expr, Expr::Mul(vec![
-            Expr::Primary(Primary::Integer(int(8))),
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol("a".to_string()))),
-                Box::new(Expr::Primary(Primary::Integer(int(73)))),
+        assert_eq!(simplified_expr, SymExpr::Mul(vec![
+            SymExpr::Primary(Primary::Integer(int(8))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol("a".to_string()))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(73)))),
             ),
-            Expr::Primary(Primary::Symbol("b".to_string())),
-            Expr::Primary(Primary::Call(
+            SymExpr::Primary(Primary::Symbol("b".to_string())),
+            SymExpr::Primary(Primary::Call(
                 "sqrt".to_string(),
                 vec![
-                    Expr::Mul(vec![
-                        Expr::Primary(Primary::Integer(int(2634))),
-                        Expr::Primary(Primary::Symbol("a".to_string())),
-                        Expr::Primary(Primary::Symbol("b".to_string())),
+                    SymExpr::Mul(vec![
+                        SymExpr::Primary(Primary::Integer(int(2634))),
+                        SymExpr::Primary(Primary::Symbol("a".to_string())),
+                        SymExpr::Primary(Primary::Symbol("b".to_string())),
                     ]),
                 ],
             )),
@@ -675,6 +675,6 @@ mod tests {
     #[test]
     fn expand_and_reduce() {
         let simplified_expr = simplify_str("(x + 1) * (x - 2) - (x - 1) * x");
-        assert_eq!(simplified_expr, Expr::Primary(Primary::Integer(int(-2))));
+        assert_eq!(simplified_expr, SymExpr::Primary(Primary::Integer(int(-2))));
     }
 }

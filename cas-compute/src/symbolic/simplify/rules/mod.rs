@@ -13,18 +13,18 @@ pub mod root;
 pub mod trigonometry;
 
 use crate::symbolic::step_collector::StepCollector;
-use super::{Expr, Primary, step::Step};
+use super::{SymExpr, Primary, step::Step};
 
 /// If the expression is a function call with the given function name, calls the given
 /// transformation function with the arguments.
 ///
 /// Returns `Some(expr)` with the transformed expression if a transformation was applied.
 pub(crate) fn do_call(
-    expr: &Expr,
+    expr: &SymExpr,
     name: &str,
-    f: impl Copy + Fn(&[Expr]) -> Option<Expr>,
-) -> Option<Expr> {
-    if let Expr::Primary(Primary::Call(target_name, args)) = expr {
+    f: impl Copy + Fn(&[SymExpr]) -> Option<SymExpr>,
+) -> Option<SymExpr> {
+    if let SymExpr::Primary(Primary::Call(target_name, args)) = expr {
         if target_name == name {
             return f(args);
         }
@@ -36,8 +36,8 @@ pub(crate) fn do_call(
 /// If the expression is an add expression, calls the given transformation function with the terms.
 ///
 /// Returns `Some(expr)` with the transformed expression if a transformation was applied.
-pub(crate) fn do_add(expr: &Expr, f: impl Copy + Fn(&[Expr]) -> Option<Expr>) -> Option<Expr> {
-    if let Expr::Add(terms) = expr {
+pub(crate) fn do_add(expr: &SymExpr, f: impl Copy + Fn(&[SymExpr]) -> Option<SymExpr>) -> Option<SymExpr> {
+    if let SymExpr::Add(terms) = expr {
         f(terms)
     } else {
         None
@@ -48,8 +48,8 @@ pub(crate) fn do_add(expr: &Expr, f: impl Copy + Fn(&[Expr]) -> Option<Expr>) ->
 /// the factors.
 ///
 /// Returns `Some(expr)` with the transformed expression if a transformation was applied.
-pub(crate) fn do_multiply(expr: &Expr, f: impl Copy + Fn(&[Expr]) -> Option<Expr>) -> Option<Expr> {
-    if let Expr::Mul(factors) = expr {
+pub(crate) fn do_multiply(expr: &SymExpr, f: impl Copy + Fn(&[SymExpr]) -> Option<SymExpr>) -> Option<SymExpr> {
+    if let SymExpr::Mul(factors) = expr {
         f(factors)
     } else {
         None
@@ -60,8 +60,8 @@ pub(crate) fn do_multiply(expr: &Expr, f: impl Copy + Fn(&[Expr]) -> Option<Expr
 /// and right-hand-side of the power.
 ///
 /// Returns `Some(expr)` with the transformed expression if a transformation was applied.
-pub(crate) fn do_power(expr: &Expr, f: impl Copy + Fn(&Expr, &Expr) -> Option<Expr>) -> Option<Expr> {
-    if let Expr::Exp(lhs, rhs) = expr {
+pub(crate) fn do_power(expr: &SymExpr, f: impl Copy + Fn(&SymExpr, &SymExpr) -> Option<SymExpr>) -> Option<SymExpr> {
+    if let SymExpr::Exp(lhs, rhs) = expr {
         f(lhs, rhs)
     } else {
         None
@@ -69,7 +69,7 @@ pub(crate) fn do_power(expr: &Expr, f: impl Copy + Fn(&Expr, &Expr) -> Option<Ex
 }
 
 /// Applies all rules.
-pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn all(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     add::all(expr, step_collector)
         .or_else(|| multiply::all(expr, step_collector))
         .or_else(|| power::all(expr, step_collector))

@@ -3,17 +3,17 @@
 
 use crate::primitive::int;
 use crate::symbolic::{
-    expr::{Expr, Primary},
+    expr::{SymExpr, Primary},
     simplify::{fraction::{extract_integer_fraction, make_fraction}, rules::do_multiply, step::Step},
     step_collector::StepCollector,
 };
 
 /// `0*a = 0`
 /// `a*0 = 0`
-pub fn multiply_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn multiply_zero(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_multiply(expr, |factors| {
         if factors.iter().any(|factor| factor.as_integer().map(|n| n.is_zero()).unwrap_or(false)) {
-            Some(Expr::Primary(Primary::Integer(int(0))))
+            Some(SymExpr::Primary(Primary::Integer(int(0))))
         } else {
             None
         }
@@ -26,7 +26,7 @@ pub fn multiply_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) 
 
 /// `1*a = a`
 /// `a*1 = a`
-pub fn multiply_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn multiply_one(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_multiply(expr, |factors| {
         let new_factors = factors.iter()
             .filter(|factor| {
@@ -41,7 +41,7 @@ pub fn multiply_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -
         if new_factors.len() == factors.len() {
             None
         } else {
-            Some(Expr::Mul(new_factors).downgrade())
+            Some(SymExpr::Mul(new_factors).downgrade())
         }
     })?;
 
@@ -53,7 +53,7 @@ pub fn multiply_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -
 ///
 /// `3/12 = 1/4`
 /// `12/3 = 4`
-pub fn reduce_numerical_fraction(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn reduce_numerical_fraction(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_multiply(expr, |factors| {
         let mut new_factors = factors.to_vec();
 
@@ -67,9 +67,9 @@ pub fn reduce_numerical_fraction(expr: &Expr, step_collector: &mut dyn StepColle
         }
 
         // insert the reduced fraction back into the factors
-        Some(Expr::Mul(new_factors) * make_fraction(
-            Expr::Primary(Primary::Integer(numerator / &gcd)),
-            Expr::Primary(Primary::Integer(denominator / &gcd)),
+        Some(SymExpr::Mul(new_factors) * make_fraction(
+            SymExpr::Primary(Primary::Integer(numerator / &gcd)),
+            SymExpr::Primary(Primary::Integer(denominator / &gcd)),
         ))
     })?;
 
@@ -82,7 +82,7 @@ pub fn reduce_numerical_fraction(expr: &Expr, step_collector: &mut dyn StepColle
 /// `a^b*a^c = a^(b+c)`
 /// `a^c*b^c = (a*b)^c`
 /// etc.
-pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn combine_like_factors(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_multiply(expr, |factors| {
         let mut new_factors = factors.to_vec();
         let mut current_factor_idx = 0;
@@ -92,10 +92,10 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
         ///
         /// - `a^b` -> `(a, b)`
         /// - `a` -> `(a, 1)`
-        fn get_exp(expr: &Expr) -> (Expr, Expr) {
+        fn get_exp(expr: &SymExpr) -> (SymExpr, SymExpr) {
             match expr {
-                Expr::Exp(lhs, rhs) => (*lhs.clone(), *rhs.clone()),
-                expr => (expr.clone(), Expr::Primary(Primary::Integer(int(1)))),
+                SymExpr::Exp(lhs, rhs) => (*lhs.clone(), *rhs.clone()),
+                expr => (expr.clone(), SymExpr::Primary(Primary::Integer(int(1)))),
             }
         }
 
@@ -130,7 +130,7 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
             if current_factor_exp.as_integer().map(|n| n == &1).unwrap_or(false) {
                 new_factors[current_factor_idx] = current_factor;
             } else {
-                new_factors[current_factor_idx] = Expr::Exp(
+                new_factors[current_factor_idx] = SymExpr::Exp(
                     Box::new(current_factor),
                     Box::new(current_factor_exp),
                 );
@@ -142,7 +142,7 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
         if new_factors.len() == factors.len() {
             None
         } else {
-            Some(Expr::Mul(new_factors).downgrade())
+            Some(SymExpr::Mul(new_factors).downgrade())
         }
     })?;
 
@@ -153,7 +153,7 @@ pub fn combine_like_factors(expr: &Expr, step_collector: &mut dyn StepCollector<
 /// Applies all multiplication rules.
 ///
 /// All multiplication rules will reduce the complexity of the expression.
-pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn all(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     multiply_zero(expr, step_collector)
         .or_else(|| multiply_one(expr, step_collector))
         .or_else(|| reduce_numerical_fraction(expr, step_collector))

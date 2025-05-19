@@ -2,7 +2,7 @@
 
 use crate::primitive::int;
 use crate::symbolic::{
-    expr::{Expr, Primary},
+    expr::{SymExpr, Primary},
     simplify::{rules::do_power, step::Step},
     step_collector::StepCollector,
 };
@@ -12,10 +12,10 @@ use rug::ops::Pow;
 ///
 /// `0^0` is defined as `1` by this rule, though it may be undefined in other mathematical
 /// contexts.
-pub fn power_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn power_zero(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_power(expr, |_, rhs| {
         if rhs.as_integer()?.is_zero() {
-            Some(Expr::Primary(Primary::Integer(int(1))))
+            Some(SymExpr::Primary(Primary::Integer(int(1))))
         } else {
             None
         }
@@ -29,10 +29,10 @@ pub fn power_zero(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> 
 /// `0^a = 0`
 ///
 /// `0^0` is handled by the [`power_zero`] rule.
-pub fn power_zero_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn power_zero_left(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_power(expr, |lhs, _| {
         if lhs.as_integer()?.is_zero() {
-            Some(Expr::Primary(Primary::Integer(int(0))))
+            Some(SymExpr::Primary(Primary::Integer(int(0))))
         } else {
             None
         }
@@ -43,10 +43,10 @@ pub fn power_zero_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>
 }
 
 /// `1^a = 1`
-pub fn power_one_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn power_one_left(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_power(expr, |lhs, _| {
         if lhs.as_integer()? == &1 {
-            Some(Expr::Primary(Primary::Integer(int(1))))
+            Some(SymExpr::Primary(Primary::Integer(int(1))))
         } else {
             None
         }
@@ -57,7 +57,7 @@ pub fn power_one_left(expr: &Expr, step_collector: &mut dyn StepCollector<Step>)
 }
 
 /// `a^1 = a`
-pub fn power_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn power_one(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_power(expr, |lhs, rhs| {
         if rhs.as_integer()? == &1 {
             Some(lhs.clone())
@@ -71,10 +71,10 @@ pub fn power_one(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> O
 }
 
 /// `(a^b)^c = a^(b*c)`
-pub fn power_power(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn power_power(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     let opt = do_power(expr, |lhs, rhs| {
-        if let Expr::Exp(base, exponent) = lhs {
-            return Some(Expr::Exp(
+        if let SymExpr::Exp(base, exponent) = lhs {
+            return Some(SymExpr::Exp(
                 Box::new(*base.clone()),
                 Box::new(*exponent.clone() * rhs.clone()),
             ));
@@ -88,11 +88,11 @@ pub fn power_power(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) ->
 }
 
 /// Simplifies integer powers.
-pub fn integer(expr: &Expr, _: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn integer(expr: &SymExpr, _: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     do_power(expr, |lhs, rhs| {
         if let Some(lhs) = lhs.as_integer() {
             if let Some(rhs) = rhs.as_integer() {
-                return Some(Expr::Primary(Primary::Integer(lhs.pow(rhs.to_u32()?).into())));
+                return Some(SymExpr::Primary(Primary::Integer(lhs.pow(rhs.to_u32()?).into())));
             }
         }
 
@@ -103,7 +103,7 @@ pub fn integer(expr: &Expr, _: &mut dyn StepCollector<Step>) -> Option<Expr> {
 /// Applies all power rules.
 ///
 /// All power rules will reduce the complexity of the expression.
-pub fn all(expr: &Expr, step_collector: &mut dyn StepCollector<Step>) -> Option<Expr> {
+pub fn all(expr: &SymExpr, step_collector: &mut dyn StepCollector<Step>) -> Option<SymExpr> {
     power_zero(expr, step_collector)
         .or_else(|| power_zero_left(expr, step_collector))
         .or_else(|| power_one_left(expr, step_collector))

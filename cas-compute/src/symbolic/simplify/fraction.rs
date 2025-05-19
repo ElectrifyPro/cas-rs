@@ -2,26 +2,26 @@
 
 use crate::approx::approximate_rational;
 use crate::primitive::int;
-use crate::symbolic::expr::{Expr, Primary};
+use crate::symbolic::expr::{SymExpr, Primary};
 use rug::Integer;
 
-/// Create an [`Expr`] representing a fraction with the given numerator and denominator.
+/// Create a [`SymExpr`] representing a fraction with the given numerator and denominator.
 ///
-/// The representation is an [`Expr::Mul`] containing two factors. The first factor is the
+/// The representation is a [`SymExpr::Mul`] containing two factors. The first factor is the
 /// numerator, and the second factor is the denominator raised to the power of -1.
-pub(crate) fn make_fraction(numerator: Expr, denominator: Expr) -> Expr {
+pub(crate) fn make_fraction(numerator: SymExpr, denominator: SymExpr) -> SymExpr {
     numerator *
-        Expr::Exp(
+        SymExpr::Exp(
             Box::new(denominator),
-            Box::new(Expr::Primary(Primary::Integer(int(-1)))),
+            Box::new(SymExpr::Primary(Primary::Integer(int(-1)))),
         )
 }
 
-/// Extracts a numerical fraction from the factors of an [`Expr::Mul`].
+/// Extracts a numerical fraction from the factors of a [`SymExpr::Mul`].
 ///
-/// All [`Expr`]s in this library are represented in some canonical form. Fractions are represented
-/// as an [`Expr::Mul`] containing a [`Primary::Integer`], and an [`Expr::Exp`], where the base is a
-/// [`Primary::Integer`] and the exponent is `-1`.
+/// All [`SymExpr`]s in this library are represented in some canonical form. Fractions are
+/// represented as a [`SymExpr::Mul`] containing a [`Primary::Integer`], and a [`SymExpr::Exp`],
+/// where the base is a [`Primary::Integer`] and the exponent is `-1`.
 ///
 /// This function finds two integer factors that match this pattern, removes them, and returns the
 /// numerator and denominator as floats. This is a very specific definition of a fraction; this
@@ -31,12 +31,12 @@ pub(crate) fn make_fraction(numerator: Expr, denominator: Expr) -> Expr {
 /// For example, when `numerator_optional` is `true`, the function will return an implied 1 as the
 /// numerator if it does not find a [`Primary::Integer`] in the factors. When
 /// `denominator_optional` is `true`, the function will return an implied 1 as the denominator if
-/// it does not find a valid [`Expr::Exp`] in the factors.
+/// it does not find a valid [`SymExpr::Exp`] in the factors.
 ///
 /// To also support extracting fractions represented as a [`Primary::Float`], use the
 /// [`extract_fractional`] function.
 pub(crate) fn extract_integer_fraction(
-    factors: &mut Vec<Expr>,
+    factors: &mut Vec<SymExpr>,
     numerator_optional: bool,
     denominator_optional: bool,
 ) -> Option<(Integer, Integer)> {
@@ -70,12 +70,12 @@ pub(crate) fn extract_integer_fraction(
     }
 }
 
-/// Extracts an expression from the factors of an [`Expr::Mul`] that represents a fraction. This is
-/// like [`extract_integer_fraction`], but the result of the function is an [`Expr`], and not the
-/// extracted numerator and denominator.
+/// Extracts an expression from the factors of a [`SymExpr::Mul`] that represents a fraction. This
+/// is like [`extract_integer_fraction`], but the result of the function is a [`SymExpr`], and not
+/// the extracted numerator and denominator.
 ///
 /// Accordingly, this function also extracts [`Primary::Float`]s, simply returning them as-is.
-pub(crate) fn extract_fractional(factors: &mut Vec<Expr>) -> Option<Expr> {
+pub(crate) fn extract_fractional(factors: &mut Vec<SymExpr>) -> Option<SymExpr> {
     let mut idx = 0;
     let mut numerator_idx = None;
     let mut denominator_idx = None;
@@ -126,29 +126,29 @@ pub(crate) fn extract_fractional(factors: &mut Vec<Expr>) -> Option<Expr> {
 ///
 /// Fractions are extracted as follows:
 ///
-/// - [`Expr::Primary(Primary::Integer(int))`] -> `int / 1`
-/// - [`Expr::Primary(Primary::Float(float))`] -> rational approximation of `float`
-/// - [`Expr::Mul(factors)`] -> `numerator / denominator`
-///   * `numerator` is the first [`Expr::Primary(Primary::Integer(num))`] found in `factors`
-///   * `denominator` is the first [`Expr::Exp`] found in `factors`, where the base is a
+/// - [`SymExpr::Primary(Primary::Integer(int))`] -> `int / 1`
+/// - [`SymExpr::Primary(Primary::Float(float))`] -> rational approximation of `float`
+/// - [`SymExpr::Mul(factors)`] -> `numerator / denominator`
+///   * `numerator` is the first [`SymExpr::Primary(Primary::Integer(num))`] found in `factors`
+///   * `denominator` is the first [`SymExpr::Exp`] found in `factors`, where the base is a
 ///   [`Primary::Integer`] and the exponent is `-1`; if no such expression is found, `denominator`
 ///   is `1`
-/// - [`Expr::Exp(lhs, rhs)`] -> `1 / lhs`
+/// - [`SymExpr::Exp(lhs, rhs)`] -> `1 / lhs`
 ///   * `lhs` must be a [`Primary::Integer`]
-pub(crate) fn extract_explicit_frac(expr: &mut Expr) -> Option<(Integer, Integer)> {
+pub(crate) fn extract_explicit_frac(expr: &mut SymExpr) -> Option<(Integer, Integer)> {
     match expr {
-        Expr::Primary(Primary::Integer(num)) => {
+        SymExpr::Primary(Primary::Integer(num)) => {
             Some((std::mem::replace(num, int(1)), int(1)))
         },
-        Expr::Primary(Primary::Float(num)) => {
+        SymExpr::Primary(Primary::Float(num)) => {
             let rational = approximate_rational(num);
-            *expr = Expr::Primary(Primary::Integer(int(1)));
+            *expr = SymExpr::Primary(Primary::Integer(int(1)));
             Some(rational.into_numer_denom())
         },
-        Expr::Mul(factors) => extract_integer_fraction(factors, false, true),
-        Expr::Exp(..) => {
+        SymExpr::Mul(factors) => extract_integer_fraction(factors, false, true),
+        SymExpr::Exp(..) => {
             if expr.is_integer_recip() {
-                let denominator = std::mem::replace(expr, Expr::Primary(Primary::Integer(int(1))))
+                let denominator = std::mem::replace(expr, SymExpr::Primary(Primary::Integer(int(1))))
                     .into_integer_recip()
                     .unwrap();
                 Some((int(1), denominator))

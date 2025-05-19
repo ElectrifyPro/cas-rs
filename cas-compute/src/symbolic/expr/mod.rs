@@ -4,12 +4,13 @@
 //! that represents the AST of a mathematical expression. It's convenient for parsing, but not so
 //! much for algebraic manipulation.
 //!
-//! This module defines a separate [`Expr`], a type that stores additional information about the
-//! expression, such as the terms and factors that make it up. It simplifies the AST by recursively
-//! flattening it into a list of terms or factors, depending on the operation, and normalizing the
-//! expression into a sum of products.
+//! This module defines a similar but separate [`SymExpr`], a type that stores additional
+//! information about the expression that comes in handy during symbolic computation, such as the
+//! terms and factors that make it up. It simplifies the AST by recursively flattening it into a
+//! list of terms or factors (depending on the operator) and normalizing the expression into a sum
+//! of products.
 //!
-//! All submodules in this crate that deal with symbolic manipulation will use [`Expr`], and any
+//! All submodules in this crate that deal with symbolic manipulation will use [`SymExpr`], and any
 //! occurrences of the word `expression` will refer to this type.
 //!
 //! # Strict equality
@@ -28,11 +29,12 @@
 //! To alleviate these issues, we define a subset of semantic equality for expressions, called
 //! **strict equality**. We define two expressions to be strictly equal if:
 //!
-//! - They are the same type of expression (i.e. both [`Expr::Primary`], both [`Expr::Add`], etc.).
-//! - If both are [`Expr::Primary`], both expressions must have strictly equal values.
-//! - If both are [`Expr::Add`] or [`Expr::Mul`], both expressions must have strictly equal terms /
-//! factors, **_in any order_**.
-//! - If both are [`Expr::Exp`], both expressions must have strictly equal base and exponent.
+//! - They are the same type of expression (i.e. both [`SymExpr::Primary`], both [`SymExpr::Add`],
+//! etc.).
+//! - If both are [`SymExpr::Primary`], both expressions must have strictly equal values.
+//! - If both are [`SymExpr::Add`] or [`SymExpr::Mul`], both expressions must have strictly equal
+//! terms / factors, **_in any order_**.
+//! - If both are [`SymExpr::Exp`], both expressions must have strictly equal base and exponent.
 //!
 //! Strict equality is not the same as semantic / mathematical equality. For the pairs of
 //! expressions listed above, `x^2 + 2x + 1` and `(x + 1)^2`, and `cos(2x)` and `cos(x)^2 - sin(x)^2`
@@ -47,10 +49,10 @@
 //!
 //! ## Strict equality, [`PartialEq`] and [`Hash`]
 //!
-//! The [`PartialEq`] and [`Eq`] implementations for [`Expr`] implement **strict equality**, not
+//! The [`PartialEq`] and [`Eq`] implementations for [`SymExpr`] implement **strict equality**, not
 //! semantic equality.
 //!
-//! The [`Hash`] implementation for [`Expr`] also implements **strict equality**, and runs in
+//! The [`Hash`] implementation for [`SymExpr`] also implements **strict equality**, and runs in
 //! `O(n)` time, where `n` is the number of sub-expressions contained within the expression.
 
 mod iter;
@@ -83,7 +85,7 @@ pub enum Primary {
     Symbol(String),
 
     /// A function call, such as `sin(x)` or `f(x, y)`.
-    Call(String, Vec<Expr>),
+    Call(String, Vec<SymExpr>),
 }
 
 /// [`Hash`] is implemented manually to allow hashing [`Primary::Float`]s. This module **must
@@ -131,47 +133,48 @@ impl std::fmt::Display for Primary {
 impl Eq for Primary {}
 
 /// Adds two [`Primary`]s together. If both are the **same numeric type**, the numbers are added
-/// together. Otherwise, the two [`Primary`]s are wrapped in an [`Expr::Add`].
+/// together. Otherwise, the two [`Primary`]s are wrapped in a [`SymExpr::Add`].
 ///
-/// Note this means that adding an [`Integer`] and a [`Float`] will result in an **[`Expr::Add`]**.
+/// Note this means that adding an [`Integer`] and a [`Float`] will result in a
+/// **[`SymExpr::Add`]**.
 impl Add<Primary> for Primary {
-    type Output = Expr;
+    type Output = SymExpr;
 
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Primary::Integer(lhs), Primary::Integer(rhs)) => {
-                Expr::Primary(Primary::Integer(lhs + rhs))
+                SymExpr::Primary(Primary::Integer(lhs + rhs))
             },
             (Primary::Float(lhs), Primary::Float(rhs)) => {
-                Expr::Primary(Primary::Float(lhs + rhs))
+                SymExpr::Primary(Primary::Float(lhs + rhs))
             },
-            (lhs, rhs) => Expr::Add(vec![
-                Expr::Primary(lhs),
-                Expr::Primary(rhs),
+            (lhs, rhs) => SymExpr::Add(vec![
+                SymExpr::Primary(lhs),
+                SymExpr::Primary(rhs),
             ]),
         }
     }
 }
 
 /// Multiplies two [`Primary`]s together. If both are the **same numeric type**, the numbers are
-/// multiplied together. Otherwise, the two [`Primary`]s are wrapped in an [`Expr::Mul`].
+/// multiplied together. Otherwise, the two [`Primary`]s are wrapped in a [`SymExpr::Mul`].
 ///
-/// Note this means that multiplying an [`Integer`] and a [`Float`] will result in an
-/// **[`Expr::Mul`]**.
+/// Note this means that multiplying an [`Integer`] and a [`Float`] will result in a
+/// **[`SymExpr::Mul`]**.
 impl Mul<Primary> for Primary {
-    type Output = Expr;
+    type Output = SymExpr;
 
     fn mul(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Primary::Integer(lhs), Primary::Integer(rhs)) => {
-                Expr::Primary(Primary::Integer(lhs * rhs))
+                SymExpr::Primary(Primary::Integer(lhs * rhs))
             },
             (Primary::Float(lhs), Primary::Float(rhs)) => {
-                Expr::Primary(Primary::Float(lhs * rhs))
+                SymExpr::Primary(Primary::Float(lhs * rhs))
             },
-            (lhs, rhs) => Expr::Mul(vec![
-                Expr::Primary(lhs),
-                Expr::Primary(rhs),
+            (lhs, rhs) => SymExpr::Mul(vec![
+                SymExpr::Primary(lhs),
+                SymExpr::Primary(rhs),
             ]),
         }
     }
@@ -182,25 +185,25 @@ impl Mul<Primary> for Primary {
 /// This type should be distinguished from the [`cas_parser::parser::ast::Expr`] type, which is
 /// produced by [`cas_parser`]. The main difference is that this type **flattens** out the tree
 /// structure. For example, the expression `x + (y + z)` would be represented internally as a
-/// single [`Expr::Add`] node with _three_ children, `x`, `y`, and `z`.
+/// single [`SymExpr::Add`] node with _three_ children, `x`, `y`, and `z`.
 ///
 /// For more information about this type, see the [module-level documentation](self).
 #[derive(Debug, Clone, Eq)]
-pub enum Expr {
+pub enum SymExpr {
     /// A single term or factor.
     Primary(Primary),
 
     /// Multiple terms added together.
-    Add(Vec<Expr>),
+    Add(Vec<SymExpr>),
 
     /// Multiple factors multiplied together.
-    Mul(Vec<Expr>),
+    Mul(Vec<SymExpr>),
 
     /// An expression raised to a power.
-    Exp(Box<Expr>, Box<Expr>),
+    Exp(Box<SymExpr>, Box<SymExpr>),
 }
 
-impl std::fmt::Display for Expr {
+impl std::fmt::Display for SymExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Primary(primary) => write!(f, "{}", primary),
@@ -250,7 +253,7 @@ impl std::fmt::Display for Expr {
     }
 }
 
-impl Expr {
+impl SymExpr {
     /// Returns the precedence of the expression.
     fn precedence(&self) -> Option<Precedence> {
         match self {
@@ -375,9 +378,10 @@ impl Expr {
 
     /// Trivially downgrades the expression into a simpler form.
     ///
-    /// Some operations may result in an [`Expr::Add`] with zero / one term, or an [`Expr::Mul`]
-    /// with zero / one factor. This function checks for these cases and simplifies the expression
-    /// into the single term / factor, or an [`Expr::Primary`] containing the integer 0 or 1.
+    /// Some operations may result in a [`SymExpr::Add`] with zero / one term, or a
+    /// [`SymExpr::Mul`] with zero / one factor. This function checks for these cases and
+    /// simplifies the expression into the single term / factor, or a [`SymExpr::Primary`]
+    /// containing the integer 0 or 1.
     pub(crate) fn downgrade(self) -> Self {
         match self {
             Self::Add(mut terms) => {
@@ -423,14 +427,15 @@ impl Expr {
 /// Checks if two expressions are **strictly** equal.
 ///
 /// Two expressions are strictly equal if:
-/// - They are the same type of expression (i.e. both [`Expr::Primary`], both [`Expr::Add`], etc.).
-/// - If both are [`Expr::Primary`], both expressions must have strictly equal values.
-/// - If both are [`Expr::Add`] or [`Expr::Mul`], both expressions must have strictly equal terms /
-/// factors, **_in any order_**.
-/// - If both are [`Expr::Exp`], both expressions must have strictly equal base and exponent.
+/// - They are the same type of expression (i.e. both [`SymExpr::Primary`], both [`SymExpr::Add`],
+/// etc.).
+/// - If both are [`SymExpr::Primary`], both expressions must have strictly equal values.
+/// - If both are [`SymExpr::Add`] or [`SymExpr::Mul`], both expressions must have strictly equal
+/// terms / factors, **_in any order_**.
+/// - If both are [`SymExpr::Exp`], both expressions must have strictly equal base and exponent.
 ///
 /// For more information about strict equality, see the [module-level documentation](self).
-impl PartialEq for Expr {
+impl PartialEq for SymExpr {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Primary(lhs), Self::Primary(rhs)) => lhs == rhs,
@@ -469,18 +474,19 @@ impl PartialEq for Expr {
     }
 }
 
-/// [`Hash`] is manually implemented for [`Expr`] to ensure consistent behavior with [`PartialEq`].
+/// [`Hash`] is manually implemented for [`SymExpr`] to ensure consistent behavior with
+/// [`PartialEq`].
 ///
-/// We also manage to hash [`Expr::Add`] and [`Expr::Mul`] in `O(n)` time by using a commutative
-/// hashing function, unaffected by the order of the elements.
-impl Hash for Expr {
+/// We also manage to hash [`SymExpr::Add`] and [`SymExpr::Mul`] in `O(n)` time by using a
+/// commutative hashing function, unaffected by the order of the elements.
+impl Hash for SymExpr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let self_discr = std::mem::discriminant(self).hash(state);
         self_discr.hash(state);
 
         match self {
-            Expr::Primary(val) => val.hash(state),
-            Expr::Add(val) | Expr::Mul(val) => {
+            SymExpr::Primary(val) => val.hash(state),
+            SymExpr::Add(val) | SymExpr::Mul(val) => {
                 // for Add and Mul, the order of the elements must not affect the resulting hash
                 // this is maintained by hashing each sub-expression individually and using a
                 // commutative operation (addition) to combine the hashes
@@ -499,7 +505,7 @@ impl Hash for Expr {
 
                 out.hash(state);
             }
-            Expr::Exp(val_base, val_exp) => {
+            SymExpr::Exp(val_base, val_exp) => {
                 val_base.hash(state);
                 val_exp.hash(state);
             }
@@ -507,7 +513,7 @@ impl Hash for Expr {
     }
 }
 
-impl From<AstExpr> for Expr {
+impl From<AstExpr> for SymExpr {
     fn from(expr: AstExpr) -> Self {
         match expr {
             AstExpr::Literal(literal) => match literal {
@@ -643,15 +649,15 @@ impl From<AstExpr> for Expr {
     }
 }
 
-impl From<Expr> for AstExpr {
-    fn from(expr: Expr) -> Self {
+impl From<SymExpr> for AstExpr {
+    fn from(expr: SymExpr) -> Self {
         use cas_parser::parser::{
             ast::{Binary, Call, LitFloat, LitInt, LitSym},
             token::op::BinOp,
         };
 
         match expr {
-            Expr::Primary(primary) => match primary {
+            SymExpr::Primary(primary) => match primary {
                 Primary::Integer(int) => AstExpr::Literal(Literal::Integer(LitInt {
                     value: int.to_string(),
                     span: 0..0, // TODO: what to do about this?
@@ -672,7 +678,7 @@ impl From<Expr> for AstExpr {
                     paren_span: 0..0,
                 }),
             },
-            Expr::Add(terms) => {
+            SymExpr::Add(terms) => {
                 let mut iter = terms.into_iter();
                 let mut expr = Self::from(iter.next().unwrap());
                 for term in iter {
@@ -689,7 +695,7 @@ impl From<Expr> for AstExpr {
                 }
                 expr
             },
-            Expr::Mul(factors) => {
+            SymExpr::Mul(factors) => {
                 let mut iter = factors.into_iter();
                 let mut expr = Self::from(iter.next().unwrap());
                 for factor in iter {
@@ -706,7 +712,7 @@ impl From<Expr> for AstExpr {
                 }
                 expr
             },
-            Expr::Exp(lhs, rhs) => AstExpr::Binary(Binary {
+            SymExpr::Exp(lhs, rhs) => AstExpr::Binary(Binary {
                 lhs: Box::new(Self::from(*lhs)),
                 op: BinOp {
                     kind: BinOpKind::Exp,
@@ -720,10 +726,10 @@ impl From<Expr> for AstExpr {
     }
 }
 
-/// Adds two [`Expr`]s together. No simplification is done, except for the case where the operands
-/// are a mix of [`Primary`] and / or [`Expr::Add`], in which case both are combined in one list
-/// of terms (flattening).
-impl Add for Expr {
+/// Adds two [`SymExpr`]s together. No simplification is done, except for the case where the
+/// operands are a mix of [`Primary`] and / or [`SymExpr::Add`], in which case both are combined in
+/// one list of terms (flattening).
+impl Add for SymExpr {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -742,9 +748,9 @@ impl Add for Expr {
     }
 }
 
-/// Adds two [`Expr`]s together. The behavior is the same as [`Add`], except we can reuse the
+/// Adds two [`SymExpr`]s together. The behavior is the same as [`Add`], except we can reuse the
 /// allocated memory of `self` if possible.
-impl AddAssign for Expr {
+impl AddAssign for SymExpr {
     fn add_assign(&mut self, rhs: Self) {
         match (self, rhs) {
             (Self::Primary(Primary::Integer(lhs)), Self::Primary(Primary::Integer(rhs))) => {
@@ -782,10 +788,10 @@ impl AddAssign for Expr {
     }
 }
 
-/// Multiplies two [`Expr`]s together. No simplification is done, except for the case where the
-/// operands are a mix of [`Primary`] and / or [`Expr::Mul`], in which case both are combined in
+/// Multiplies two [`SymExpr`]s together. No simplification is done, except for the case where the
+/// operands are a mix of [`Primary`] and / or [`SymExpr::Mul`], in which case both are combined in
 /// one list of factors (flattening).
-impl Mul for Expr {
+impl Mul for SymExpr {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
@@ -804,7 +810,7 @@ impl Mul for Expr {
     }
 }
 
-impl MulAssign for Expr {
+impl MulAssign for SymExpr {
     fn mul_assign(&mut self, rhs: Self) {
         match (self, rhs) {
             (Self::Primary(Primary::Integer(lhs)), Self::Primary(Primary::Integer(rhs))) => {
@@ -840,7 +846,7 @@ impl MulAssign for Expr {
 
 /// Multiplies this expression by -1. No simplification is done, except for the case where the
 /// expression is a numeric [`Primary`], in which case the number is negated.
-impl Neg for Expr {
+impl Neg for SymExpr {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -866,13 +872,13 @@ mod tests {
     use super::*;
 
     /// Parse the given expression and return the [`Expr`] representation.
-    fn parse_expr(input: &str) -> Expr {
+    fn parse_expr(input: &str) -> SymExpr {
         let expr = Parser::new(input).try_parse_full::<AstExpr>().unwrap();
-        Expr::from(expr)
+        SymExpr::from(expr)
     }
 
     /// Get the hash of the given [`Expr`].
-    fn hash(expr: &Expr) -> u64 {
+    fn hash(expr: &SymExpr) -> u64 {
         let mut hasher = DefaultHasher::new();
         expr.hash(&mut hasher);
         hasher.finish()
@@ -900,18 +906,18 @@ mod tests {
 
         // NOTE: the order of the terms and factors is not guaranteed, but the output is still
         // semantically correct
-        assert_eq!(expr, Expr::Add(vec![
+        assert_eq!(expr, SymExpr::Add(vec![
             // 6
-            Expr::Primary(Primary::Integer(int(6))),
+            SymExpr::Primary(Primary::Integer(int(6))),
             // + 5x
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Integer(int(5))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Symbol(String::from("x"))),
+                SymExpr::Primary(Primary::Integer(int(5))),
             ]),
             // + x^2
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol(String::from("x")))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
             ),
         ]));
     }
@@ -919,23 +925,23 @@ mod tests {
     #[test]
     fn factors_only() {
         let expr = parse_expr("-2x^2y^-3/5");
-        assert_eq!(expr, Expr::Mul(vec![
+        assert_eq!(expr, SymExpr::Mul(vec![
             // y^-3
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
-                Box::new(Expr::Primary(Primary::Integer(int(-3)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol(String::from("y")))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(-3)))),
             ),
             // * x^2
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Symbol(String::from("x")))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
             ),
             // * -2
-            Expr::Primary(Primary::Integer(int(-2))),
+            SymExpr::Primary(Primary::Integer(int(-2))),
             // / 5
-            Expr::Exp(
-                Box::new(Expr::Primary(Primary::Integer(int(5)))),
-                Box::new(Expr::Primary(Primary::Integer(int(-1)))),
+            SymExpr::Exp(
+                Box::new(SymExpr::Primary(Primary::Integer(int(5)))),
+                Box::new(SymExpr::Primary(Primary::Integer(int(-1)))),
             ),
         ]));
     }
@@ -943,40 +949,40 @@ mod tests {
     #[test]
     fn complicated_expr() {
         let expr = parse_expr("3x - (x+t)y - z*a^(1/5/6)*b");
-        assert_eq!(expr, Expr::Add(vec![
+        assert_eq!(expr, SymExpr::Add(vec![
             // 3 * x
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Integer(int(3))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Symbol(String::from("x"))),
+                SymExpr::Primary(Primary::Integer(int(3))),
             ]),
             // + -1 * (x + t) * y
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Symbol(String::from("y"))),
-                Expr::Add(vec![
-                    Expr::Primary(Primary::Symbol(String::from("t"))),
-                    Expr::Primary(Primary::Symbol(String::from("x"))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Symbol(String::from("y"))),
+                SymExpr::Add(vec![
+                    SymExpr::Primary(Primary::Symbol(String::from("t"))),
+                    SymExpr::Primary(Primary::Symbol(String::from("x"))),
                 ]),
-                Expr::Primary(Primary::Integer(int(-1))),
+                SymExpr::Primary(Primary::Integer(int(-1))),
             ]),
             // + -1 * z * a^(1/5/6) * b
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Symbol(String::from("b"))),
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Symbol(String::from("a")))),
-                    Box::new(Expr::Mul(vec![
-                        Expr::Primary(Primary::Integer(int(1))),
-                        Expr::Exp(
-                            Box::new(Expr::Primary(Primary::Integer(int(5)))),
-                            Box::new(Expr::Primary(Primary::Integer(int(-1)))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Symbol(String::from("b"))),
+                SymExpr::Exp(
+                    Box::new(SymExpr::Primary(Primary::Symbol(String::from("a")))),
+                    Box::new(SymExpr::Mul(vec![
+                        SymExpr::Primary(Primary::Integer(int(1))),
+                        SymExpr::Exp(
+                            Box::new(SymExpr::Primary(Primary::Integer(int(5)))),
+                            Box::new(SymExpr::Primary(Primary::Integer(int(-1)))),
                         ),
-                        Expr::Exp(
-                            Box::new(Expr::Primary(Primary::Integer(int(6)))),
-                            Box::new(Expr::Primary(Primary::Integer(int(-1)))),
+                        SymExpr::Exp(
+                            Box::new(SymExpr::Primary(Primary::Integer(int(6)))),
+                            Box::new(SymExpr::Primary(Primary::Integer(int(-1)))),
                         ),
                     ])),
                 ),
-                Expr::Primary(Primary::Symbol(String::from("z"))),
-                Expr::Primary(Primary::Integer(int(-1))),
+                SymExpr::Primary(Primary::Symbol(String::from("z"))),
+                SymExpr::Primary(Primary::Integer(int(-1))),
             ]),
         ]));
     }
@@ -984,57 +990,57 @@ mod tests {
     #[test]
     fn complicated_expr_2() {
         let expr = parse_expr("3x^2y - 16x y + 2x^2y - 13x y + 4x y^2 - 11x y^2");
-        assert_eq!(expr, Expr::Add(vec![
+        assert_eq!(expr, SymExpr::Add(vec![
             // 4 * x * y^2
-            Expr::Mul(vec![
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
-                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Mul(vec![
+                SymExpr::Exp(
+                    Box::new(SymExpr::Primary(Primary::Symbol(String::from("y")))),
+                    Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
                 ),
-                Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Integer(int(4))),
+                SymExpr::Primary(Primary::Symbol(String::from("x"))),
+                SymExpr::Primary(Primary::Integer(int(4))),
             ]),
             // + 2 * x^2 * y
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Symbol(String::from("y"))),
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Symbol(String::from("y"))),
+                SymExpr::Exp(
+                    Box::new(SymExpr::Primary(Primary::Symbol(String::from("x")))),
+                    Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
                 ),
-                Expr::Primary(Primary::Integer(int(2))),
+                SymExpr::Primary(Primary::Integer(int(2))),
             ]),
             // + 3 * x^2 * y
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Symbol(String::from("y"))),
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Symbol(String::from("x")))),
-                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Symbol(String::from("y"))),
+                SymExpr::Exp(
+                    Box::new(SymExpr::Primary(Primary::Symbol(String::from("x")))),
+                    Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
                 ),
-                Expr::Primary(Primary::Integer(int(3))),
+                SymExpr::Primary(Primary::Integer(int(3))),
             ]),
             // + -1 * 16 * x * y
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Symbol(String::from("y"))),
-                Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Integer(int(16))),
-                Expr::Primary(Primary::Integer(int(-1))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Symbol(String::from("y"))),
+                SymExpr::Primary(Primary::Symbol(String::from("x"))),
+                SymExpr::Primary(Primary::Integer(int(16))),
+                SymExpr::Primary(Primary::Integer(int(-1))),
             ]),
             // + -1 * 13 * x * y
-            Expr::Mul(vec![
-                Expr::Primary(Primary::Symbol(String::from("y"))),
-                Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Integer(int(13))),
-                Expr::Primary(Primary::Integer(int(-1))),
+            SymExpr::Mul(vec![
+                SymExpr::Primary(Primary::Symbol(String::from("y"))),
+                SymExpr::Primary(Primary::Symbol(String::from("x"))),
+                SymExpr::Primary(Primary::Integer(int(13))),
+                SymExpr::Primary(Primary::Integer(int(-1))),
             ]),
             // + -1 * 11 * x * y^2
-            Expr::Mul(vec![
-                Expr::Exp(
-                    Box::new(Expr::Primary(Primary::Symbol(String::from("y")))),
-                    Box::new(Expr::Primary(Primary::Integer(int(2)))),
+            SymExpr::Mul(vec![
+                SymExpr::Exp(
+                    Box::new(SymExpr::Primary(Primary::Symbol(String::from("y")))),
+                    Box::new(SymExpr::Primary(Primary::Integer(int(2)))),
                 ),
-                Expr::Primary(Primary::Symbol(String::from("x"))),
-                Expr::Primary(Primary::Integer(int(11))),
-                Expr::Primary(Primary::Integer(int(-1))),
+                SymExpr::Primary(Primary::Symbol(String::from("x"))),
+                SymExpr::Primary(Primary::Integer(int(11))),
+                SymExpr::Primary(Primary::Integer(int(-1))),
             ]),
         ]));
     }

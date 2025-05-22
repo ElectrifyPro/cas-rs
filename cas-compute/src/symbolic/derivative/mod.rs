@@ -1,3 +1,5 @@
+use std::ops::{AddAssign, MulAssign};
+
 use rug::Integer;
 
 use crate::primitive::{float, int};
@@ -35,43 +37,55 @@ fn is_trivially_unity(e: &Expr) -> bool {
 
 /// Helper struct to build a product of expressions while applying basic simplification rules. If
 /// any of the expressions are zero, the product is reduced to zero.
-#[derive(Default)]
-struct MultBuilder(Vec<Expr>);
+struct MultBuilder(Expr);
 
-impl From<MultBuilder> for Expr {
-    fn from(value: MultBuilder) -> Self {
-        Expr::Mul(value.0).downgrade()
+impl Default for MultBuilder {
+    fn default() -> Self {
+        MultBuilder(Expr::Primary(Primary::Integer(int(1))))
     }
 }
 
-impl MultBuilder {
-    fn mult(&mut self, e: Expr) {
-        if is_trivially_zero(&e) || self.0.get(0).is_some_and(|e| is_trivially_zero(e)) {
-            self.0 = vec![Expr::Primary(Primary::Integer(int(0)))];
+impl From<MultBuilder> for Expr {
+    fn from(value: MultBuilder) -> Self {
+        value.0.downgrade()
+    }
+}
+
+impl MulAssign<Expr> for MultBuilder {
+    fn mul_assign(&mut self, rhs: Expr) {
+        if is_trivially_unity(&rhs) {
             return;
         }
 
-        if !is_trivially_unity(&e) {
-            self.0.push(e)
+        if is_trivially_zero(&rhs) || is_trivially_zero(&self.0) {
+            self.0 = Expr::Primary(Primary::Integer(int(0)));
+            return;
         }
+
+        self.0 *= rhs;
     }
 }
 
 /// Helper struct to build a summation of expressions while applying basic simplification rules.
 /// only non-zero expressions are added to the sum.
-#[derive(Default)]
-struct SumBuilder(Vec<Expr>);
+struct SumBuilder(Expr);
 
-impl From<SumBuilder> for Expr {
-    fn from(value: SumBuilder) -> Self {
-        Expr::Add(value.0).downgrade()
+impl Default for SumBuilder {
+    fn default() -> Self {
+        SumBuilder(Expr::Primary(Primary::Integer(int(0))))
     }
 }
 
-impl SumBuilder {
-    fn add(&mut self, e: Expr) {
+impl From<SumBuilder> for Expr {
+    fn from(value: SumBuilder) -> Self {
+        value.0.downgrade()
+    }
+}
+
+impl AddAssign<Expr> for SumBuilder {
+    fn add_assign(&mut self, e: Expr) {
         if !is_trivially_zero(&e) {
-            self.0.push(e)
+            self.0 += e
         }
     }
 }
@@ -80,7 +94,7 @@ impl SumBuilder {
 fn sum_rule(exprs: &[Expr], var: &str) -> Result<Expr, SymbolicDerivativeError> {
     let mut sum = SumBuilder::default();
     for elem in exprs {
-        sum.add(derivative(elem, var)?);
+        sum += derivative(elem, var)?;
     }
     Ok(sum.into())
 }
@@ -100,10 +114,10 @@ fn product_rule(product: &[Expr], with: &str) -> Result<Expr, SymbolicDerivative
                 product[term_index].clone()
             };
 
-            inner_mult.mult(term);
+            inner_mult *= term;
         }
         
-        outer_sum.add(inner_mult.into());
+        outer_sum += inner_mult.into();
     }
 
     Ok(outer_sum.into())
@@ -147,18 +161,18 @@ pub fn derivative(f: &Expr, with: &str) -> Result<Expr, SymbolicDerivativeError>
             match &**expr1 {
                 Expr::Primary(Primary::Integer(i)) => {
                     let mut mult_group = MultBuilder::default();
-                    mult_group.mult(derivative(&expr, with)?);
-                    mult_group.mult(Expr::Primary(Primary::Integer(i.clone())));
-                    mult_group.mult(Expr::Exp(expr.clone(), Expr::Primary(Primary::Integer(i - Integer::from(1))).into()));
+                    mult_group *= derivative(&expr, with)?;
+                    mult_group *= Expr::Primary(Primary::Integer(i.clone()));
+                    mult_group *= Expr::Exp(expr.clone(), Expr::Primary(Primary::Integer(i - Integer::from(1))).into());
 
                     // Apply the power rule (integers)
                     Ok(mult_group.into())
                 },
                 Expr::Primary(Primary::Float(i)) => {
                     let mut mult_group = MultBuilder::default();
-                    mult_group.mult(derivative(&*expr, with)?);
-                    mult_group.mult(Expr::Primary(Primary::Float(float(i.clone()))));
-                    mult_group.mult(Expr::Exp(expr.clone(), Expr::Primary(Primary::Float(i - float(1))).into())); 
+                    mult_group *= derivative(&*expr, with)?;
+                    mult_group *= Expr::Primary(Primary::Float(float(i.clone())));
+                    mult_group *= Expr::Exp(expr.clone(), Expr::Primary(Primary::Float(i - float(1))).into()); 
                     Ok(mult_group.into())
                 },
                 // TODO(Dhruv): d/dx a^x = a^x ln(a)
@@ -227,6 +241,6 @@ pub mod tests {
     }
 
     //TODO(Dhruv): test for correct treatment of partial derivatives too - maybe we pass in the
-    //contxet
+    //context
 
 }

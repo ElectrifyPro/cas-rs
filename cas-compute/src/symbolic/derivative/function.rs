@@ -20,14 +20,14 @@ pub(super) fn function_derivative(func: &str, args: &[Expr], with: &str) -> Resu
         },
         "sin" => {
             assert_eq!(args.len(), 1, "sin has exactly one argument");
-            mult_group.mult(derivative(&args[0], with)?);
-            mult_group.mult(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
+            mult_group *= derivative(&args[0], with)?;
+            mult_group *= Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()]));
         },
         "cos" => {
             assert_eq!(args.len(), 1, "cos has exactly one argument");
-            mult_group.mult(derivative(&args[0], with)?);
-            mult_group.mult(Expr::Primary(Primary::Integer(int(-1))));
-            mult_group.mult(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
+            mult_group *= derivative(&args[0], with)?;
+            mult_group *= Expr::Primary(Primary::Integer(int(-1)));
+            mult_group *= Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()]));
         },
         _ => {
             return Err(SymbolicDerivativeError::Unsupported);

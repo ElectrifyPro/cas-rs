@@ -7,29 +7,27 @@ use super::Expr;
 
 /// Returns `true` if the given [`Expr`] is "clearly" nonzero. This is intended to clean up ASTs
 /// and is not mathetmatically rigorous.
-fn is_non_zero(e: &Expr) -> bool {
+fn is_trivially_zero(e: &Expr) -> bool {
     match e {
-        Expr::Primary(Primary::Float(f)) => !f.is_zero(),
-        Expr::Primary(Primary::Integer(i)) => !i.is_zero(),
-        Expr::Add(sum) => sum.iter().any(non_zero),
-        Expr::Mul(mul) => mul.iter().all(non_zero),
-        _ => true,
+        Expr::Primary(Primary::Float(f)) => f.is_zero(),
+        Expr::Primary(Primary::Integer(i)) => i.is_zero(),
+        Expr::Add(sum) => sum.iter().all(is_trivially_zero),
+        Expr::Mul(mul) => mul.iter().any(is_trivially_zero),
+        Expr::Exp(base, exponent) => is_trivially_zero(&base) && !is_trivially_zero(&exponent),
+        _ => false,
     }
 }
 
 /// Returns `true` if the given [`Expr`] is "clearly" not one. This is intended to clean up ASTs
 /// and is not mathetmatically rigorous.
-fn is_non_unity(e: &Expr) -> bool {
+fn is_trivially_unity(e: &Expr) -> bool {
     match e {
-        Expr::Primary(Primary::Float(f)) => !f.eq(&float(1)),
-        Expr::Primary(Primary::Integer(i)) => !i.eq(&int(1)),
-        Expr::Mul(exprs) => {
-            exprs.iter().any(non_unity)
-        },
-        Expr::Exp(expr, expr1) => {
-            non_zero(expr1) && non_unity(expr)
-        },
-        _ => true
+        Expr::Primary(Primary::Float(f)) => *f == 1,
+        Expr::Primary(Primary::Integer(i)) => *i == 1,
+        Expr::Mul(exprs) => exprs.iter().all(is_trivially_unity),
+        Expr::Exp(expr, expr1) => is_trivially_zero(expr1) || is_trivially_unity(expr),
+        Expr::Add(expr) => expr.len() == 1 && is_trivially_unity(&expr[0]),
+        _ => false
     }
 }
 
@@ -46,12 +44,12 @@ impl From<MultBuilder> for Expr {
 
 impl MultBuilder {
     fn mult(&mut self, e: Expr) {
-        if !non_zero(&e) || self.0.get(0).is_some_and(|e| !non_zero(e)) {
+        if is_trivially_zero(&e) || self.0.get(0).is_some_and(|e| is_trivially_zero(e)) {
             self.0 = vec![Expr::Primary(Primary::Integer(int(0)))];
             return;
         }
 
-        if non_unity(&e) {
+        if !is_trivially_unity(&e) {
             self.0.push(e)
         }
     }
@@ -70,7 +68,7 @@ impl From<SumBuilder> for Expr {
 
 impl SumBuilder {
     fn add(&mut self, e: Expr) {
-        if non_zero(&e) {
+        if !is_trivially_zero(&e) {
             self.0.push(e)
         }
     }
@@ -121,7 +119,7 @@ pub enum SymbolicDerivativeError {
 /// Computes the derivative of the given expression. Returns [`Err`] if the derivative could not
 /// be symbolically computed.
 pub fn derivative(f: &Expr, with: &str) -> Result<Expr, SymbolicDerivativeError> {
-    if !non_zero(&f) {
+    if is_trivially_zero(&f) {
         return Ok(Expr::Primary(Primary::Integer(int(0))))
     }
     let expr = match f {
@@ -192,7 +190,7 @@ pub fn derivative(f: &Expr, with: &str) -> Result<Expr, SymbolicDerivativeError>
     };
 
     //TODO: call simplify between operations?
-    if expr.as_ref().is_ok_and(|e| non_zero(e)) {
+    if expr.as_ref().is_ok_and(|e| !is_trivially_zero(e)) {
         expr
     } else {
         Ok(Expr::Primary(Primary::Integer(int(0))))

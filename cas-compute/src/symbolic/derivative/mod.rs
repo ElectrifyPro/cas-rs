@@ -5,6 +5,8 @@ use crate::primitive::{float, int};
 use super::expr::Primary;
 use super::Expr;
 
+mod function;
+
 /// Returns `true` if the given [`Expr`] is "clearly" nonzero. This is intended to clean up ASTs
 /// and is not mathetmatically rigorous.
 fn is_trivially_zero(e: &Expr) -> bool {
@@ -134,29 +136,7 @@ pub fn derivative(f: &Expr, with: &str) -> Result<Expr, SymbolicDerivativeError>
             }
         }
         Expr::Primary(Primary::Call(func, args)) => {
-            // TODO: context and chain rule?
-            let mut mult_group = MultBuilder::default();
-            match func.as_str() {
-                "sqrt" => {
-                    assert_eq!(args.len(), 1, "sqrt has only one argument");
-                    return derivative(&Expr::Exp(Box::new(args[0].clone()), Box::new(Expr::Primary(Primary::Float(float(0.5))))), with);
-                },
-                "sin" => {
-                    assert_eq!(args.len(), 1, "sin has exactly one argument");
-                    mult_group.mult(derivative(&args[0], with)?);
-                    mult_group.mult(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
-                },
-                "cos" => {
-                    assert_eq!(args.len(), 1, "cos has exactly one argument");
-                    mult_group.mult(derivative(&args[0], with)?);
-                    mult_group.mult(Expr::Primary(Primary::Integer(int(-1))));
-                    mult_group.mult(Expr::Primary(Primary::Call("sin".to_string(), vec![args[0].clone()])));
-                },
-                _ => {
-                    return Err(SymbolicDerivativeError::Unsupported);
-                }
-            };
-            Ok(mult_group.into())
+            function::function_derivative(func, args, with)
         }
         Expr::Add(exprs) => sum_rule(exprs, with),
         Expr::Mul(exprs) => product_rule(exprs, with),

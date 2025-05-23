@@ -8,7 +8,7 @@ mod register;
 use cas_compute::{
     consts::{E, I, PHI, PI, TAU},
     funcs::all as all_funcs,
-    numerical::{builtin::error::BuiltinError, func::Function, trig_mode::TrigMode, value::Value},
+    numerical::{builtin::error::BuiltinError, func::Function, trig_mode::TrigMode},
     primitive::{complex, float},
 };
 use cas_compiler::{
@@ -46,6 +46,10 @@ use instruction::{
 };
 use register::Registers;
 use std::{cell::RefCell, collections::HashMap, ops::Range, rc::Rc};
+
+// reexporting `Value` for convience, but it also allows `cas_compute` to use use `cas-vm` in tests
+// without having a conflict between its own `Value` type and the one used in `cas-vm`
+pub use cas_compute::numerical::Value;
 
 /// The maximum number of stack frames before a stack overflow error is thrown in the [`Vm`].
 const MAX_STACK_FRAMES: usize = 2usize.pow(16);

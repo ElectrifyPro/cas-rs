@@ -19,12 +19,3 @@ pub enum TrigMode {
     /// Use degrees.
     Degrees,
 }
-
-impl std::fmt::Display for TrigMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TrigMode::Radians => write!(f, "radians"),
-            TrigMode::Degrees => write!(f, "degrees"),
-        }
-    }
-}

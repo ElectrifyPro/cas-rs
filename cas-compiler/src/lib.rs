@@ -19,7 +19,7 @@ use expr::compile_stmts;
 pub use instruction::{Instruction, InstructionKind};
 use item::{FuncDecl, Item, Symbol, SymbolDecl};
 use std::ops::Range;
-use sym_table::{Scope, SymbolTable};
+use sym_table::{Scope, ScopeId, SymbolTable};
 
 /// A label that can be used to reference a specific instruction in the bytecode.
 ///
@@ -60,6 +60,32 @@ pub struct CompilerState {
     /// [`InstructionKind::StoreVar`] instruction for `y`.
     // TODO: this is not implemented yet
     pub top_level_assign: bool,
+
+    /// The scope of the current function being compiled.
+    ///
+    /// This is used to determine if a function is recursive, and thus, whether to use
+    /// [`InstructionKind::CallSelf`] or [`InstructionKind::Call`] when compiling a recursive call.
+    ///
+    /// This is important for handling functions that return recursive functions. For example, in
+    /// the following code:
+    ///
+    /// ```calcscript
+    /// f() = g(n) = if n < 1 then 1 else n * g(n - 1)
+    /// a = f()
+    /// a(5) // calls the `g` function defined in `f`
+    /// ```
+    ///
+    /// The `g` function is defined within the `f` function. As a result, during compilation, the
+    /// recursive call to itself resolves to a variable located defined in the `f` function's
+    /// scope. When the `g` function is later called with `a(5)`, the `f` function's scope has
+    /// already ended. Thus, when `g` attempts to call itself, its variable will not be found,
+    /// resulting in an uninitialized variable error.
+    ///
+    /// We avoid this by compiling in an [`InstructionKind::CallSelf`] instruction at the recursive
+    /// call site, which calls itself by duplicating the current stack frame and moving the
+    /// instruction pointer back to the beginning of the function. This avoids the need to load
+    /// the function from an out-of-scope variable.
+    pub fn_scope: Option<ScopeId>,
 }
 
 /// A chunk containing a function definition.
@@ -236,7 +262,7 @@ pub struct Compiler {
     /// Next unique identifier for a symbol or function.
     next_item_id: usize,
 
-    /// Holds state for the current loop.
+    /// Compilation state.
     state: CompilerState,
 }
 
@@ -379,6 +405,8 @@ impl Compiler {
         )?;
         self.next_item_id += 1;
 
+        let old_fn_scope = self.state.fn_scope;
+        self.state.fn_scope = Some(self.sym_table.next_id());
         self.chunk = new_chunk_idx;
         let scope = self.new_scope_get(f)?;
         let captures = scope.captures()
@@ -389,6 +417,7 @@ impl Compiler {
             })
             .collect();
         self.chunk = old_chunk_idx;
+        self.state.fn_scope = old_fn_scope;
 
         Ok(NewChunk {
             id,

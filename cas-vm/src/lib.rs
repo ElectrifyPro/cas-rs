@@ -578,6 +578,53 @@ impl Vm {
                     },
                 }
             },
+            InstructionKind::CallSelf(args_given) => {
+                let last_frame = call_stack.last().ok_or_else(|| internal_err(
+                    instruction,
+                    "no stack frame to duplicate",
+                ))?;
+
+                self.registers.call_site_spans = instruction.spans.clone();
+                self.registers.num_args = *args_given;
+
+                // TODO: this is a bit of a hack, but it works for now
+                // check if the environment needs to be duplicated
+                call_stack.push(Frame::new((
+                    instruction_pointer.0,
+                    instruction_pointer.1 + 1,
+                )).with_variables(last_frame.variables.clone()));
+                check_stack_overflow(&instruction.spans, call_stack)?;
+                *instruction_pointer = (instruction_pointer.0, 0);
+                return Ok(ControlFlow::Jump);
+            },
+            InstructionKind::CallSelfDerivative(derivatives, num_args) => {
+                let last_frame = call_stack.last().ok_or_else(|| internal_err(
+                    instruction,
+                    "no stack frame to duplicate",
+                ))?;
+
+                self.registers.call_site_spans = instruction.spans.clone();
+                self.registers.num_args = *num_args;
+
+                let initial = value_stack.pop().ok_or_else(|| internal_err(
+                    instruction,
+                    "missing initial value for derivative computation",
+                ))?;
+                let derivative = Derivative::new(*derivatives, initial)
+                    .map_err(|err| err.into_error(instruction.spans.clone()))?;
+                call_stack.push(Frame::new((
+                    instruction_pointer.0,
+                    instruction_pointer.1 + 1,
+                )).with_derivative().with_variables(last_frame.variables.clone()));
+                check_stack_overflow(&instruction.spans, call_stack)?;
+                value_stack.push(derivative.next_eval().ok_or_else(|| internal_err(
+                    instruction,
+                    "missing next value in derivative computation",
+                ))?);
+                derivative_stack.push(derivative);
+                *instruction_pointer = (instruction_pointer.0, 0);
+                return Ok(ControlFlow::Jump);
+            },
             InstructionKind::Return => {
                 let frame = call_stack.pop().ok_or_else(|| internal_err(
                     instruction,
@@ -1119,6 +1166,32 @@ arr[1] += 6
 arr[2] += 7
 arr").unwrap();
         assert_eq!(result, vec![6.into(), 8.into(), 10.into()].into());
+    }
+
+    #[test]
+    fn nested_recursion() {
+        let result = run_program("f(a, b) = {
+    if a * b > 2800 return a * b
+    g(a, b) = {
+        if a + b < f(b - 3, a - 2) {
+            a + b
+        } else {
+            g(b - 1, a - 2)
+        }
+    }
+    g(a + 4, b + 5)
+}
+
+f(2, 3)").unwrap();
+        assert_eq!(result, Value::Integer(int(14)));
+    }
+
+    #[test]
+    fn return_recursive_function() {
+        let result = run_program("f() = g(n) = if n < 0 return else g(n - 1)
+a = f()
+a(20)").unwrap();
+        assert_eq!(result, Value::Unit);
     }
 
     #[test]

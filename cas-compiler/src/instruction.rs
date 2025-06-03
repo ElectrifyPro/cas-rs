@@ -140,6 +140,12 @@ pub enum InstructionKind {
     /// runtime, when the actual function can be resolved, and report corresponding errors.
     CallDerivative(u8, usize),
 
+    /// Calls the current function again (recursion), reusing the environment it was defined with.
+    CallSelf(usize),
+
+    /// Computes the `n`th numerical derivative of the current function.
+    CallSelfDerivative(u8, usize),
+
     /// Returns from the current function.
     Return,
 

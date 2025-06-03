@@ -55,6 +55,11 @@ impl Scope {
         self.symbols.insert(name, item);
     }
 
+    /// Resolves the item with the given `id` if it exists in this scope.
+    pub fn resolve_item_by_id(&self, id: usize) -> Option<&Item> {
+        self.symbols.values().find(|item| item.id() == id)
+    }
+
     /// Resolves the item with the given name if it exists in this scope.
     pub fn resolve_item(&self, name: &str) -> Option<&Item> {
         self.symbols.get(name)
@@ -158,6 +163,22 @@ impl SymbolTable {
     /// Inserts a symbol into the current scope.
     pub fn insert(&mut self, name: String, item: Item) {
         self.active_scope_mut().insert(name, item);
+    }
+
+    /// Gets the scope with the given `id`, looking both in the active scopes and the symbol table.
+    pub fn get_scope_by_id(&self, id: ScopeId) -> Option<&Scope> {
+        self.symbols.get(&id)
+            .or_else(|| {
+                self.active_scopes.iter().find(|scope| scope.id() == id)
+            })
+    }
+
+    /// Resolves the item with the given `id` if it exists in the current scope.
+    pub fn resolve_item_by_id(&self, id: usize) -> Option<&Item> {
+        self.active_scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.resolve_item_by_id(id))
     }
 
     /// Resolves the item with the given name if it exists in the current scope.

@@ -4,7 +4,7 @@ mod integer;
 
 use cas_parser::parser::ast::range::RangeKind;
 use crate::primitive::float;
-use std::fmt::{Display, Formatter};
+use std::{collections::{HashMap, HashSet}, fmt::{Display, Formatter}};
 use super::{func::Function, value::Value};
 
 /// Formatting options for values.
@@ -43,6 +43,11 @@ pub struct FormatOptions {
     /// Whether to print addresses of reference types, such as lists.
     ///
     /// This is useful for debugging, but can be confusing to an uninitiated user.
+    ///
+    /// Regardless of this option's configuration, circular references will always be caught and
+    /// displayed as `<circular> [...]` (or `<circular ref XX [...]`) to avoid infinite recursion.
+    /// This behavior requires an allocation in the [`Display`] implementation of
+    /// [`ValueFormatter`] in order to track reference cycles.
     pub show_refs: ShowRefs,
 }
 
@@ -157,17 +162,25 @@ impl Separator {
     }
 }
 
-/// Whether to print addresses of reference types, such as lists.
+/// Whether to print reference IDs of reference types, such as lists.
+///
+/// Regardless of this option's configuration, circular references will always be caught and
+/// displayed as `<circular> [...]` (or `<circular ref XX [...]`) to avoid infinite recursion. This
+/// behavior requires an allocation in the [`Display`] implementation of [`ValueFormatter`] in
+/// order to track reference cycles.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum ShowRefs {
-    /// Always print the address of reference types. This is useful for debugging, but can be
+    /// Always print reference IDs of reference types. This is useful for debugging, but can be
     /// confusing to an uninitiated user.
     ///
     /// This is the default option.
+    ///
+    /// Note: This option requires an allocation in the [`Display`] implementation of
+    /// [`ValueFormatter`] in order to track reference cycles
     #[default]
     Always,
 
-    /// Never print the address of reference types.
+    /// Never print reference IDs of reference types.
     Never,
 }
 
@@ -207,7 +220,7 @@ impl FormatOptionsBuilder {
         self
     }
 
-    /// Sets whether to print addresses of reference types, such as lists. See [`ShowRefs`] for
+    /// Sets whether to print reference IDs of reference types, such as lists. See [`ShowRefs`] for
     /// more information.
     pub fn show_refs(mut self, show_refs: ShowRefs) -> Self {
         self.0.show_refs = show_refs;
@@ -230,8 +243,17 @@ pub struct ValueFormatter<'a> {
     pub options: FormatOptions,
 }
 
-impl Display for ValueFormatter<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl<'a> ValueFormatter<'a> {
+    /// Formats the value, keeping track of reference cycles. Does not allocate if there are no
+    /// reference types contained within the value.
+    fn fmt_inner(
+        &self,
+        f: &mut Formatter<'_>,
+        // we can get around `&Vec<Value>` requiring `Eq` and `Hash` to be used in a hashmap by
+        // using `*const` ptrs instead
+        cycles: &mut HashMap<*const Vec<Value>, usize>,
+        stack: &mut HashSet<*const Vec<Value>>,
+    ) -> std::fmt::Result {
         match self.value {
             Value::Float(n) => float::fmt(f, n, self.options),
             Value::Integer(n) => integer::fmt(f, n, self.options),
@@ -239,8 +261,23 @@ impl Display for ValueFormatter<'_> {
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Unit => write!(f, "()"),
             Value::List(l) => {
+                if stack.contains(&(l.as_ptr() as *const _)) {
+                    let ref_id = cycles.get(&(l.as_ptr() as *const _)).unwrap();
+                    if self.options.show_refs == ShowRefs::Always {
+                        write!(f, "<circular ref {}> [...]", ref_id)?;
+                    } else {
+                        write!(f, "<circular> [...]")?;
+                    }
+                    return Ok(());
+                }
+
+                let prev_len = cycles.len();
+                let ref_id = cycles.entry(l.as_ptr())
+                    .or_insert(prev_len + 1);
+                stack.insert(l.as_ptr());
+
                 if self.options.show_refs == ShowRefs::Always {
-                    write!(f, "({:p}: [", l.as_ptr())?;
+                    write!(f, "<ref {}> [", ref_id)?;
                 } else {
                     write!(f, "[")?;
                 }
@@ -248,36 +285,46 @@ impl Display for ValueFormatter<'_> {
                     if i != 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", ValueFormatter {
+                    ValueFormatter {
                         value: item,
                         options: self.options,
-                    })?;
+                    }.fmt_inner(f, cycles, stack)?;
                 }
-                if self.options.show_refs == ShowRefs::Always {
-                    write!(f, "])")
-                } else {
-                    write!(f, "]")
-                }
+
+                write!(f, "]")?;
+                stack.remove(&(l.as_ptr() as *const _));
+
+                Ok(())
             },
             Value::Range(lhs, kind, rhs) => {
-                write!(f, "{}", ValueFormatter {
+                ValueFormatter {
                     value: lhs,
                     options: self.options,
-                })?;
+                }.fmt_inner(f, cycles, stack)?;
                 match kind {
                     RangeKind::HalfOpen => write!(f, " .. ")?,
                     RangeKind::Closed => write!(f, " ..= ")?,
                 }
-                write!(f, "{}", ValueFormatter {
+                ValueFormatter {
                     value: rhs,
                     options: self.options,
-                })
+                }.fmt_inner(f, cycles, stack)
             },
             Value::Function(kind) => match kind {
                 Function::User(_) => write!(f, "<function>"),
                 Function::Builtin(builtin) => write!(f, "<builtin function: {}>", builtin.name()),
             },
         }
+    }
+}
+
+impl Display for ValueFormatter<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.fmt_inner(
+            f,
+            &mut HashMap::new(),
+            &mut HashSet::new(),
+        )
     }
 }
 

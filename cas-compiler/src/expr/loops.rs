@@ -42,7 +42,7 @@ impl Compile for While {
         compiler.add_instr_with_spans(
             InstructionKind::JumpIfFalse(end_with_no_break),
             // for error if condition doesn't evaluate to boolean
-            vec![self.condition.span(), self.body.span()],
+            vec![self.body.span(), self.condition.span()],
         );
         compiler.with_state(|state| {
             // in case `continue` and `break` expressions are inside, we need the loop start and

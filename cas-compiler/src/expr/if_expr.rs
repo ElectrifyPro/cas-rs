@@ -11,7 +11,7 @@ impl Compile for If {
         compiler.add_instr_with_spans(
             InstructionKind::JumpIfFalse(else_start),
             // for error if condition doesn't evaluate to boolean
-            vec![self.condition.span(), self.then_expr.span()],
+            vec![self.then_expr.span(), self.condition.span()],
         );
 
         self.then_expr.compile(compiler)?;

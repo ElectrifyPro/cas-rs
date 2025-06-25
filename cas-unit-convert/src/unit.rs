@@ -381,6 +381,13 @@ pub struct InvalidUnit {
     unit: String,
 }
 
+impl InvalidUnit {
+    /// Returns the invalid unit abbreviation.
+    pub fn unit(&self) -> &str {
+        &self.unit
+    }
+}
+
 impl Display for InvalidUnit {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "not a valid unit: `{}`", self.unit)

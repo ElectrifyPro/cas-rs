@@ -8,6 +8,8 @@ pub mod token;
 
 use cas_error::{ErrorKind, Error};
 use error::{ExpectedEof, UnexpectedEoExpr, UnexpectedEof};
+use crate::tokenizer::TokenKind;
+
 use super::tokenizer::{tokenize_complete, Token};
 use std::{ops::Range, sync::Arc};
 
@@ -144,6 +146,43 @@ impl<'source> Parser<'source> {
         self.tokens.get(self.cursor)
     }
 
+    /// Advances the cursor past comments.
+    fn advance_past_comments(&mut self) {
+        enum CommentState {
+            Code,
+            FirstDiv,
+            Comment,
+        }
+
+        let mut start = self.cursor;
+        let mut state = CommentState::Code;
+
+        while let Some(token) = self.tokens.get(start) {
+            match state {
+                CommentState::Code => if token.kind == TokenKind::Div {
+                    state = CommentState::FirstDiv;
+                } else {
+                    break;
+                },
+                CommentState::FirstDiv => if token.kind == TokenKind::Div {
+                    state = CommentState::Comment;
+                } else {
+                    break;
+                },
+                CommentState::Comment => if token.kind == TokenKind::NewLine {
+                    self.cursor = start;
+                    return;
+                },
+            }
+
+            start += 1;
+        }
+
+        if matches!(state, CommentState::Comment) {
+            self.cursor = start;
+        }
+    }
+
     /// Advances the cursor past whitespace tokens to the next non-whitespace token. The cursor is
     /// not guaranteed to point to a valid token (might be out of bounds), but if the token is
     /// valid, it is guaranteed to be non-whitespace.
@@ -151,6 +190,7 @@ impl<'source> Parser<'source> {
         while let Some(token) = self.tokens.get(self.cursor) {
             if token.is_ignore() {
                 self.cursor += 1;
+                self.advance_past_comments();
                 continue;
             } else {
                 break;
@@ -211,6 +251,7 @@ impl<'source> Parser<'source> {
         while let Some(token) = self.tokens.get(self.cursor) {
             if token.is_ignore() && !token.is_significant_whitespace() {
                 self.cursor += 1;
+                self.advance_past_comments();
                 continue;
             } else {
                 break;
@@ -669,6 +710,54 @@ mod tests {
             value: "++/+//".to_string(),
             span: 0..9,
         })));
+    }
+
+    #[test]
+    fn literal_radix_not_comment() {
+        let mut parser = Parser::new("64'++/+// + 1");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Literal(Literal::Radix(LitRadix {
+                base: 64,
+                value: "++/+//".to_string(),
+                span: 0..9,
+            }))),
+            op: BinOp {
+                kind: BinOpKind::Add,
+                implicit: false,
+                span: 10..11,
+            },
+            rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "1".to_string(),
+                span: 12..13,
+            }))),
+            span: 0..13,
+        }));
+    }
+
+    #[test]
+    fn comments_make_nothing() {
+        let mut parser = Parser::new("1 // abs(
++ 2");
+        let expr = parser.try_parse_full::<Expr>().unwrap();
+
+        assert_eq!(expr, Expr::Binary(Binary {
+            lhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "1".to_string(),
+                span: 0..1,
+            }))),
+            op: BinOp {
+                kind: BinOpKind::Add,
+                implicit: false,
+                span: 10..11,
+            },
+            rhs: Box::new(Expr::Literal(Literal::Integer(LitInt {
+                value: "2".to_string(),
+                span: 12..13,
+            }))),
+            span: 0..13,
+        }));
     }
 
     #[test]

@@ -187,6 +187,8 @@ impl<'source> Parser<'source> {
     /// not guaranteed to point to a valid token (might be out of bounds), but if the token is
     /// valid, it is guaranteed to be non-whitespace.
     pub fn advance_past_whitespace(&mut self) {
+        self.advance_past_comments();
+
         while let Some(token) = self.tokens.get(self.cursor) {
             if token.is_ignore() {
                 self.cursor += 1;
@@ -248,6 +250,8 @@ impl<'source> Parser<'source> {
     /// definition, and no comparison is made! This function is used to prevent such confusion
     /// during parsing.
     pub fn advance_past_non_significant_whitespace(&mut self) {
+        self.advance_past_comments();
+
         while let Some(token) = self.tokens.get(self.cursor) {
             if token.is_ignore() && !token.is_significant_whitespace() {
                 self.cursor += 1;

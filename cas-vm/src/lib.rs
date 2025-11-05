@@ -45,7 +45,7 @@ use instruction::{
     Derivative,
 };
 use register::Registers;
-use std::{cell::RefCell, collections::HashMap, ops::Range, rc::Rc};
+use std::{collections::HashMap, ops::Range};
 
 // reexporting `Value` for convience, but it also allows `cas_compute` to use use `cas-vm` in tests
 // without having a conflict between its own `Value` type and the one used in `cas-vm`
@@ -345,7 +345,7 @@ impl Vm {
             },
             InstructionKind::CreateList(len) => {
                 let elements = value_stack.split_off(value_stack.len() - *len);
-                value_stack.push(Value::List(Rc::new(RefCell::new(elements))));
+                value_stack.push(Value::List(elements.into()));
             },
             InstructionKind::CreateListRepeat => {
                 let count = value_stack.pop().ok_or_else(|| internal_err(
@@ -357,7 +357,7 @@ impl Vm {
                     "missing value to repeat",
                 ))?;
                 let list = vec![value; extract_length(count, instruction.spans.clone())?];
-                value_stack.push(Value::List(Rc::new(RefCell::new(list))));
+                value_stack.push(Value::List(list.into()));
             },
             InstructionKind::CreateRange(kind) => {
                 let end = value_stack.pop().ok_or_else(|| internal_err(

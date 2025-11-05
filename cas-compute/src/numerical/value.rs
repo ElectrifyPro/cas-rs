@@ -1,8 +1,9 @@
 use cas_parser::parser::ast::range::RangeKind;
 use crate::consts::PI;
+use crate::numerical::list::List;
 use crate::primitive::{complex, float};
 use rug::{Complex, Float, Integer};
-use std::{cell::RefCell, fmt::{Display, Formatter}, rc::Rc};
+use std::fmt::{Display, Formatter};
 use super::{fmt::{FormatOptions, ValueFormatter}, func::Function};
 
 #[cfg(feature = "serde")]
@@ -27,7 +28,8 @@ pub enum Value {
     /// The unit type, analogous to `()` in Rust.
     Unit,
 
-    /// A list of values.
+    #[cfg_attr(feature = "sync", doc = "A thread-safe list of values.")]
+    #[cfg_attr(not(feature = "sync"), doc = "A non-thread-safe list of values.")]
     ///
     /// In `cas-rs`, a list is a reference to a vector of values. This is done to allow efficient
     /// cloning of lists, as well as mutation of lists in-place. References are passed around
@@ -42,7 +44,7 @@ pub enum Value {
     ///
     /// TODO: In the future, a `clone` method may be added to `cas-rs` to allow the user to
     /// explicitly clone the list instead of copying the reference.
-    List(Rc<RefCell<Vec<Value>>>),
+    List(List),
 
     /// A range representing a sequence of values, either half-open or closed.
     Range(Box<Value>, RangeKind, Box<Value>),
@@ -231,7 +233,7 @@ impl Value {
             Value::Complex(c) => !c.is_zero(),
             Value::Boolean(b) => *b,
             Value::Unit => false,
-            Value::List(l) => !l.borrow().is_empty(),
+            Value::List(l) => !l.is_empty(),
             Value::Range(lhs, kind, rhs) => {
                 match kind {
                     RangeKind::HalfOpen => lhs != rhs,
@@ -295,7 +297,7 @@ impl From<()> for Value {
 
 impl From<Vec<Value>> for Value {
     fn from(values: Vec<Value>) -> Self {
-        Value::List(Rc::new(RefCell::new(values)))
+        Value::List(List::from(values))
     }
 }
 

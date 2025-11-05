@@ -261,8 +261,8 @@ impl<'a> ValueFormatter<'a> {
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Unit => write!(f, "()"),
             Value::List(l) => {
-                if stack.contains(&(l.as_ptr() as *const _)) {
-                    let ref_id = cycles.get(&(l.as_ptr() as *const _)).unwrap();
+                if stack.contains(&(l.data_ptr() as *const _)) {
+                    let ref_id = cycles.get(&(l.data_ptr() as *const _)).unwrap();
                     if self.options.show_refs == ShowRefs::Always {
                         write!(f, "<circular ref {}> [...]", ref_id)?;
                     } else {
@@ -272,9 +272,9 @@ impl<'a> ValueFormatter<'a> {
                 }
 
                 let prev_len = cycles.len();
-                let ref_id = cycles.entry(l.as_ptr())
+                let ref_id = cycles.entry(l.data_ptr())
                     .or_insert(prev_len + 1);
-                stack.insert(l.as_ptr());
+                stack.insert(l.data_ptr());
 
                 if self.options.show_refs == ShowRefs::Always {
                     write!(f, "<ref {}> [", ref_id)?;
@@ -292,7 +292,7 @@ impl<'a> ValueFormatter<'a> {
                 }
 
                 write!(f, "]")?;
-                stack.remove(&(l.as_ptr() as *const _));
+                stack.remove(&(l.data_ptr() as *const _));
 
                 Ok(())
             },

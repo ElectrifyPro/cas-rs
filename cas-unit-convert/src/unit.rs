@@ -363,6 +363,18 @@ pub struct ConversionError {
     target: Unit,
 }
 
+impl ConversionError {
+    /// Returns the unit that could not be converted.
+    pub fn unit(&self) -> Unit {
+        self.unit
+    }
+
+    /// Returns the target unit.
+    pub fn target(&self) -> Unit {
+        self.target
+    }
+}
+
 impl Display for ConversionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f,

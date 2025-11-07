@@ -45,7 +45,7 @@ use instruction::{
     Derivative,
 };
 use register::Registers;
-use std::{collections::HashMap, ops::Range};
+use std::{collections::HashMap, ops::Range, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 
 // reexporting `Value` for convience, but it also allows `cas_compute` to use use `cas-vm` in tests
 // without having a conflict between its own `Value` type and the one used in `cas-vm`
@@ -69,6 +69,16 @@ enum ControlFlow {
 /// [`Compiler`]).
 #[derive(Clone, Debug)]
 pub struct Vm {
+    /// Should VM execution stop?
+    ///
+    /// The [`Vm`] executes synchronously, so it will block until the program is finished running.
+    /// This flag can be used to signal the VM to stop execution early, for example, if an external
+    /// timeout occurs.
+    ///
+    /// The [`Vm`] checks this flag every few instructions, so there may be a delay between setting
+    /// this flag and the VM actually stopping execution.
+    pub stop_execution: Arc<AtomicBool>,
+
     /// The trigonometric mode used when calling native functions.
     trig_mode: TrigMode,
 
@@ -89,17 +99,22 @@ pub struct Vm {
 
     /// Registers used by the VM.
     registers: Registers,
+
+    /// The number of instructions executed so far.
+    instructions_executed: usize,
 }
 
 impl Default for Vm {
     fn default() -> Self {
         Self {
+            stop_execution: Arc::new(AtomicBool::new(false)),
             trig_mode: TrigMode::default(),
             chunks: vec![Chunk::default()], // add main chunk
             labels: HashMap::new(),
             sym_table: SymbolTable::default(),
             variables: HashMap::new(),
             registers: Registers::default(),
+            instructions_executed: 0,
         }
     }
 }
@@ -107,6 +122,7 @@ impl Default for Vm {
 impl From<Compiler> for Vm {
     fn from(compiler: Compiler) -> Self {
         Self {
+            stop_execution: Arc::new(AtomicBool::new(false)),
             trig_mode: TrigMode::default(),
             chunks: compiler.chunks,
             labels: compiler.labels
@@ -116,6 +132,7 @@ impl From<Compiler> for Vm {
             sym_table: compiler.sym_table,
             variables: HashMap::new(),
             registers: Registers::default(),
+            instructions_executed: 0,
         }
     }
 }
@@ -131,6 +148,7 @@ impl Vm {
     pub fn compile<T: Compile>(expr: T) -> Result<Self, Error> {
         let compiler = Compiler::compile(expr)?;
         Ok(Self {
+            stop_execution: Arc::new(AtomicBool::new(false)),
             trig_mode: TrigMode::default(),
             chunks: compiler.chunks,
             labels: compiler.labels
@@ -140,6 +158,7 @@ impl Vm {
             sym_table: compiler.sym_table,
             variables: HashMap::new(),
             registers: Registers::default(),
+            instructions_executed: 0,
         })
     }
 
@@ -147,6 +166,7 @@ impl Vm {
     pub fn compile_program(stmts: Vec<Stmt>) -> Result<Self, Error> {
         let compiler = Compiler::compile_program(stmts)?;
         Ok(Self {
+            stop_execution: Arc::new(AtomicBool::new(false)),
             trig_mode: TrigMode::default(),
             chunks: compiler.chunks,
             labels: compiler.labels
@@ -156,6 +176,7 @@ impl Vm {
             sym_table: compiler.sym_table,
             variables: HashMap::new(),
             registers: Registers::default(),
+            instructions_executed: 0,
         })
     }
 
@@ -260,6 +281,17 @@ impl Vm {
                     data: data.into(),
                 },
             )
+        }
+
+        if self.instructions_executed % 128 == 0
+            && self.stop_execution.load(Ordering::Relaxed) {
+            return Err(Error::new(
+                vec![],
+                InternalError {
+                    instruction: "execution stopped".to_string(),
+                    data: "execution was stopped externally via `stop_execution`".to_string(),
+                },
+            ));
         }
 
         let instruction = &self.chunks[instruction_pointer.0].instructions[instruction_pointer.1];
@@ -725,6 +757,8 @@ impl Vm {
                 ControlFlow::Continue => instruction_pointer.1 += 1,
                 ControlFlow::Jump => (),
             }
+
+            self.instructions_executed += 1;
         }
 
         assert_eq!(value_stack.len(), 1);

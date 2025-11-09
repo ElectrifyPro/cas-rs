@@ -1,0 +1,15 @@
+// Implementation of Newton's method, using prime notation to calculate
+// derivatives.
+
+newton(f, guess) = {
+    for _ in 0..100 {
+        guess -= f(guess) / f'(guess)
+    }
+    guess
+}
+
+print(newton(_(x) = x^3 - x - 2, 0)) // 1.521
+
+// x^2 + 5x + 6 = (x + 2)(x + 3)
+print(newton(_(x) = x^2 + 5x + 6, 0)) // -2
+print(newton(_(x) = x^2 + 5x + 6, -10)) // -3

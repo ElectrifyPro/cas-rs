@@ -765,22 +765,31 @@ impl AddAssign for SymExpr {
                 terms.push(other);
             },
             (other, Self::Add(mut terms)) => {
-                // SAFETY: same as (lhs, rhs) branch
+                terms.reserve(1);
+
+                // SAFETY: `other` is duplicated momentarily but is overwritten in the call to
+                // `write`, which does not drop `other`.
+                //
+                // also, `terms.push(owned)` does not panic as we just reserved space for `owned`.
+                // only the `reserve` call above can panic, in a safe spot
                 unsafe {
                     let owned = std::ptr::read(other);
-                    // TODO: doesn't this panic on oom? this could be unsound if it does
                     terms.push(owned);
                     std::ptr::write(other, Self::Add(terms));
                 }
             },
             (lhs, rhs) => {
-                // SAFETY: we're essentially moving `lhs` into a new `Self::Add` variant, and
-                // reassigning the new `Self::Add` to `lhs`. nothing is dropped, since `owned` and
-                // `rhs` are moved into `Self::Add`, and neither `write` nor `read` drop their
-                // arguments
+                let mut terms = Vec::with_capacity(2);
+
+                // SAFETY: like the above branch, `lhs` is duplicated momentarily but is
+                // overwritten in the call to `write`, which does not drop `lhs`.
+                //
+                // similarly, the pushes don't panic since there is guaranteed space for it.
                 unsafe {
                     let owned = std::ptr::read(lhs);
-                    std::ptr::write(lhs, Self::Add(vec![owned, rhs]));
+                    terms.push(owned);
+                    terms.push(rhs);
+                    std::ptr::write(lhs, Self::Add(terms));
                 }
             },
         }
@@ -825,6 +834,8 @@ impl MulAssign for SymExpr {
                 factors.push(other);
             },
             (other, Self::Mul(mut factors)) => {
+                factors.reserve(1);
+
                 // SAFETY: see [`AddAssign`] implementation
                 unsafe {
                     let owned = std::ptr::read(other);
@@ -833,10 +844,14 @@ impl MulAssign for SymExpr {
                 }
             },
             (lhs, rhs) => {
+                let mut factors = Vec::with_capacity(2);
+
                 // SAFETY: see [`AddAssign`] implementation
                 unsafe {
                     let owned = std::ptr::read(lhs);
-                    std::ptr::write(lhs, Self::Mul(vec![owned, rhs]));
+                    factors.push(owned);
+                    factors.push(rhs);
+                    std::ptr::write(lhs, Self::Mul(factors));
                 }
             },
         }

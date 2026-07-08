@@ -8,6 +8,7 @@ use cas_parser::parser::token::op::{BinOpKind, UnaryOpKind};
 use crate::error::{
     BitshiftOverflow,
     InvalidBinaryOperation,
+    InvalidByZeroOperation,
     InvalidUnaryOperation,
     NonNumericDerivative,
 };
@@ -15,11 +16,43 @@ use replace_with::replace_with_or_abort;
 use rug::{ops::Pow, Float};
 use std::ops::Range;
 
+/// Trait for numeric types that have a zero value.
+///
+/// [`rug`] does provide `num_traits::Zero` impls, but not on `Float` and `Complex`, since there is
+/// not enough information (float precision) to complete those impls.
+trait Zero {
+    fn is_zero(&self) -> bool;
+}
+
+macro_rules! make_zero_impls {
+    ($($name:ident),+) => {
+        $(
+            impl Zero for rug::$name {
+                fn is_zero(&self) -> bool { rug::$name::is_zero(self) }
+            }
+        )+
+    }
+}
+
+make_zero_impls!(Integer, Float, Complex);
+
+/// Returns an [`InvalidByZeroOperation`] error with the given operator (assumed to be divison /
+/// modulo) if the given numeric value is zero. Otherwise, returns the value.
+fn check_rhs_zero<T: Zero>(op: BinOpKind, number: T) -> Result<T, EvalError> {
+    if number.is_zero() {
+        Err(InvalidByZeroOperation { op })?
+    }
+    Ok(number)
+}
+
 /// Represents an error that can occur while evaluating a binary or unary expression.
 #[derive(Debug)]
 pub(crate) enum EvalError {
     /// Attempted to apply a binary operator to incompatible operands.
     InvalidBinaryOperation(InvalidBinaryOperation),
+
+    /// Attempted to divide by / take modulus of zero.
+    InvalidByZeroOperation(InvalidByZeroOperation),
 
     /// Attempted to apply a unary operator to an incompatible operand.
     InvalidUnaryOperation(InvalidUnaryOperation),
@@ -34,6 +67,12 @@ pub(crate) enum EvalError {
 impl From<InvalidBinaryOperation> for EvalError {
     fn from(e: InvalidBinaryOperation) -> Self {
         EvalError::InvalidBinaryOperation(e)
+    }
+}
+
+impl From<InvalidByZeroOperation> for EvalError {
+    fn from(e: InvalidByZeroOperation) -> Self {
+        EvalError::InvalidByZeroOperation(e)
     }
 }
 
@@ -72,6 +111,7 @@ impl EvalError {
 
         error!(
             InvalidBinaryOperation,
+            InvalidByZeroOperation,
             InvalidUnaryOperation,
             BitshiftOverflow,
             NonNumericDerivative,
@@ -105,8 +145,8 @@ fn eval_integer_operands(
             }
         },
         BinOpKind::Mul => Value::Integer(left * right),
-        BinOpKind::Div => Value::Float(float(left) / float(right)),
-        BinOpKind::Mod => Value::Integer(left % right),
+        BinOpKind::Div => Value::Float(float(left) / check_rhs_zero(op, right)?),
+        BinOpKind::Mod => Value::Integer(left % check_rhs_zero(op, right)?),
         BinOpKind::Add => Value::Integer(left + right),
         BinOpKind::Sub => Value::Integer(left - right),
         BinOpKind::BitRight => Value::Integer(left >> right.to_usize().ok_or(BitshiftOverflow)?),
@@ -143,8 +183,8 @@ fn eval_float_operands(
     Ok(match op {
         BinOpKind::Exp => complex(left).pow(right).into(),
         BinOpKind::Mul => Value::Float(left * right),
-        BinOpKind::Div => Value::Float(left / right),
-        BinOpKind::Mod => Value::Float(left % right),
+        BinOpKind::Div => Value::Float(left / check_rhs_zero(op, right)?),
+        BinOpKind::Mod => Value::Float(left % check_rhs_zero(op, right)?),
         BinOpKind::Add => Value::Float(left + right),
         BinOpKind::Sub => Value::Float(left - right),
         BinOpKind::BitRight => Value::Float(float(int_from_float(left) >> int_from_float(right).to_usize().ok_or(BitshiftOverflow)?)),
@@ -181,7 +221,7 @@ fn eval_complex_operands(
     Ok(match op {
         BinOpKind::Exp => Value::Complex(left.pow(right)),
         BinOpKind::Mul => Value::Complex(left * right),
-        BinOpKind::Div => Value::Complex(left / right),
+        BinOpKind::Div => Value::Complex(left / check_rhs_zero(op, right)?),
         BinOpKind::Add => Value::Complex(left + right),
         BinOpKind::Sub => Value::Complex(left - right),
         BinOpKind::Eq => Value::Boolean(left == right),

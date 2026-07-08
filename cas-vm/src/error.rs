@@ -28,6 +28,21 @@ pub struct InvalidBinaryOperation {
     pub right: &'static str,
 }
 
+/// Attempted to divide by / take modulus of zero.
+#[derive(Debug, Clone, ErrorKind, PartialEq)]
+#[error(
+    message = if matches!(self.op, BinOpKind::Div) {
+        "cannot divide by zero"
+    } else {
+        "cannot modulo by zero"
+    },
+    labels = ["this expression", "", "this expression evaluated to `0`"],
+)]
+pub struct InvalidByZeroOperation {
+    /// The operator that was used.
+    pub op: BinOpKind,
+}
+
 /// The given unary operation cannot be applied to the given operand.
 #[derive(Debug, Clone, ErrorKind, PartialEq)]
 #[error(

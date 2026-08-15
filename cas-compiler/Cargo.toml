@@ -2,7 +2,7 @@
 name = "cas-compiler"
 description = "Bytecode compiler for CalcScript programs"
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 repository = "https://github.com/ElectrifyPro/cas-rs"
 keywords = ["calcscript", "codegen", "math-language", "bytecode", "evaluation"]

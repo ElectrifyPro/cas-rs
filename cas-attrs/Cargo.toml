@@ -2,7 +2,7 @@
 name = "cas-attrs"
 description = "Derive macros for cas-error's ErrorKind and cas-compute's Builtin traits"
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 repository = "https://github.com/ElectrifyPro/cas-rs"
 keywords = ["derive", "proc-macro", "cas", "calcscript"]

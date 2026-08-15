@@ -2,7 +2,7 @@
 name = "cas-error"
 description = "Error type for generic errors in CalcScript"
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 repository = "https://github.com/ElectrifyPro/cas-rs"
 keywords = ["calcscript", "error"]

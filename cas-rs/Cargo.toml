@@ -2,7 +2,7 @@
 name = "cas-rs"
 description = "A CalcScript executor and REPL."
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 repository = "https://github.com/ElectrifyPro/cas-rs"
 categories = ["mathematics", "compilers", "command-line-utilities"]

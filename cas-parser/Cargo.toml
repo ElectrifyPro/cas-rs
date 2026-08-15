@@ -2,7 +2,7 @@
 name = "cas-parser"
 description = "Parser for the CalcScript language"
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 repository = "https://github.com/ElectrifyPro/cas-rs"
 keywords = ["calcscript", "parser", "lexer", "calculator"]

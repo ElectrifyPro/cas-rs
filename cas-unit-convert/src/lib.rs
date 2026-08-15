@@ -46,12 +46,7 @@ impl<T> Measurement<T> {
 
 #[cfg(test)]
 mod tests {
-    use assert_float_eq::{
-        afe_abs,
-        afe_relative_error_msg,
-        afe_is_relative_eq,
-        assert_float_relative_eq,
-    };
+    use assert_float_eq::assert_float_relative_eq;
     use super::*;
     use unit::{Area, Length, Mass, Time, Volume};
 

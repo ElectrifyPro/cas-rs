@@ -228,6 +228,7 @@ impl Binary {
                 target: AssignTarget::try_from_with_op(lhs, &op).forward_errors(recoverable_errors)?,
                 op,
                 value: Box::new(rhs),
+                top_level: false, // assign expression within a binary expression is never top-level
                 span: start_span..end_span,
             })),
             BinOpExt::Range(kind) => Ok(Expr::Range(RangeExpr {

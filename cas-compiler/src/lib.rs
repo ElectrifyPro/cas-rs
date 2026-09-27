@@ -39,27 +39,8 @@ pub struct CompilerState {
 
     /// Whether the current statement is the last statement in a block or the program, indicating
     /// that its return value is the return value of the block / program.
+    // TODO: this can be calculated during parsing
     pub last_stmt: bool,
-
-    /// Whether the expression being compiled is a top-level assignment expression, indicating that
-    /// its return value is not used.
-    ///
-    /// This is used to determine whether to use the [`InstructionKind::StoreVar`] or
-    /// [`InstructionKind::AssignVar`] instruction.
-    ///
-    /// For example, in the following code:
-    ///
-    /// ```calcscript
-    /// x = y = 2
-    /// ```
-    ///
-    /// The `x = ...` expression is a top-level assignment expression, so its return value is not
-    /// used within the same statement. However, the `y = 2` expression is not a top-level
-    /// assignment, as its return value is then passed to the `x = ...` expression. In this case,
-    /// the compiler will generate a [`InstructionKind::AssignVar`] instruction for `x` and a
-    /// [`InstructionKind::StoreVar`] instruction for `y`.
-    // TODO: this is not implemented yet
-    pub top_level_assign: bool,
 
     /// The scope of the current function being compiled.
     ///
@@ -203,13 +184,11 @@ fn resolve_builtin(symbol: &LitSym) -> Option<Symbol> {
 /// assert_eq!(compiler.chunks[0].instructions, vec![
 ///     // x = 3
 ///     Instruction { kind: LoadConst(3.into()), spans: vec![] },
-///     Instruction { kind: StoreVar(0), spans: vec![] },
-///     Instruction { kind: Drop, spans: vec![] },
+///     Instruction { kind: AssignVar(0), spans: vec![] },
 ///
 ///     // x = 4
 ///     Instruction { kind: LoadConst(4.into()), spans: vec![] },
-///     Instruction { kind: StoreVar(1), spans: vec![] },
-///     Instruction { kind: Drop, spans: vec![] },
+///     Instruction { kind: AssignVar(1), spans: vec![] },
 ///
 ///     // z = hypot(x, y)
 ///     Instruction { kind: LoadVar(Symbol::User(0)), spans: vec![22..23] },
@@ -220,12 +199,10 @@ fn resolve_builtin(symbol: &LitSym) -> Option<Symbol> {
 /// ]);
 /// ```
 ///
-/// Notice that each statement is terminated by a [`InstructionKind::Drop`] instruction, except for
-/// the last one. For example, the first statement, `x = 3`, loads the constant `3` onto the stack.
-/// The [`InstructionKind::StoreVar`] instruction stores the value into the variable `x` (0), but
-/// does not remove it from the stack. The `Drop` instruction then removes the value from the
-/// stack, leaving the stack empty. (It is more optimal to use [`InstructionKind::AssignVar`] in
-/// this case, but the compiler does not implement this behavior yet.)
+/// Notice that each statement is terminated by a [`InstructionKind::AssignVar`] instruction, except
+/// for the last one. For example, the first statement, `x = 3`, loads the constant `3` onto the
+/// stack. The [`InstructionKind::AssignVar`] instruction takes the value off the value stack and
+/// stores it into the variable `x` (id 0), leaving the stack empty.
 ///
 /// The final statement, `z = hypot(x, y)`, stores the computed value into the variable `z` (2),
 /// but does not drop the value from the stack, making it the final value on the stack, and thus

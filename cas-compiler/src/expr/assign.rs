@@ -24,19 +24,13 @@ fn extract_user_symbol(lit: &LitSym, symbol: Symbol) -> Result<usize, Error> {
 
 impl Compile for Assign {
     fn compile(&self, compiler: &mut Compiler) -> Result<(), Error> {
-        match &self.target {
+        let symbol_id = match &self.target {
             AssignTarget::Symbol(symbol) => {
                 // variable assignment
                 match self.op.kind {
                     AssignOpKind::Assign => {
-                        compiler.with_state(|state| {
-                            state.top_level_assign = false;
-                        }, |compiler| {
-                            self.value.compile(compiler)
-                        })?;
-
-                        let symbol_id = compiler.resolve_user_symbol_or_insert(symbol)?;
-                        compiler.add_instr(InstructionKind::StoreVar(symbol_id));
+                        self.value.compile(compiler)?;
+                        compiler.resolve_user_symbol_or_insert(symbol)?
                     },
                     compound => {
                         let resolved = compiler.resolve_symbol(symbol)?;
@@ -45,15 +39,10 @@ impl Compile for Assign {
                             vec![symbol.span.clone()],
                         );
 
-                        compiler.with_state(|state| {
-                            state.top_level_assign = false;
-                        }, |compiler| {
-                            self.value.compile(compiler)
-                        })?;
-
+                        self.value.compile(compiler)?;
                         compiler.add_instr(InstructionKind::Binary(compound.into()));
-                        let symbol_id = extract_user_symbol(symbol, compiler.resolve_symbol(symbol)?)?;
-                        compiler.add_instr(InstructionKind::StoreVar(symbol_id));
+
+                        extract_user_symbol(symbol, compiler.resolve_symbol(symbol)?)?
                     }
                 }
             },
@@ -91,6 +80,7 @@ impl Compile for Assign {
                     InstructionKind::StoreIndexed,
                     vec![index.target.span(), index.index.span()],
                 );
+                return Ok(());
             },
             AssignTarget::Func(header) => {
                 // for function assignment, create a new chunk for the function body
@@ -145,9 +135,16 @@ impl Compile for Assign {
 
                 let user_func = User::new(chunk, captures);
                 compiler.add_instr(InstructionKind::LoadConst(Value::Function(Function::User(user_func))));
-                compiler.add_instr(InstructionKind::StoreVar(id));
+
+                id
             },
         };
+
+        if self.top_level && !compiler.state.last_stmt {
+            compiler.add_instr(InstructionKind::AssignVar(symbol_id));
+        } else {
+            compiler.add_instr(InstructionKind::StoreVar(symbol_id));
+        }
 
         Ok(())
     }

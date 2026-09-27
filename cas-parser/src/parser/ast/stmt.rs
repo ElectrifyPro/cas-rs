@@ -46,7 +46,11 @@ impl<'source> Parse<'source> for Stmt {
         input: &mut Parser<'source>,
         recoverable_errors: &mut Vec<Error>
     ) -> Result<Self, Vec<Error>> {
-        let expr = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
+        let mut expr = input.try_parse::<Expr>().forward_errors(recoverable_errors)?;
+        if let Expr::Assign(ref mut assign) = expr {
+            assign.top_level = true;
+        }
+
         let semicolon = if let Ok(semi) = input.try_parse::<Semicolon>().forward_errors(recoverable_errors) {
             Some(semi.span.clone())
         } else {

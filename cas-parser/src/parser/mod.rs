@@ -16,7 +16,8 @@ use std::{ops::Range, sync::Arc};
 /// State that can be used to determine if certain parse trees are valid (e.g. if a checking if a
 /// `break` expression is inside a loop).
 ///
-/// The state cannot be mutated directly; it can only be changed when parsing using the [`Parser::try_parse_with_state`] method.
+/// The state cannot be mutated directly; it can only be changed when parsing using the
+/// [`Parser::try_parse_with_state`] method.
 #[derive(Debug, Clone, Default)]
 pub struct ParserState {
     /// Whether a `then` expression is allowed in the current context.
@@ -82,7 +83,8 @@ pub struct Parser<'source> {
     /// Holds state that can be used to determine if certain parse trees are valid (e.g. if a
     /// checking if a `break` expression is inside a loop).
     ///
-    /// The state cannot be mutated directly; it can only be changed when parsing using the [`Parser::try_parse_with_state`] method.
+    /// The state cannot be mutated directly; it can only be changed when parsing using the
+    /// [`Parser::try_parse_with_state`] method.
     state: ParserState,
 }
 
@@ -1960,6 +1962,7 @@ mod tests {
                             value: "5".to_string(),
                             span: 6..7,
                         }))),
+                        top_level: true,
                         span: 2..7,
                     }),
                     semicolon: Some(7..8),
@@ -1979,6 +1982,7 @@ mod tests {
                             value: "6".to_string(),
                             span: 13..14,
                         }))),
+                        top_level: true,
                         span: 9..14,
                     }),
                     semicolon: Some(14..15),
@@ -2059,6 +2063,7 @@ mod tests {
                                 value: "1".to_string(),
                                 span: 29..30,
                             }))),
+                            top_level: true,
                             span: 25..30,
                         }),
                         semicolon: Some(30..31),
@@ -2111,6 +2116,7 @@ mod tests {
                 }))),
                 span: 6..12,
             })),
+            top_level: false,
             span: 0..12,
         }));
     }
@@ -2178,6 +2184,7 @@ mod tests {
                 })),
                 span: 7..15,
             })),
+            top_level: false,
             span: 0..15,
         }));
     }
@@ -2303,6 +2310,7 @@ mod tests {
                 span: 31..50,
                 return_span: 31..37,
             })),
+            top_level: false,
             span: 0..50,
         }));
     }
@@ -2346,8 +2354,10 @@ mod tests {
                     name: "pi".to_string(),
                     span: 15..17,
                 }))),
+                top_level: false,
                 span: 9..17,
             })),
+            top_level: false,
             span: 0..17,
         }));
     }
@@ -2496,6 +2506,7 @@ mod tests {
                 value: "5".to_string(),
                 span: 6..7,
             }))),
+            top_level: false,
             span: 0..7,
         }));
     }
@@ -2545,6 +2556,7 @@ mod tests {
                         value: "1".to_string(),
                         span: 22..23,
                     }))),
+                    top_level: false,
                     span: 17..23,
                 })),
                 span: 12..23,

@@ -372,6 +372,26 @@ pub struct Assign {
     /// The expression to assign to the target.
     pub value: Box<Expr>,
 
+    /// Whether the return value of the assignment can safely be dropped / is unused by another
+    /// expression. Any [`Assign`] that is a direct child of [`Stmt`] is top-level.
+    ///
+    /// This helps the compiler determine whether to generate a `StoreVar` or `AssignVar`
+    /// instruction for this assignment. For example, in the following code:
+    ///
+    /// ```calcscript
+    /// x = y = 2
+    /// ```
+    ///
+    /// The outermost assignment (`x = ...`) is a top-level assignment expression; its return value
+    /// is not used anywhere within the statement. However, the expression `y = 2` is not a
+    /// top-level assignment, since its return value is passed to the `x = ...` expression. In this
+    /// case, the compiler should generate an `AssignVar` instruction for `x`, and a `StoreVar`
+    /// instruction for `y`. (The only exception here is if `x = ...` is the last statement in a
+    /// block, in which case `StoreVar` is used.)
+    ///
+    /// [`Stmt`]: crate::parser::ast::stmt::Stmt
+    pub top_level: bool,
+
     /// The region of the source code that this assignment expression was parsed from.
     pub span: Range<usize>,
 }
@@ -422,6 +442,7 @@ impl<'source> Parse<'source> for Assign {
             target,
             op,
             value: Box::new(value),
+            top_level: false, // NOTE: set by `Stmt`
             span,
         })
     }
